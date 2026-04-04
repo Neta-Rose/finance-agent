@@ -1,0 +1,18 @@
+{
+  "modelProfile": "testing",
+  "defaultModel": "minimax/minimax-m2.7",
+  "profiles": {
+    "testing": {
+      "orchestrator": "minimax/minimax-m2.7",
+      "analysts": "minimax/minimax-m2.7",
+      "riskAgent": "minimax/minimax-m2.7",
+      "researchers": "minimax/minimax-m2.7"
+    },
+    "production": {
+      "orchestrator": "claude-opus-4-5",
+      "analysts": "claude-sonnet-4-5",
+      "riskAgent": "claude-haiku-4-5",
+      "researchers": "claude-opus-4-5"
+    }
+  }
+}

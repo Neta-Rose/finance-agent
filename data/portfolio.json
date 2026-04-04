@@ -1,0 +1,265 @@
+{
+  "meta": {
+    "currency": "ILS",
+    "transactionFeeILS": 40,
+    "note": "unitAvgBuyPrice is in unitCurrency. ILA means Israeli Agorot — divide by 100 to get ILS. USD means US dollars — multiply by live USD/ILS rate to get ILS. Never use unitAvgBuyPrice as current value — always fetch live price."
+  },
+  "accounts": {
+    "main": [
+      {
+        "ticker": "TSM",
+        "exchange": "NYSE",
+        "shares": 25,
+        "unitAvgBuyPrice": 174,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "NXSN",
+        "exchange": "TASE",
+        "shares": 74,
+        "unitAvgBuyPrice": 4000,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "SN",
+        "exchange": "NYSE",
+        "shares": 70,
+        "unitAvgBuyPrice": 99,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "LBRA",
+        "exchange": "TASE",
+        "shares": 1200,
+        "unitAvgBuyPrice": 779,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "MZTF",
+        "exchange": "TASE",
+        "shares": 59,
+        "unitAvgBuyPrice": 14300,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "ZM",
+        "exchange": "NASDAQ",
+        "shares": 45,
+        "unitAvgBuyPrice": 94,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "JBL",
+        "exchange": "NYSE",
+        "shares": 12,
+        "unitAvgBuyPrice": 156,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "LAPD",
+        "exchange": "TASE",
+        "shares": 108,
+        "unitAvgBuyPrice": 5920,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "NYAX",
+        "exchange": "TASE",
+        "shares": 54,
+        "unitAvgBuyPrice": 11500,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "TEVA",
+        "exchange": "TASE",
+        "shares": 95,
+        "unitAvgBuyPrice": 5480,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "ARYT",
+        "exchange": "TASE",
+        "shares": 180,
+        "unitAvgBuyPrice": 857,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "PANW",
+        "exchange": "NASDAQ",
+        "shares": 16,
+        "unitAvgBuyPrice": 188,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "ABRA",
+        "exchange": "TASE",
+        "shares": 1824,
+        "unitAvgBuyPrice": 350,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "AMZN",
+        "exchange": "NASDAQ",
+        "shares": 10,
+        "unitAvgBuyPrice": 190,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "ALTF",
+        "exchange": "TASE",
+        "shares": 852,
+        "unitAvgBuyPrice": 709,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "NVDA",
+        "exchange": "NASDAQ",
+        "shares": 10,
+        "unitAvgBuyPrice": 131,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "GOOGL",
+        "exchange": "NASDAQ",
+        "shares": 6,
+        "unitAvgBuyPrice": 179,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "DASH",
+        "exchange": "NYSE",
+        "shares": 10,
+        "unitAvgBuyPrice": 139,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "CRCL",
+        "exchange": "NYSE",
+        "shares": 15,
+        "unitAvgBuyPrice": 130,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "DANE",
+        "exchange": "TASE",
+        "shares": 9,
+        "unitAvgBuyPrice": 35000,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "NICE",
+        "exchange": "TASE",
+        "shares": 10,
+        "unitAvgBuyPrice": 76000,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "MDB",
+        "exchange": "NASDAQ",
+        "shares": 4,
+        "unitAvgBuyPrice": 460,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "RBLX",
+        "exchange": "NYSE",
+        "shares": 15,
+        "unitAvgBuyPrice": 55,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "VST",
+        "exchange": "NYSE",
+        "shares": 4,
+        "unitAvgBuyPrice": 177,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "DUOL",
+        "exchange": "NASDAQ",
+        "shares": 6,
+        "unitAvgBuyPrice": 227,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "OKLO",
+        "exchange": "NYSE",
+        "shares": 9,
+        "unitAvgBuyPrice": 50,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "WIX",
+        "exchange": "NASDAQ",
+        "shares": 5,
+        "unitAvgBuyPrice": 185,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "NNE",
+        "exchange": "NYSE",
+        "shares": 15,
+        "unitAvgBuyPrice": 42,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "MSFT",
+        "exchange": "NASDAQ",
+        "shares": 9,
+        "unitAvgBuyPrice": 367.1,
+        "unitCurrency": "USD"
+      }
+    ],
+    "second": [
+      {
+        "ticker": "NVMI",
+        "exchange": "TASE",
+        "shares": 14,
+        "unitAvgBuyPrice": 70000,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "GOOGL",
+        "exchange": "NASDAQ",
+        "shares": 15,
+        "unitAvgBuyPrice": 220,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "LAPD",
+        "exchange": "TASE",
+        "shares": 99,
+        "unitAvgBuyPrice": 7200,
+        "unitCurrency": "ILA"
+      },
+      {
+        "ticker": "ON",
+        "exchange": "NASDAQ",
+        "shares": 17,
+        "unitAvgBuyPrice": 54,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "TSM",
+        "exchange": "NYSE",
+        "shares": 3,
+        "unitAvgBuyPrice": 212,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "DUOL",
+        "exchange": "NASDAQ",
+        "shares": 5,
+        "unitAvgBuyPrice": 330,
+        "unitCurrency": "USD"
+      },
+      {
+        "ticker": "MNDY",
+        "exchange": "NASDAQ",
+        "shares": 5,
+        "unitAvgBuyPrice": 250,
+        "unitCurrency": "USD"
+      }
+    ]
+  }
+}
