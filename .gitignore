@@ -1,33 +1,36 @@
-# OpenClaw runtime state
-.openclaw/
-.clawhub/
-memory/
-canvas/
+# Node
+backend/node_modules/
+backend/dist/
+backend/logs/
 
-# Generated report files - too noisy
-data/reports/
+# Environment
+backend/.env
+**/.env
+
+# Auth files (never commit passwords)
+**/auth.json
+
+# Runtime data (user-generated, not tracked)
 data/tickers/
+data/reports/
 data/jobs/
 data/triggers/
-data/research/
 data/trade_journal.md
+data/state/
+users/
 
-# Keep these data files
-!data/portfolio.json
-!data/config.json
-
-# Dashboard runtime
-dashboard/nohup.out
-dashboard/__pycache__/
-dashboard/auth.json
-dashboard/*.pyc
+# OpenClaw internals
+memory/
+canvas/
+.openclaw/
+.clawhub/
 
 # Backups
 *.bak
+*.bak2
 
-# Python
-__pycache__/
-*.pyc
+# Retired
+dashboard.retired/
 
-# Sonoscli - remove if you don't use it
-skills/sonoscli/
+# OS
+.DS_Store
