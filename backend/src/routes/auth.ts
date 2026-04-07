@@ -60,8 +60,9 @@ router.post("/logout", async (_req, res) => {
 });
 
 router.post("/register", async (req, res) => {
+  const expectedKey = process.env["ADMIN_KEY"];
   const adminKey = req.headers["x-admin-key"];
-  if (adminKey !== process.env["ADMIN_KEY"]) {
+  if (!expectedKey || adminKey !== expectedKey) {
     res.status(403).json({ error: "admin access only" });
     return;
   }
