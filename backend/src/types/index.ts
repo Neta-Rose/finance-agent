@@ -56,7 +56,7 @@ export interface PortfolioStateData {
 export interface Job {
   id: string;
   action: JobAction;
-  ticker: string;
+  ticker: string | null;
   status: JobStatus;
   triggered_at: string;
   started_at: string | null;

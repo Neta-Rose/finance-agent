@@ -34,7 +34,7 @@ export async function createJob(
   const job: Job = {
     id,
     action,
-    ticker: ticker ?? "",
+    ticker: ticker ?? null,
     status: "pending",
     triggered_at,
     started_at: null,

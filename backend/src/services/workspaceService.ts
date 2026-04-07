@@ -168,6 +168,21 @@ export async function initUserWorkspace(
   }
 
   logger.info(`Initialized portfolio for user ${userId}: ${allPositions.length} positions`);
+
+  // Update state to BOOTSTRAPPING — preserve all existing fields, set bootstrapProgress
+  const existingState = await fs.readFile(ws.stateFile, "utf-8");
+  const currentState = JSON.parse(existingState);
+  const newState = {
+    ...currentState,
+    state: "BOOTSTRAPPING",
+    bootstrapProgress: {
+      total: allPositions.length,
+      completed: 0,
+      completedTickers: [],
+    },
+  };
+  await fs.writeFile(ws.stateFile, JSON.stringify(newState, null, 2), "utf-8");
+  logger.info(`State transition: UNINITIALIZED → BOOTSTRAPPING | reason=portfolio_submitted`);
 }
 
 export interface IntegrityResult {

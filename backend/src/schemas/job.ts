@@ -10,7 +10,7 @@ export const JobSchema = z.object({
     "switch_production",
     "switch_testing",
   ]),
-  ticker: z.string(),
+  ticker: z.string().nullable(),
   status: z.enum(["pending", "running", "completed", "failed"]),
   triggered_at: z.string().datetime(),
   started_at: z.string().datetime().nullable(),

@@ -17,6 +17,7 @@ import portfolioRoutes from "./routes/portfolio.js";
 import verdictsRoutes from "./routes/verdicts.js";
 import jobsRoutes from "./routes/jobs.js";
 import reportsRoutes from "./routes/reports.js";
+import onboardingRoutes from "./routes/onboarding.js";
 
 export function createApp(): Express {
   const app = express();
@@ -34,9 +35,14 @@ export function createApp(): Express {
   app.use("/api", apiLimiter);
 
   // Auth routes — login/logout/register (no JWT required)
+  // Mounted BEFORE global authMiddleware so /api/auth/* bypasses auth
   app.use("/api/auth", authRoutes);
 
-  // Protected routes — JWT + user isolation
+  // Onboarding routes — init doesn't need JWT, portfolio/status do
+  // Mounted here so it can have its own auth handling per-route
+  app.use("/api/onboard", onboardingRoutes);
+
+  // Protected routes — JWT + user isolation for everything else
   app.use("/api", authMiddleware, userIsolationMiddleware);
 
   // Route mounts
