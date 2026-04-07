@@ -136,3 +136,14 @@ export interface OnboardStatus {
  portfolioLoaded: boolean;
  readyForTrading: boolean;
 }
+
+export interface SummaryStripProps {
+  totalILS: number;
+  totalPlILS: number;
+  totalPlPct: number;
+  positionCount: number;
+  winners: number;
+  losers: number;
+  usdIlsRate: number;
+  updatedAt: string;
+}
