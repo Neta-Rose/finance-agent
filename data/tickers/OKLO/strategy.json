@@ -1,0 +1,23 @@
+{
+  "ticker": "OKLO",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "low",
+  "reasoning": "Near-breakeven (-3.7%). Pre-revenue but cash-rich ($1.18B) and milestone-rich (NRC license, Meta deal). 0.5% weight is immaterial. Analyst consensus is strongly BUY with 2x upside target. The binary nature of nuclear startups makes this appropriate as a small, watch-and-see position. Hold. ENTRY/EXIT CONDITIONS: Reassess after Aurora construction milestones or commercial contracts. Stop-loss if cash drops below $500M or NRC license challenged.",
+  "timeframe": "long_term",
+  "positionSizeILS": 1356,
+  "positionWeightPct": 0,
+  "entryConditions": [],
+  "exitConditions": [
+    "Reassess after Aurora construction milestones or commercial contracts",
+    "Stop-loss if cash drops below $500M or NRC license challenged."
+  ],
+  "catalysts": [],
+  "bullCase": "Oklo's NRC Aurora license approved (major milestone). $1.18B cash. Meta framework deal. DOE agreements. 15 analyst BUY ratings with ~$99-101 price targets (2x upside).",
+  "bearCase": "Pre-revenue nuclear startup. $105.7M net loss FY2025. Continuous equity dilution to fund $450M 2026 spend. Binary outcome \u2014 needs Aurora to actually get built commercially.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

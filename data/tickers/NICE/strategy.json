@@ -1,0 +1,36 @@
+{
+  "ticker": "NICE",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "low",
+  "reasoning": "At 0.6% of portfolio the position is immaterial, but the 55% loss is real. Selling now crystallizes a massive loss. The valuation at 9x forward earnings is genuinely cheap IF the business holds. The agentic AI launch could be the catalyst that changes the narrative. But this is a hope trade \u2014 the market has spoken loudly. Watch Q1 2026 results for signs of stabilization. ENTRY/EXIT CONDITIONS: Do NOT add. Exit if stock breaks below $80 (52-week low is $94.65). Re-evaluate for exit if Q1 shows margin deterioration.",
+  "timeframe": "months",
+  "positionSizeILS": 3378,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Do NOT add"
+  ],
+  "exitConditions": [
+    "Exit if stock breaks below $80 (52-week low is $94.65)",
+    "Re-evaluate for exit if Q1 shows margin deterioration."
+  ],
+  "catalysts": [
+    {
+      "description": "earnings is genuinely cheap IF the business holds",
+      "expiresAt": null,
+      "triggered": false
+    },
+    {
+      "description": "Q1 2026 results for signs of stabilization",
+      "expiresAt": null,
+      "triggered": false
+    }
+  ],
+  "bullCase": "NICE trades at 12x trailing P/E and 9.3x forward \u2014 incredibly cheap for a profitable enterprise software company. FY2026 EPS guidance $10.85-$11.05 raised above consensus. Revenue $3.17-3.19B. Debt-free after settling $460M. Agentic AI launch (March 10) positions NICE in the AI CX wave. Analyst targets ~$150 (36% upside).",
+  "bearCase": "Stock down 55% from portfolio avg \u2014 catastrophic loss. Gross margin compressed -210bps. Several major institutional holders fully exited (Barrow Hanley, UBS, Vulcan). Enterprise SaaS in historic correction (\"SaaSpocalypse\"). Short interest up 32% to 5.5% of float. Market pricing existential AI risk to CX software model.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

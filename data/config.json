@@ -1,18 +1,22 @@
 {
   "modelProfile": "testing",
-  "defaultModel": "minimax/minimax-m2.7",
   "profiles": {
     "testing": {
-      "orchestrator": "minimax/minimax-m2.7",
-      "analysts": "minimax/minimax-m2.7",
-      "riskAgent": "minimax/minimax-m2.7",
-      "researchers": "minimax/minimax-m2.7"
+      "orchestrator": "openrouter/deepseek/deepseek-v3",
+      "analysts": "openrouter/google/gemini-2.5-flash-lite",
+      "riskAgent": "openrouter/google/gemini-2.5-flash-lite",
+      "researchers": "openrouter/deepseek/deepseek-v3"
     },
     "production": {
-      "orchestrator": "claude-opus-4-5",
-      "analysts": "claude-sonnet-4-5",
-      "riskAgent": "claude-haiku-4-5",
-      "researchers": "claude-opus-4-5"
+      "orchestrator": "claude-opus-4-6",
+      "analysts": "claude-sonnet-4-6",
+      "riskAgent": "claude-haiku-4-5-20251001",
+      "researchers": "claude-opus-4-6"
     }
-  }
+  },
+  "searchProfiles": {
+    "brave": { "provider": "brave" },
+    "exa": { "provider": "exa" }
+  },
+  "searchProfile": "brave"
 }

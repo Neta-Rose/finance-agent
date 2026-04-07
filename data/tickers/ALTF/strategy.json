@@ -1,0 +1,24 @@
+{
+  "ticker": "ALTF",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "medium",
+  "reasoning": "The valuation is genuinely cheap and the pivot to higher-margin credit/alternatives is encouraging. But \u20aa29B in AUM outflows is a structural concern \u2014 you can't grow forever by shifting to higher-margin products while your core business shrinks. At 4.3% below cost and 9.7% of portfolio, monitor the AUM trend closely. ENTRY/EXIT CONDITIONS: Add if AUM stabilizes (quarterly data shows flat or positive flows). Exit if AUM outflows accelerate beyond \u20aa40B/quarter.",
+  "timeframe": "months",
+  "positionSizeILS": 5777,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add if AUM stabilizes (quarterly data shows flat or positive flows)"
+  ],
+  "exitConditions": [
+    "Exit if AUM outflows accelerate beyond \u20aa40B/quarter."
+  ],
+  "catalysts": [],
+  "bullCase": "Altshuler Shaham delivered a strong 2025 \u2014 net income \u20aa128M to shareholders (+13.3%), driven by high-margin credit (+453%) and alternatives (+103%) businesses. P/E ~10x is cheap vs sector avg 14-16x. Margins expanding (13.7% vs 12.2%). The pivot to credit and alternatives is working.",
+  "bearCase": "Core AUM saw \u20aa29B outflows \u2014 the asset management business is shrinking despite profitability growth. Weak 3-year fund performance. Stock dropped 45% from peak before recovering. V-shaped recovery may be fragile. Single Israeli financial stock with geopolitical exposure.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

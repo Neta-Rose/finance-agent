@@ -1,0 +1,24 @@
+{
+  "ticker": "ABRA",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "low",
+  "reasoning": "Revenue growth is strong but isn't translating to profit \u2014 classic M&A integration risk. The convertible bond signal is concerning. At 1.4% of portfolio with a small gain, this is a watch position. Need to see margin stabilization before adding. The AI thesis is unproven. ENTRY/EXIT CONDITIONS: Exit if convertible bond dilutes significantly. Add only if operating margins recover above 8%.",
+  "timeframe": "months",
+  "positionSizeILS": 6922,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add only if operating margins recover above 8%."
+  ],
+  "exitConditions": [
+    "Exit if convertible bond dilutes significantly"
+  ],
+  "catalysts": [],
+  "bullCase": "ABRA (Abra Information Technologies) delivered 24.6% revenue growth to \u20aa554M in FY2025, Q4 alone +39%. Management bullish on AI thesis. \u20aa150M available for M&A. FCF improved to \u20aa16.2M. Position up 8.4%.",
+  "bearCase": "Net income flat at \u20aa13.5M despite 25% revenue growth \u2014 margins compressing (gross 23.1%, operating 5.5%, net 2.4%). P/E 33x is expensive for IT services with flat profits. Convertible bond exploration (Feb 2026) signals potential dilution. Stock down 34% from ATH in Jan 2026. TASE IT sector broadly under pressure.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

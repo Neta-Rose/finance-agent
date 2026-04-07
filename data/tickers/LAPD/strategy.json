@@ -1,0 +1,30 @@
+{
+  "ticker": "LAPD",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "medium",
+  "reasoning": "The chairman's \u20aa130M personal purchase is the most important fact in this position. This isn't a passive investor \u2014 he runs the company. When the person who knows the business best adds 3 percentage points of stake, you listen. But the margin compression story is real, the negative FCF is concerning, and the geopolitical backdrop for Israeli domestic construction is hostile right now. At 10.2% of portfolio, LAPD is borderline on concentration \u2014 not enough to force action, but enough that a -20% drawdown would matter. The 36% gain provides cushion. Hold here and watch H1 2026 earnings for margin stabilization. If operating margin drops below 4%, reduce. ENTRY/EXIT CONDITIONS: Reduce if operating margin drops below 4% in H1 2026 earnings OR if support at \u20aa8,000 breaks. Add only if FCF turns ",
+  "timeframe": "months",
+  "positionSizeILS": 1842714,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add only if FCF turns positive for 2 consecutive quarters AND Iran conflict de-escalates materially."
+  ],
+  "exitConditions": [
+    "Reduce if operating margin drops below 4% in H1 2026 earnings OR if support at \u20aa8,000 breaks"
+  ],
+  "catalysts": [
+    {
+      "description": "earnings for margin stabilization",
+      "expiresAt": null,
+      "triggered": false
+    }
+  ],
+  "bullCase": "Lapidoth is an undervalued Israeli holding company \u2014 P/E 13.4x vs sector 14.7x \u2014 with a controlling shareholder who just put \u20aa130M of personal capital into the stock (stake 63.5%\u219266.4%). That's the loudest insider signal possible. All major subsidiaries are profitable: Danya Cebus \u20aa13B backlog, Africa Israel Residential 96% pre-sold, Sani/Samsung distribution strong. Net debt cut 60% from \u20aa1.4B to \u20aa563M. Position is up 36% \u2014 a real gain from real execution, not momentum.",
+  "bearCase": "Operating margin has compressed for 3 consecutive years (7.2%\u21924.7%). FCF turned negative (-\u20aa40.9M FY2024). Dividend slashed 72%. The stock has already run 36% and sits at the 10% portfolio concentration threshold. Iran conflict has stalled the BoI easing cycle, pressuring the construction/real estate exposure. No analyst coverage means price discovery is poor \u2014 could be more wrong than the numbers suggest.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

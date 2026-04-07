@@ -1,0 +1,30 @@
+{
+  "ticker": "ZM",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "medium",
+  "reasoning": "This is a close call, but the position is only 0.75% of portfolio (45 shares, 11,015 ILS) with a -17.3% unrealized loss. The valuation floor is real \u2014 at 12.6x P/E with $7.82B cash, downside is bounded. But the growth story is genuinely weak at 5.3%, and the CEO's aggressive selling ($14.8M in 2 months) is harder to dismiss as \"routine\" than the bull wants to admit. The AI pivot needs 2-3 quarters to prove itself. At this small weight, holding costs nothing and the asymmetric payoff (cheap valuation + AI optionality) justifies waiting. I won't add until the stock reclaims $81 (200d MA) with volume AND shows revenue growth re-acceleration above 6-7%. ENTRY/EXIT CONDITIONS: Add 5-10 shares if reclaims 200d MA ($81) with volume AND reports >7% YoY revenue growth. Reduce if Q1 FY2027 misses AN",
+  "timeframe": "months",
+  "positionSizeILS": 11015,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add 5-10 shares if reclaims 200d MA ($81) with volume AND reports >7% YoY revenue growth"
+  ],
+  "exitConditions": [
+    "Reduce if Q1 FY2027 misses AND guidance is cut, or if stock breaks below $75 support (50d MA failure)."
+  ],
+  "catalysts": [
+    {
+      "description": "earnings will be decisive)\nPOSITION SIZE: 11,015 ILS (~0",
+      "expiresAt": null,
+      "triggered": false
+    }
+  ],
+  "bullCase": "Zoom trades at 12.6x P/E \u2014 a 50% discount to software sector \u2014 despite beating revenue ($1,247M vs $1,230M), expanding GAAP operating margin 570bps to 23.5%, and raising FY2027 guidance. Fortress balance sheet: $7.82B cash vs $58M debt ($26.33/share in net cash = 33% of stock price). AI pivot is real \u2014 agentic AI platform, Pindrop deepfake detection, AI Companion embedded across the product. Contact Center and Phone prove Zoom isn't just \"video calls.\" MS Teams bundling threat has been the bear thesis for 5 years and Zoom keeps growing.",
+  "bearCase": "Revenue growth at 5.3% YoY is stall speed for a software company. EPS missed ($1.44 vs $1.49). CEO sold $14.8M in Dec+Feb \u2014 not a confidence signal. Margin expansion from cost-cutting and headcount reductions, not revenue leverage \u2014 you can only cut once. Stock 17% off Jan high, broken below 200d MA ($81) with volume divergence. Software sector hammered (IGV -23% YTD). AI pivot has no named revenue line item \u2014 narrative not thesis. MS Teams is the default; Zoom is the optional add-on.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

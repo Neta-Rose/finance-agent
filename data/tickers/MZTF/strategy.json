@@ -1,0 +1,24 @@
+{
+  "ticker": "MZTF",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "medium",
+  "reasoning": "Strong fundamentals with declining ROE is the classic bank value trap setup. The 57% gain provides cushion, but the stock is expensive relative to analyst targets. The geopolitical risk (Iran war, cyber threats to banks) adds uncertainty. Hold \u2014 the dividend is solid and the bank is well-capitalized, but no reason to add here. ENTRY/EXIT CONDITIONS: Add on a pullback to 20,000 ILA (near 200-day MA); reduce if ROE drops below 15%.",
+  "timeframe": "months",
+  "positionSizeILS": 13234,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add on a pullback to 20,000 ILA (near 200-day MA)"
+  ],
+  "exitConditions": [
+    "reduce if ROE drops below 15%."
+  ],
+  "catalysts": [],
+  "bullCase": "Mizrahi Tefahot is Israel's third-largest bank with strong FY2025 results (NIS 5.63B net profit, +3.2% YoY). Loans +12%, deposits +14% show balance sheet expansion. P/E 10.3x is fair for a bank with declining ROE. Tier 1 capital at 10.24% is solid. Successfully raised USD 1.45B internationally.",
+  "bearCase": "ROE declining for 3 consecutive years (20.1%\u219218.5%\u219217%) due to rate compression. Bank of Israel NIS 6.8M AML fine (Mar 2026) is minor but negative optics. RSI deeply oversold at 21 \u2014 stock down 14% from ATH. Analyst target at 21,600 ILA is below current price. Israel-Iran war constrains BoI rate cuts.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

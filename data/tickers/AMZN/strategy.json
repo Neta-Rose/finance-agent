@@ -1,0 +1,24 @@
+{
+  "ticker": "AMZN",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "medium",
+  "reasoning": "The AWS growth story is intact and P/E is now fair rather than expensive. But the technical picture is warning (death cross, bearish MACD) and the capex overhang creates uncertainty. At 3% of portfolio with a small gain, this is a core hold. The risk/reward at $199 vs $287 target is favorable but needs patience. ENTRY/EXIT CONDITIONS: Add on reclaim of $216 (50-day MA) with volume; reduce if breaks below $161 (52-week low).",
+  "timeframe": "months",
+  "positionSizeILS": 6279,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add on reclaim of $216 (50-day MA) with volume"
+  ],
+  "exitConditions": [
+    "reduce if breaks below $161 (52-week low)."
+  ],
+  "catalysts": [],
+  "bullCase": "Amazon's AWS is accelerating at 24% growth, driving the core bull thesis. P/E 28x compressed from 33x average \u2014 now fair. Revenue beat by ~$2B ($213.4B, +14% YoY). Analyst consensus Strong Buy with avg target ~$287 (38% upside). CEO Jassy said AI could push AWS to $600B by 2036. Position up 4.9%.",
+  "bearCase": "EPS slightly missed ($1.95 vs $1.97). $200B capex plan creates margin uncertainty. Death cross confirmed on weekly MACD \u2014 last seen in 2022 bear cycle. RSI 34 approaching oversold. Insider selling ~$30.7M (programmatic). Stock down 21% from ATH.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

@@ -1,0 +1,31 @@
+{
+  "ticker": "TSM",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "REDUCE",
+  "confidence": "high",
+  "reasoning": "TSM is the best semiconductor business in the world and the bull case is air-tight. But after an 87% gain, with the stock at 12.9% of portfolio (largest position), and geopolitical risk elevated, this is the right moment to trim methodically. Sell enough to bring TSM to ~8% of portfolio (approximately 10 of the 25 shares). This locks in substantial gains, reduces single-stock concentration risk, and you still keep meaningful exposure to the AI infrastructure theme. The risk/reward at current levels, given geopolitical uncertainty and the size of this position, does not justify holding at 13%. ENTRY/EXIT CONDITIONS: Reduce ~10 shares now (bring to ~8% of portfolio, ~\u20aa15,500 ILS). Hold remainder with stop-loss at $290 (200d MA at ~\u20aa9,150 ILS). Do not add until geopolitical situation clears o",
+  "timeframe": "undefined",
+  "positionSizeILS": 25738,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Do not add until geopolitical situation clears or stock reclaims $350 with volume."
+  ],
+  "exitConditions": [
+    "Reduce ~10 shares now (bring to ~8% of portfolio, ~\u20aa15,500 ILS)",
+    "Hold remainder with stop-loss at $290 (200d MA at ~\u20aa9,150 ILS)"
+  ],
+  "catalysts": [
+    {
+      "description": "earnings (April 2026) is the next catalyst\nPOSITION SIZE: ~\u20aa25,738 (~12",
+      "expiresAt": null,
+      "triggered": false
+    }
+  ],
+  "bullCase": "TSMC is the irreplaceable infrastructure of the AI era. 20.5% revenue growth, 62.3% margins, guided ~30% for 2026. Forward P/E 20.3x vs sector 21.7x \u2014 cheap for what it is. $240B+ backlog, net cash $62.7B. VP insider buying in March. Position up 87% \u2014 the market has been right to own this.",
+  "bearCase": "Taiwan geopolitical risk is real and underappreciated. Iran conflict threatens Strait of Hormuz LNG routes \u2014 Taiwan's energy supply depends on it. Revenue decelerating from 41.6% to 20.5% YoY. MACD bearish, price below 50d MA. At 12.9% of portfolio, this is the largest position by weight AND the most geopolitically exposed. A 20% drawdown on TSM alone would cost you 2.6% of your entire portfolio in one move.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

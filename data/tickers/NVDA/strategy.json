@@ -1,0 +1,25 @@
+{
+  "ticker": "NVDA",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "high",
+  "reasoning": "NVIDIA is the single most important company in AI infrastructure. The 28% gain and $78B Q1 guidance confirm the thesis is intact. The 21% pullback from ATH is a buying opportunity for long-term holders, not a reason to sell. At 2-3% of portfolio, appropriately sized. Jensen Huang's selling is programmatic (10b5-1) and small relative to his holdings. ENTRY/EXIT CONDITIONS: Add on pullback to $140-150 (near 200-day MA). Trim 25% above $220. Exit if AI capex spending reverses.",
+  "timeframe": "months",
+  "positionSizeILS": 10494,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add on pullback to $140-150 (near 200-day MA)"
+  ],
+  "exitConditions": [
+    "Trim 25% above $220",
+    "Exit if AI capex spending reverses."
+  ],
+  "catalysts": [],
+  "bullCase": "NVIDIA is the undisputed AI infrastructure king. Q4 FY2026 blowout: $68.1B revenue (beat), $1.62 EPS (beat), Q1 FY2027 guidance $78B crushed expectations. Analyst consensus Strong Buy, avg target $256-268 (53-60% upside). AI capex spending still accelerating. Position up 28%.",
+  "bearCase": "Stock down 21% from ATH. RSI oversold (28-39). MACD bearish. Jensen Huang sold ~$1B in 2025 (10b5-1). Tariff uncertainty, Iran conflict, Fed caution creating headwinds. Tech sector rotation out of mega-cap. Export restrictions to China.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

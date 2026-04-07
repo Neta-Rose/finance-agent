@@ -1,0 +1,31 @@
+{
+  "ticker": "DUOL",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "low",
+  "reasoning": "This is the hardest call in the portfolio. The bear's point about bookings being a leading indicator is strong \u2014 management guided 11% bookings growth, which means revenue deceleration is coming. But the bull is right that at $95, the stock has already crashed 82% from ATH and the panic selling may have overdiscounted the bad news. The -65% loss is real, but at 1.6% portfolio weight, the position is small enough that selling here locks in a devastating loss for negligible redeployment benefit. The $400M buyback and $370M FCF provide a valuation floor around $80-90. I'll hold the 11 shares and wait for Q2 earnings (July 2026) to decide \u2014 if bookings re-accelerate to 15%+, the stock re-rates to $120+. If bookings stay below 12%, I reduce to 3-5 shares. ENTRY/EXIT CONDITIONS: Add only if book",
+  "timeframe": "months",
+  "positionSizeILS": 3376,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add only if bookings growth re-accelerates to 20%+ AND stock reclaims 50d MA ($115)"
+  ],
+  "exitConditions": [
+    "Reduce to 3-5 shares if Q2 guidance confirms bookings stay below 12% growth",
+    "Full exit only if revenue growth drops below 10%."
+  ],
+  "catalysts": [
+    {
+      "description": "earnings (July 2026) to decide \u2014 if bookings re-accelerate to 15%+, the stock re-rates to $120+",
+      "expiresAt": null,
+      "triggered": false
+    }
+  ],
+  "bullCase": "Duolingo is growing revenue 35% YoY at a forward P/E of 29x \u2014 a sub-1 PEG ratio that the market isn't appreciating. The bookings deceleration (24%\u219211%) is a deliberate strategic pivot to prioritize user growth over monetization, not structural breakdown. Director bought 5,000 shares at ~$99 on the open market. $370M FCF, $400M buyback (5%+ of market cap) provides a floor. All analyst targets still imply upside even after severe cuts. Trading at 0.8% of 52-week range = capitulation exhaustion.",
+  "bearCase": "Bookings growth halved in one quarter \u2014 revenue is lagging, bookings is leading, and the guide always wins. At normalized 15-18% growth, PEG blows out to 1.5-2.0x and fair value is $65-85. Goldman slashed target 58%. Chart is catastrophically broken \u2014 62% below 200d MA, recovery requires 160% rally. Director's $475K purchase is a token gesture for an $8B company. $400M buyback signals the growth story has faded \u2014 it's a mature company playbook. Already -65% P/L \u2014 dead money with opportunity cost.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

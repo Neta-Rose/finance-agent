@@ -1,0 +1,25 @@
+{
+  "ticker": "NYAX",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "medium",
+  "reasoning": "NYAX is executing exceptionally well. First full-year profitability is a major milestone. Revenue growth 27-30% with expanding margins. At \u20aa18,200 (current), still below Jefferies PT of \u20aa210. The March 29 trim trigger (20,000 ILA) has NOT been reached. Hold and let the position run. ENTRY/EXIT CONDITIONS: Trim 25% if stock reaches \u20aa20,000 (near ATH zone). Add on pullback to \u20aa14,000. Exit if growth drops below 15% or payment sector disruption.",
+  "timeframe": "months",
+  "positionSizeILS": 9828,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add on pullback to \u20aa14,000"
+  ],
+  "exitConditions": [
+    "Trim 25% if stock reaches \u20aa20,000 (near ATH zone)",
+    "Exit if growth drops below 15% or payment sector disruption."
+  ],
+  "catalysts": [],
+  "bullCase": "Nayax delivered its first full-year profit ($35.5M net income) in FY2025 \u2014 a historic inflection point. Revenue $400M (+27.5%), margins expanding across all segments. FY2026 guidance raised to $510-520M. Jefferies PT raised to \u20aa210. Insider buying confirms management conviction. EV charging payments partnership opens new vertical.",
+  "bearCase": "Forward P/E ~43x is expensive. Stock near 52-week highs (74th percentile). Short interest 13% of float. Rising rates pressure growth-stage fintech multiples. Geopolitical exposure inherent to Israeli equities.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

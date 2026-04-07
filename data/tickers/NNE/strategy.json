@@ -1,0 +1,22 @@
+{
+  "ticker": "NNE",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "SELL",
+  "confidence": "high",
+  "reasoning": "Pre-revenue company with severe ongoing dilution. Analyst target $9 is another -56% from here. The \"optionality\" argument is not a near-term catalyst. Position is 0.3% of portfolio \u2014 close it and stop the bleeding. ENTRY/EXIT CONDITIONS: Sell now.",
+  "timeframe": "undefined",
+  "positionSizeILS": 1004,
+  "positionWeightPct": 0,
+  "entryConditions": [],
+  "exitConditions": [
+    "Sell now."
+  ],
+  "catalysts": [],
+  "bullCase": "Nano Nuclear Energy is a pre-revenue SMR play with theoretical long-term upside from nuclear energy renaissance.",
+  "bearCase": "Pre-revenue, burning $40M/year cash. Shares outstanding up 77% since IPO \u2014 massive dilution. Analyst PT $9 vs current $21.38 = another -56% downside. No NRC-approved reactor. SOUL.md Rule #1 triggered.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}

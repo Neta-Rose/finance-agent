@@ -1,0 +1,24 @@
+{
+  "ticker": "DASH",
+  "updatedAt": "2026-04-07T03:44:09.725158+00:00",
+  "version": 2,
+  "verdict": "HOLD",
+  "confidence": "low",
+  "reasoning": "The growth is exceptional (38% revenue, 51% income growth) but the stock is in freefall near 52-week lows. The disconnect between fundamentals and price action is extreme. At 1% of portfolio and still up 9%, hold and let the oversold conditions resolve. The growth trajectory supports the position but the macro environment is hostile. ENTRY/EXIT CONDITIONS: Add only if stock reclaims $179 (50-day MA) with volume. Exit if breaks $143 (52-week low).",
+  "timeframe": "months",
+  "positionSizeILS": 4784,
+  "positionWeightPct": 0,
+  "entryConditions": [
+    "Add only if stock reclaims $179 (50-day MA) with volume"
+  ],
+  "exitConditions": [
+    "Exit if breaks $143 (52-week low)."
+  ],
+  "catalysts": [],
+  "bullCase": "DoorDash delivered 38% revenue growth, 32% order growth, 51% GAAP net income growth. Analyst consensus overwhelmingly bullish: 34 Buy / 10 Hold / 0 Sell, avg target $265-277 (75%+ upside). BofA reiterated Buy. DCF fair value ~$146 suggests current price near fair value. Position up 9.3%.",
+  "bearCase": "Stock at $151.96, near 52-week low ($143.30). RSI 29.6 \u2014 oversold but no reversal. MACD deeply bearish (-8.19). Senate bill targeting delivery fees caused 4% drop. Consumer sentiment at 55.5 (recession territory). Valuation 77-81x P/E expensive. Aggressive 2026 investment plans rattled investors.",
+  "lastDeepDiveAt": null,
+  "deepDiveTriggeredBy": "legacy_migration",
+  "migratedFrom": "markdown",
+  "migrationNote": "Parsed from legacy markdown analysis. Run full report to refresh."
+}
