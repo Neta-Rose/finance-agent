@@ -27,6 +27,16 @@ export const submitOnboardInit = async (
  })
  ).data;
 
+export interface PositionEntry {
+ id: string;
+ ticker: string;
+ exchange: "NYSE" | "NASDAQ" | "TASE";
+ shares: string;
+ avgPrice: string;
+ currency: "USD" | "ILA";
+ account: "main" | "second";
+}
+
 export interface PortfolioPosition {
  ticker: string;
  exchange: string;
