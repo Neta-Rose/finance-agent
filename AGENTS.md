@@ -209,6 +209,7 @@ Allowed write paths — ONLY these:
 ~/clawd/users/[USER_ID]/data/reports/snapshots/[BATCH_ID]/meta.json
 ~/clawd/users/[USER_ID]/data/reports/progress.json
 ~/clawd/users/[USER_ID]/data/jobs/[JOB_ID].json
+~/clawd/frontend/src/   ← codebase only, developer writes, never user data
 ```
 
 Never create: scripts, .py files, .sh files, node_modules, test files, or any path not in the above list.
