@@ -16,6 +16,8 @@ import authRoutes from "./routes/auth.js";
 import portfolioRoutes from "./routes/portfolio.js";
 import verdictsRoutes from "./routes/verdicts.js";
 import jobsRoutes from "./routes/jobs.js";
+import conditionRoutes from "./routes/conditions.js";
+import strategyRoutes from "./routes/strategies.js";
 import reportsRoutes from "./routes/reports.js";
 import onboardingRoutes from "./routes/onboarding.js";
 
@@ -50,6 +52,8 @@ export function createApp(): Express {
   app.use("/api", verdictsRoutes); // GET /api/verdicts
   app.use("/api", jobsRoutes); // POST /api/jobs/trigger, GET /api/jobs
   app.use("/api", reportsRoutes); // GET /api/reports/*
+  app.use("/api", conditionRoutes); // GET /api/conditions/*
+  app.use("/api", strategyRoutes); // GET /api/strategies/*
 
   // Global error handler
   app.use(
