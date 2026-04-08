@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { promises as fs } from "fs";
 import { logger } from "./logger.js";
 import { JobSchema } from "../schemas/job.js";
+import { wakeAgent } from "./agentService.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Job, JobAction } from "../types/index.js";
 
@@ -52,6 +53,11 @@ export async function createJob(
   await fs.writeFile(triggerFile, JSON.stringify(job, null, 2), "utf-8");
 
   logger.info(`Job created: ${id} action=${action} ticker=${ticker ?? "none"}`);
+
+  // Wake the agent immediately — fire-and-forget, non-blocking.
+  // If the agent is busy the trigger file persists and the 30-min cron picks it up.
+  wakeAgent(workspace.userId);
+
   return job;
 }
 
