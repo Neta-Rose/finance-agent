@@ -8,7 +8,6 @@ import { DEFAULT_RATE_LIMITS } from "../types/index.js";
 import { guardPath } from "../middleware/userIsolation.js";
 import { promises as fs } from "fs";
 import path from "path";
-import { logger } from "../services/logger.js";
 
 const router = Router();
 
@@ -125,19 +124,6 @@ router.post(
       }
 
       const job = await createJob(ws, action as JobAction, ticker);
-
-      // Bridge trigger to main data/triggers directory
-      const MAIN_TRIGGERS = path.join(
-        process.env.DATA_DIR ?? path.join(process.cwd(), '../data'),
-        'triggers'
-      );
-      await fs.mkdir(MAIN_TRIGGERS, { recursive: true });
-      await fs.writeFile(
-        path.join(MAIN_TRIGGERS, `${job.id}.json`),
-        JSON.stringify({ ...job, userId: ws.userId, workspacePath: ws.root }),
-        'utf-8'
-      );
-      logger.info(`Trigger bridged to main: ${job.id}`);
 
       res.status(201).json({ jobId: job.id, job });
     }

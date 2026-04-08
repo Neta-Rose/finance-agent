@@ -127,6 +127,34 @@ export async function createUserWorkspace(
     await fs.writeFile(ws.userMdFile, stub, "utf-8");
   }
 
+  // Copy shared agent instruction files into user workspace
+  const CLAWD_ROOT = "/root/clawd";
+  for (const file of ["SOUL.md", "AGENTS.md", "HEARTBEAT.md"]) {
+    try {
+      await fs.copyFile(
+        path.join(CLAWD_ROOT, file),
+        path.join(ws.root, file)
+      );
+    } catch (e) {
+      logger.warn(`Could not copy ${file} to user workspace: ${e}`);
+    }
+  }
+
+  // Create empty OpenClaw-managed files (skip if already exist)
+  for (const file of ["IDENTITY.md", "TOOLS.md"]) {
+    try {
+      await fs.writeFile(path.join(ws.root, file), "", { flag: "wx" });
+    } catch { /* already exists */ }
+  }
+
+  // Symlink shared skills directory (read-only access for agent)
+  try {
+    await fs.symlink(
+      path.join(CLAWD_ROOT, "skills"),
+      path.join(ws.root, "skills")
+    );
+  } catch { /* already exists */ }
+
   logger.info(`Created workspace for user: ${userId}`);
   return ws;
 }
