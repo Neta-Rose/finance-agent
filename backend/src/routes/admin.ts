@@ -198,13 +198,19 @@ router.delete(
     try { await removeUserAgent(userId); } catch (err) { logger.warn(`remove agent failed: ${userId}`, { err }); }
 
     try {
+      await fs.access(userRoot);
+      // Workspace exists — archive it
       await fs.mkdir(archiveDir, { recursive: true });
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       await fs.rename(userRoot, path.join(archiveDir, `${userId}_${ts}`));
     } catch (err) {
-      logger.error(`Failed to archive ${userId}`, { err });
-      res.status(500).json({ error: "Failed to delete workspace" });
-      return;
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        logger.error(`Failed to archive ${userId}`, { err });
+        res.status(500).json({ error: "Failed to delete workspace" });
+        return;
+      }
+      // Workspace already gone — treat as success
+      logger.info(`Workspace already absent for ${userId}, skipping archive`);
     }
 
     await restartGateway();
