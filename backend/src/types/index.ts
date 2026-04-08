@@ -1,8 +1,22 @@
 export type Verdict = "BUY" | "ADD" | "HOLD" | "REDUCE" | "SELL" | "CLOSE";
 
+export interface RateLimits {
+  full_report: { maxPerPeriod: number; periodHours: number };
+  daily_brief: { maxPerPeriod: number; periodHours: number };
+  deep_dive: { maxPerPeriod: number; periodHours: number };
+  new_ideas: { maxPerPeriod: number; periodHours: number };
+}
+
+export const DEFAULT_RATE_LIMITS: RateLimits = {
+  full_report: { maxPerPeriod: 1, periodHours: 168 },
+  daily_brief: { maxPerPeriod: 3, periodHours: 24 },
+  deep_dive: { maxPerPeriod: 5, periodHours: 24 },
+  new_ideas: { maxPerPeriod: 2, periodHours: 168 },
+};
+
 export type Confidence = "high" | "medium" | "low";
 
-export type Exchange = "TASE" | "NYSE" | "NASDAQ";
+export type Exchange = "TASE" | "NYSE" | "NASDAQ" | "LSE" | "XETRA" | "EURONEXT" | "OTHER";
 
 export type AnalystType =
   | "fundamentals"

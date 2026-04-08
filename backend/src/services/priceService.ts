@@ -1,8 +1,11 @@
-import yf from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 import type { Exchange } from "../types/index.js";
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const FX_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+// YahooFinance v3: createYahooFinance returns the class, need to instantiate
+const yf = new YahooFinance();
 
 interface CacheEntry {
   result: PriceResult;
@@ -114,10 +117,17 @@ export async function getPrice(
     if (cached) {
       return { ...cached.result, stale: true };
     }
-    throw new PriceFetchError(
+    // Return 0 on error, never throw
+    return {
       ticker,
-      `Failed to fetch price: ${err instanceof Error ? err.message : String(err)}`
-    );
+      exchange,
+      priceILS: 0,
+      priceNative: 0,
+      currency: exchange === "TASE" ? "ILS" : "USD",
+      source: "yahoo_finance",
+      fetchedAt: new Date().toISOString(),
+      stale: true,
+    };
   }
 }
 
@@ -138,4 +148,85 @@ export async function getPricesParallel(
   }
 
   return map;
+}
+
+interface CandlestickData {
+  time: number; // Unix timestamp in seconds
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+function timeframeToRange(timeframe: string): { period1: Date; period2: Date; interval: "5m" | "30m" | "1h" | "1d" | "1wk" | "1m" | "2m" | "15m" | "60m" | "90m" | "5d" | "1mo" | "3mo" } {
+  const now = new Date();
+  const period2 = now;
+  let period1: Date;
+  let interval: "5m" | "30m" | "1h" | "1d" | "1wk" | "1m" | "2m" | "15m" | "60m" | "90m" | "5d" | "1mo" | "3mo" = "1h";
+
+  switch (timeframe) {
+    case "1D":
+      period1 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+      interval = "5m";
+      break;
+    case "1W":
+      period1 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      interval = "30m";
+      break;
+    case "1M":
+      period1 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      interval = "1h";
+      break;
+    case "3M":
+      period1 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      interval = "1d";
+      break;
+    case "1Y":
+      period1 = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      interval = "1wk";
+      break;
+    default:
+      period1 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      interval = "1h";
+  }
+
+  return { period1, period2, interval };
+}
+
+export async function getPriceHistory(
+  ticker: string,
+  timeframe: string
+): Promise<CandlestickData[]> {
+  const { period1, period2, interval } = timeframeToRange(timeframe);
+  const yfTicker = ticker.includes(".TA") ? ticker : ticker;
+
+  try {
+    const result = await yf.chart(yfTicker, {
+      period1: Math.floor(period1.getTime() / 1000),
+      period2: Math.floor(period2.getTime() / 1000),
+      interval,
+    });
+
+    if (!result || !result.quotes || result.quotes.length === 0) {
+      return [];
+    }
+
+    const candles: CandlestickData[] = [];
+    for (const q of result.quotes) {
+      if (q.date && q.open != null && q.high != null && q.low != null && q.close != null) {
+        candles.push({
+          time: Math.floor(new Date(q.date).getTime() / 1000),
+          open: q.open,
+          high: q.high,
+          low: q.low,
+          close: q.close,
+        });
+      }
+    }
+
+    return candles.sort((a, b) => a.time - b.time);
+  } catch (err) {
+    console.error(`Failed to get price history for ${ticker}:`, err);
+    return [];
+  }
 }

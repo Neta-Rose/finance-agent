@@ -150,10 +150,13 @@ export async function initUserWorkspace(
     "utf-8"
   );
 
-  const allPositions = [
-    ...parsed.data.accounts["main"],
-    ...(parsed.data.accounts["second"] ?? []),
-  ];
+  // Flatten all positions from named accounts
+  const allPositions: Array<{ ticker: string; exchange: string; account: string }> = [];
+  for (const [accountName, positions] of Object.entries(parsed.data.accounts)) {
+    for (const pos of positions) {
+      allPositions.push({ ticker: pos.ticker, exchange: pos.exchange, account: accountName });
+    }
+  }
 
   for (const pos of allPositions) {
     const tickerDir = path.join(ws.tickersDir, pos.ticker);
@@ -260,11 +263,10 @@ export async function validateWorkspaceIntegrity(
   if (portfolio) {
     const pfResult = PortfolioFileSchema.safeParse(portfolio);
     if (pfResult.success) {
-      for (const pos of pfResult.data.accounts["main"]) {
-        portfolioTickers.add(pos.ticker);
-      }
-      for (const pos of pfResult.data.accounts["second"] ?? []) {
-        portfolioTickers.add(pos.ticker);
+      for (const positions of Object.values(pfResult.data.accounts)) {
+        for (const pos of positions) {
+          portfolioTickers.add(pos.ticker);
+        }
       }
     }
   }

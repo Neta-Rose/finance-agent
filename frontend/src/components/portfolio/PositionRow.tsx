@@ -36,7 +36,7 @@ export function PositionRow({ position, verdict, onClick }: PositionRowProps) {
             <span>·</span>
             <span>{position.shares} shares</span>
             <span>·</span>
-            <span>{position.weightPct.toFixed(1)}%</span>
+            <span>{(position.weightPct ?? 0).toFixed(1)}%</span>
           </div>
         </Card>
       </div>
@@ -61,7 +61,7 @@ export function PositionRow({ position, verdict, onClick }: PositionRowProps) {
         <td className="px-3 py-2.5 text-sm text-[var(--color-fg-default)] text-right font-medium">{formatILS(position.currentILS)}</td>
         <td className={`px-3 py-2.5 text-sm text-right font-semibold ${plClass}`}>{formatPct(position.plPct)}</td>
         <td className={`px-3 py-2.5 text-sm text-right ${plClass}`}>{formatILS(position.plILS)}</td>
-        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{position.weightPct.toFixed(1)}%</td>
+        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{(position.weightPct ?? 0).toFixed(1)}%</td>
         <td className="px-3 py-2.5">
           {verdict && <VerdictBadge verdict={verdict.verdict} size="sm" />}
         </td>

@@ -16,7 +16,6 @@ export { JobSchema } from "./job.js";
 
 export {
   PortfolioPositionSchema,
-  PortfolioAccountSchema,
   PortfolioFileSchema,
   PortfolioStateSchema,
   BootstrapProgressSchema,

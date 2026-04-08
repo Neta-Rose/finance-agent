@@ -2,8 +2,9 @@ import { Router, type Response, type NextFunction } from "express";
 import { promises as fs } from "fs";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
+import type { Exchange } from "../types/index.js";
 import { PortfolioFileSchema } from "../schemas/portfolio.js";
-import { getUsdIlsRate, getPricesParallel } from "../services/priceService.js";
+import { getUsdIlsRate, getPricesParallel, getPriceHistory } from "../services/priceService.js";
 
 const router = Router();
 
@@ -48,18 +49,36 @@ router.get(
   "/portfolio",
   handler(async (_req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
-    const raw = await fs.readFile(ws.portfolioFile, "utf-8");
+    let raw: string;
+    try {
+      raw = await fs.readFile(ws.portfolioFile, "utf-8");
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        // No portfolio yet — return empty state
+        res.json({
+          updatedAt: new Date().toISOString(),
+          usdIlsRate: 0,
+          totalILS: 0,
+          totalCostILS: 0,
+          totalPlILS: 0,
+          totalPlPct: 0,
+          positions: [],
+        });
+        return;
+      }
+      throw err;
+    }
     const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
 
     const usdIlsRate = await getUsdIlsRate();
 
-    const allPositions = [
-      ...portfolio.accounts["main"].map((p) => ({ ...p, account: "main" })),
-      ...(portfolio.accounts["second"] ?? []).map((p) => ({
-        ...p,
-        account: "second",
-      })),
-    ];
+    // Flatten all positions with their account name
+    const allPositions: Array<{ ticker: string; exchange: Exchange; shares: number; unitAvgBuyPrice: number; unitCurrency: "USD" | "ILA" | "GBP" | "EUR"; account: string }> = [];
+    for (const [accountName, positions] of Object.entries(portfolio.accounts)) {
+      for (const pos of positions) {
+        allPositions.push({ ...pos, account: accountName });
+      }
+    }
 
     const uniqueTickers = Array.from(new Set(allPositions.map((p) => p.ticker))).map(
       (ticker) => {
@@ -159,6 +178,82 @@ router.get(
     };
 
     res.json(response);
+  })
+);
+
+// PATCH /portfolio/position/:ticker - Update a position's shares or avg price
+router.patch(
+  "/position/:ticker",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const tickerParam = req.params.ticker as string;
+    const { shares, avgPriceILS } = req.body as { shares?: number; avgPriceILS?: number };
+
+    if (!tickerParam) {
+      res.status(400).json({ error: "ticker required" });
+      return;
+    }
+
+    let raw: string;
+    try {
+      raw = await fs.readFile(ws.portfolioFile, "utf-8");
+    } catch {
+      res.status(404).json({ error: "portfolio not found" });
+      return;
+    }
+
+    const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
+
+    // Find the position across all accounts
+    let found = false;
+    for (const [_accountName, positions] of Object.entries(portfolio.accounts)) {
+      const pos = positions.find((p) => p.ticker === tickerParam.toUpperCase());
+      if (pos) {
+        if (shares !== undefined) pos.shares = shares;
+        if (avgPriceILS !== undefined) {
+          // Convert from ILS back to the original currency if needed
+          if (pos.exchange === "TASE") {
+            pos.unitAvgBuyPrice = avgPriceILS;
+          } else {
+            // For non-ILA exchanges, store in USD equivalent
+            const usdIlsRate = await getUsdIlsRate();
+            pos.unitAvgBuyPrice = avgPriceILS / usdIlsRate;
+          }
+        }
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      res.status(404).json({ error: "position not found" });
+      return;
+    }
+
+    await fs.writeFile(ws.portfolioFile, JSON.stringify(portfolio, null, 2), "utf-8");
+    res.json({ success: true });
+  })
+);
+
+// GET /portfolio/history/:ticker - Get price history for charting
+router.get(
+  "/history/:ticker",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ticker = req.params.ticker as string;
+    const timeframe = (req.query.timeframe as string) || "1M";
+
+    if (!ticker) {
+      res.status(400).json({ error: "ticker required" });
+      return;
+    }
+
+    try {
+      const history = await getPriceHistory(ticker.toUpperCase(), timeframe);
+      res.json(history);
+    } catch (err) {
+      console.error("Price history error:", err);
+      res.status(500).json({ error: "failed to fetch price history" });
+    }
   })
 );
 

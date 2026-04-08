@@ -103,4 +103,42 @@ router.post("/register", async (req, res) => {
   res.status(201).json({ userId, created: true });
 });
 
+// POST /api/auth/change-password — admin alias, no current password required
+router.post("/change-password", async (req, res) => {
+  const expectedKey = process.env["ADMIN_KEY"];
+  const adminKey = req.headers["x-admin-key"];
+  if (!expectedKey || adminKey !== expectedKey) {
+    res.status(403).json({ error: "admin access only" });
+    return;
+  }
+
+  const { userId, newPassword } = req.body as {
+    userId?: string;
+    newPassword?: string;
+  };
+
+  if (!userId || !newPassword) {
+    res.status(400).json({ error: "userId and newPassword required" });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: "newPassword must be at least 8 characters" });
+    return;
+  }
+
+  const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
+  const authFile = path.join(USERS_DIR, userId, "auth.json");
+
+  try {
+    await fs.access(authFile);
+  } catch {
+    res.status(404).json({ error: "user not found" });
+    return;
+  }
+
+  const hash = await hashPassword(newPassword);
+  await fs.writeFile(authFile, JSON.stringify({ passwordHash: hash }), "utf-8");
+  res.json({ changed: true });
+});
+
 export default router;

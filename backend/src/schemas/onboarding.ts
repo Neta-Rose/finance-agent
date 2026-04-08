@@ -36,8 +36,9 @@ export type OnboardInit = z.infer<typeof OnboardInitSchema>;
 export const ProfileSchema = z.object({
   userId: z.string(),
   displayName: z.string(),
-  telegramChatId: z.string(),
-  schedule: ScheduleSchema,
+  telegramChatId: z.string().nullable().optional(),
+  schedule: ScheduleSchema.nullable().optional(),
+  rateLimits: z.any().optional(),
   createdAt: z.string().datetime(),
 });
 

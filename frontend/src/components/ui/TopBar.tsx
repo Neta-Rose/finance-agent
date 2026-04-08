@@ -1,20 +1,29 @@
 import { RefreshCw } from "lucide-react";
 import { clsx } from "clsx";
+import { getGreeting } from "../../store/i18n";
+import { usePreferencesStore } from "../../store/preferencesStore";
 
 interface Props {
  title: string;
  subtitle?: string;
+ greeting?: string;
  onRefresh?: () => void;
  refreshing?: boolean;
  right?: React.ReactNode;
 }
 
-export function TopBar({ title, subtitle, onRefresh, refreshing, right }: Props) {
+export function TopBar({ title, subtitle, greeting, onRefresh, refreshing, right }: Props) {
+ const lang = usePreferencesStore((s) => s.language);
+ const computedGreeting = greeting !== undefined ? greeting : getGreeting(null, lang);
  return (
  <div className="fixed top-0 left-0 right-0 z-40 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)] safe-top">
  <div className="flex items-center justify-between px-4 h-12">
  <div>
+ {greeting !== undefined ? (
+ <h1 className="text-xs font-medium text-[var(--color-fg-muted)] leading-tight">{computedGreeting}</h1>
+ ) : (
  <h1 className="text-sm font-bold text-[var(--color-fg-default)] leading-tight">{title}</h1>
+ )}
  {subtitle && <p className="text-[10px] text-[var(--color-fg-subtle)] leading-tight">{subtitle}</p>}
  </div>
  <div className="flex items-center gap-2">

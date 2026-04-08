@@ -7,7 +7,6 @@ import express, {
 import helmet from "helmet";
 import cors from "cors";
 import path from "path";
-import { fileURLToPath } from "url";
 import { logger } from "./services/logger.js";
 import { ZodError } from "zod";
 import { WorkspaceViolationError } from "./middleware/userIsolation.js";
@@ -23,11 +22,15 @@ import strategyRoutes from "./routes/strategies.js";
 import reportsRoutes from "./routes/reports.js";
 import onboardingRoutes from "./routes/onboarding.js";
 import telegramRoutes from "./routes/telegram.js";
+import adminRoutes from "./routes/admin.js";
 
 export function createApp(): Express {
   const app = express();
 
-  app.use(helmet());
+  app.use(helmet({
+    hsts: false,
+    contentSecurityPolicy: false,
+  }));
   app.use(cors());
   app.use(express.json({ limit: "2mb" }));
 
@@ -42,6 +45,9 @@ export function createApp(): Express {
   // Auth routes — login/logout/register (no JWT required)
   // Mounted BEFORE global authMiddleware so /api/auth/* bypasses auth
   app.use("/api/auth", authRoutes);
+
+  // Admin routes — have their own X-Admin-Key auth, no JWT needed
+  app.use("/api/admin", adminRoutes);
 
   // Onboarding routes — init doesn't need JWT, portfolio/status do
   // Mounted here so it can have its own auth handling per-route
@@ -60,9 +66,7 @@ export function createApp(): Express {
   app.use("/api", telegramRoutes); // POST /api/telegram/webhook — no auth
 
   // ── Serve React frontend (SPA fallback) ──────────────────────────────────
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const frontendDist = path.resolve(__dirname, "../../frontend/dist");
+  const frontendDist = process.env.FRONTEND_DIST ?? path.resolve(process.cwd(), "../frontend/dist");
   app.use(express.static(frontendDist));
   app.get("/{*path}", (_req: Request, res: Response) => {
     res.sendFile(path.join(frontendDist, "index.html"));

@@ -1,6 +1,6 @@
 export type Verdict = "BUY" | "ADD" | "HOLD" | "REDUCE" | "SELL" | "CLOSE";
 export type Confidence = "high" | "medium" | "low";
-export type Exchange = "TASE" | "NYSE" | "NASDAQ";
+export type Exchange = "TASE" | "NYSE" | "NASDAQ" | "LSE" | "XETRA" | "EURONEXT" | "OTHER";
 export type JobStatus = "pending" | "running" | "completed" | "failed";
 export type JobAction =
  | "daily_brief" | "full_report" | "deep_dive"
@@ -123,10 +123,30 @@ export interface ConditionReport {
  summary: string;
 }
 
+export interface RateLimit {
+ maxPerPeriod: number;
+ periodHours: number;
+}
+
+export interface RateLimits {
+ full_report: RateLimit;
+ daily_brief: RateLimit;
+ deep_dive: RateLimit;
+ new_ideas: RateLimit;
+}
+
+export interface Schedule {
+ dailyBriefTime: string;
+ weeklyResearchDay: string;
+ weeklyResearchTime: string;
+ timezone: string;
+}
+
 export interface OnboardStatus {
  userId: string;
  state: PortfolioState;
- displayName: string;
+ displayName: string | null;
+ telegramChatId: string | null;
  bootstrapProgress: {
  total: number;
  completed: number;
@@ -135,6 +155,9 @@ export interface OnboardStatus {
  } | null;
  portfolioLoaded: boolean;
  readyForTrading: boolean;
+ rateLimits: RateLimits;
+ schedule: Schedule | null;
+ telegramConnected: boolean;
 }
 
 export interface SummaryStripProps {

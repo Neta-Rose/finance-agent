@@ -36,3 +36,4 @@ dashboard.retired/
 .DS_Store
 data/research/
 *.bak3
+backend/src/logs/

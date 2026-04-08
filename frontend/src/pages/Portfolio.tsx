@@ -1,18 +1,22 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchPortfolio, fetchVerdicts } from "../api/portfolio";
+import { fetchOnboardStatus } from "../api/onboarding";
+import { fetchJobs } from "../api/jobs";
 import { TopBar } from "../components/ui/TopBar";
 import { SummaryStrip } from "../components/portfolio/SummaryStrip";
 import { PositionRow } from "../components/portfolio/PositionRow";
+import { PositionDetailModal } from "../components/portfolio/PositionDetailModal";
 import { StrategyModal } from "../components/portfolio/StrategyModal";
 import { Spinner } from "../components/ui/Spinner";
 import { ErrorState } from "../components/ui/ErrorState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatILS } from "../utils/format";
-import type { VerdictRow } from "../types/api";
+import type { VerdictRow, PositionRow as PositionRowType } from "../types/api";
 
 export function Portfolio() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<PositionRowType | null>(null);
 
   const { data: portfolio, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["portfolio"],
@@ -24,6 +28,19 @@ export function Portfolio() {
     queryKey: ["verdicts"],
     queryFn: fetchVerdicts,
     staleTime: 60_000,
+  });
+
+  const { data: onboardStatus } = useQuery({
+    queryKey: ["onboard-status"],
+    queryFn: fetchOnboardStatus,
+    staleTime: 60_000,
+  });
+
+  const { data: jobsData } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: fetchJobs,
+    staleTime: 30_000,
+    refetchInterval: 15_000,
   });
 
   const verdictMap = useMemo(() => {
@@ -39,6 +56,17 @@ export function Portfolio() {
       losers: portfolio.positions.filter((p) => p.plPct < 0).length,
     };
   }, [portfolio]);
+
+  // Active jobs for running indicator
+  const activeJobs = useMemo(() => {
+    if (!jobsData?.jobs) return [];
+    return jobsData.jobs.filter((j) => j.status === "pending" || j.status === "running");
+  }, [jobsData]);
+
+  const handlePositionClick = (pos: PositionRowType) => {
+    setSelectedPosition(pos);
+    setSelectedTicker(pos.ticker);
+  };
 
   if (isLoading) {
     return (
@@ -73,21 +101,48 @@ export function Portfolio() {
     <>
       <TopBar
         title="Portfolio"
-        subtitle={formatILS(portfolio.totalILS)}
+        subtitle={formatILS(portfolio.totalILS ?? null)}
+        greeting={onboardStatus?.displayName ? `Hello ${onboardStatus.displayName} — Let's monitor some positions 📈` : undefined}
         onRefresh={refetch}
         refreshing={isFetching}
       />
 
+      {/* Active Jobs Banner */}
+      {activeJobs.length > 0 && (
+        <div className="mx-4 mt-3 mb-1">
+          <div className="flex items-center gap-2 text-xs text-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/10 border border-[var(--color-accent-blue)]/30 rounded-lg px-3 py-2">
+            <span className="animate-spin">🔄</span>
+            <span className="font-medium">
+              {activeJobs.length} job{activeJobs.length !== 1 ? "s" : ""} running
+            </span>
+            <div className="flex-1" />
+            <div className="h-1.5 w-24 bg-[var(--color-bg-muted)] rounded-full overflow-hidden">
+              <div className="h-full bg-[var(--color-accent-blue)] animate-pulse rounded-full" style={{ width: "60%" }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <SummaryStrip
-        totalILS={portfolio.totalILS}
-        totalPlILS={portfolio.totalPlILS}
-        totalPlPct={portfolio.totalPlPct}
+        totalILS={portfolio.totalILS ?? 0}
+        totalPlILS={portfolio.totalPlILS ?? 0}
+        totalPlPct={portfolio.totalPlPct ?? 0}
         positionCount={portfolio.positions.length}
         winners={winners}
         losers={losers}
-        usdIlsRate={portfolio.usdIlsRate}
+        usdIlsRate={portfolio.usdIlsRate ?? 0}
         updatedAt={portfolio.updatedAt}
       />
+
+      {/* Add Position Button */}
+      <div className="px-4 pt-3">
+        <button
+          onClick={() => {/* TODO: Navigate to add position */}}
+          className="w-full py-2.5 rounded-lg border border-dashed border-[var(--color-border)] text-xs text-[var(--color-accent-blue)] font-medium hover:bg-[var(--color-bg-muted)] transition-colors"
+        >
+          + Add Position
+        </button>
+      </div>
 
       {/* Mobile card list */}
       <div className="md:hidden px-4 pt-2 pb-4 space-y-2">
@@ -96,7 +151,7 @@ export function Portfolio() {
             key={pos.ticker}
             position={pos}
             verdict={verdictMap[pos.ticker]}
-            onClick={() => setSelectedTicker(pos.ticker)}
+            onClick={() => handlePositionClick(pos)}
           />
         ))}
       </div>
@@ -118,13 +173,22 @@ export function Portfolio() {
                   key={pos.ticker}
                   position={pos}
                   verdict={verdictMap[pos.ticker]}
-                  onClick={() => setSelectedTicker(pos.ticker)}
+                  onClick={() => handlePositionClick(pos)}
                 />
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      <PositionDetailModal
+        position={selectedPosition}
+        onClose={() => {
+          setSelectedPosition(null);
+          setSelectedTicker(null);
+          refetch();
+        }}
+      />
 
       <StrategyModal
         ticker={selectedTicker}

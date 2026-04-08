@@ -8,15 +8,19 @@ import type { Profile } from "../schemas/onboarding.js";
 import {
   OnboardInitSchema,
   ProfileSchema,
+  ScheduleSchema,
 } from "../schemas/onboarding.js";
 import { PortfolioFileSchema } from "../schemas/portfolio.js";
-import { hashPassword } from "../middleware/auth.js";
+import { hashPassword, verifyPassword } from "../middleware/auth.js";
 import {
   createUserWorkspace,
   workspaceExists,
   initUserWorkspace,
 } from "../services/workspaceService.js";
 import { createJob } from "../services/jobService.js";
+import { updateUserTelegram, restartGateway } from "../services/agentService.js";
+import { DEFAULT_RATE_LIMITS } from "../types/index.js";
+import type { RateLimits } from "../types/index.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { userIsolationMiddleware } from "../middleware/userIsolation.js";
 
@@ -117,8 +121,14 @@ router.post(
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
 
+    // Extract optional schedule from body
+    const { schedule: incomingSchedule, ...portfolioBody } = req.body as {
+      schedule?: unknown;
+      [key: string]: unknown;
+    };
+
     // Validate portfolio
-    const parsed = PortfolioFileSchema.safeParse(req.body);
+    const parsed = PortfolioFileSchema.safeParse(portfolioBody);
     if (!parsed.success) {
       res.status(400).json({
         error: "Validation failed",
@@ -129,28 +139,23 @@ router.post(
 
     const userId = ws.userId;
 
-    // Check state
-    const stateFile = ws.stateFile;
-    let stateData: { state: string };
-    try {
-      const raw = await fs.readFile(stateFile, "utf-8");
-      stateData = JSON.parse(raw);
-    } catch {
-      res.status(500).json({ error: "Cannot read state file" });
-      return;
-    }
-
-    if (stateData.state !== "UNINITIALIZED") {
-      res.status(409).json({
-        error: `Portfolio already submitted. Current state: ${stateData.state}`,
-      });
-      return;
-    }
-
-    // Init workspace with portfolio — creates ticker dirs, strategy stubs, events.jsonl
+    // Idempotent: write portfolio.json and recreate ticker dirs regardless of current state
     await initUserWorkspace(userId, parsed.data);
 
-    // Create initial full-report job
+    // Save schedule to profile.json if provided
+    if (incomingSchedule) {
+      try {
+        const profilePath = path.join(ws.root, "profile.json");
+        let profileData: Record<string, unknown> = {};
+        try {
+          profileData = JSON.parse(await fs.readFile(profilePath, "utf-8"));
+        } catch { /* profile may not exist yet */ }
+        profileData.schedule = incomingSchedule;
+        await fs.writeFile(profilePath, JSON.stringify(profileData, null, 2), "utf-8");
+      } catch { /* non-fatal */ }
+    }
+
+    // Create initial full-report job (stay BOOTSTRAPPING — agent transitions state)
     const job = await createJob(ws, "full_report");
 
     res.status(200).json({
@@ -225,6 +230,8 @@ router.get(
           }
         : null;
 
+    const rateLimits: RateLimits = (profile?.rateLimits as RateLimits) ?? DEFAULT_RATE_LIMITS;
+
     res.json({
       userId,
       state: stateData.state,
@@ -233,7 +240,125 @@ router.get(
       bootstrapProgress,
       portfolioLoaded,
       readyForTrading: stateData.state === "ACTIVE",
+      rateLimits,
+      schedule: profile?.schedule ?? null,
+      telegramConnected: !!profile?.telegramChatId,
     });
+  })
+);
+
+// POST /api/onboard/telegram
+router.post(
+  "/telegram",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const userId = ws.userId;
+    const { botToken, telegramChatId } = req.body as {
+      botToken?: string;
+      telegramChatId?: string;
+    };
+
+    if (!botToken || !/^\d+:[A-Za-z0-9_-]{35,}$/.test(botToken)) {
+      res.status(400).json({ error: "Invalid bot token format" });
+      return;
+    }
+    if (!telegramChatId || !/^\d+$/.test(telegramChatId)) {
+      res.status(400).json({ error: "Invalid telegram chat ID" });
+      return;
+    }
+
+    // Update agent config
+    await updateUserTelegram(userId, botToken, telegramChatId);
+
+    // Update profile.json
+    const profilePath = path.join(ws.root, "profile.json");
+    try {
+      let profileData: Record<string, unknown> = {};
+      try {
+        profileData = JSON.parse(await fs.readFile(profilePath, "utf-8"));
+      } catch { /* may not exist */ }
+      profileData.telegramChatId = telegramChatId;
+      await fs.writeFile(profilePath, JSON.stringify(profileData, null, 2), "utf-8");
+    } catch { /* non-fatal */ }
+
+    // Restart gateway to pick up new config
+    await restartGateway();
+
+    res.json({ connected: true });
+  })
+);
+
+// POST /api/onboard/change-password
+router.post(
+  "/change-password",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: "currentPassword and newPassword required" });
+      return;
+    }
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: "newPassword must be at least 8 characters" });
+      return;
+    }
+
+    // Read current auth.json
+    const authPath = path.join(ws.root, "auth.json");
+    let authData: { passwordHash: string };
+    try {
+      authData = JSON.parse(await fs.readFile(authPath, "utf-8"));
+    } catch {
+      res.status(401).json({ error: "cannot read auth file" });
+      return;
+    }
+
+    // Verify current password
+    const valid = await verifyPassword(currentPassword, authData.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: "incorrect_password" });
+      return;
+    }
+
+    // Hash and save new password
+    const hash = await hashPassword(newPassword);
+    await fs.writeFile(authPath, JSON.stringify({ passwordHash: hash }), "utf-8");
+
+    res.json({ changed: true });
+  })
+);
+
+// PATCH /api/onboard/schedule
+router.patch(
+  "/schedule",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const parsed = ScheduleSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.errors });
+      return;
+    }
+
+    const profilePath = path.join(ws.root, "profile.json");
+    let profileData: Record<string, unknown> = {};
+    try {
+      profileData = JSON.parse(await fs.readFile(profilePath, "utf-8"));
+    } catch { /* may not exist yet */ }
+
+    profileData.schedule = parsed.data;
+    await fs.writeFile(profilePath, JSON.stringify(profileData, null, 2), "utf-8");
+
+    res.json({ updated: true, schedule: parsed.data });
   })
 );
 

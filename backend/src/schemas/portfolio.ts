@@ -2,14 +2,10 @@ import { z } from "zod";
 
 export const PortfolioPositionSchema = z.object({
   ticker: z.string().regex(/^[A-Z0-9]{1,10}$/),
-  exchange: z.enum(["TASE", "NYSE", "NASDAQ"]),
+  exchange: z.enum(["TASE", "NYSE", "NASDAQ", "LSE", "XETRA", "EURONEXT", "OTHER"]),
   shares: z.number().int().positive(),
   unitAvgBuyPrice: z.number().positive(),
-  unitCurrency: z.enum(["USD", "ILA"]),
-});
-
-export const PortfolioAccountSchema = z.object({
-  positions: z.array(PortfolioPositionSchema),
+  unitCurrency: z.enum(["USD", "ILA", "GBP", "EUR"]),
 });
 
 export const PortfolioFileSchema = z.object({
@@ -18,10 +14,13 @@ export const PortfolioFileSchema = z.object({
     transactionFeeILS: z.number(),
     note: z.string(),
   }),
-  accounts: z.object({
-    main: z.array(PortfolioPositionSchema),
-    second: z.array(PortfolioPositionSchema).optional(),
-  }),
+  accounts: z.record(
+    z.string().min(1).max(30),
+    z.array(PortfolioPositionSchema)
+  ).refine(
+    (accounts) => Object.keys(accounts).length >= 1,
+    { message: "At least one account required" }
+  ),
 });
 
 export const BootstrapProgressSchema = z.object({
@@ -38,8 +37,3 @@ export const PortfolioStateSchema = z.object({
   pendingDeepDives: z.array(z.string()).optional().default([]),
   bootstrapProgress: BootstrapProgressSchema.nullable(),
 });
-
-// export type PortfolioPosition = z.infer<typeof PortfolioPositionSchema>;
-// export type PortfolioAccount = z.infer<typeof PortfolioAccountSchema>;
-// export type PortfolioFile = z.infer<typeof PortfolioFileSchema>;
-// export type PortfolioState = z.infer<typeof PortfolioStateSchema>;

@@ -1,47 +1,39 @@
 @import "tailwindcss";
+@source "../src/**/*.{ts,tsx}";
 
-@theme {
- --color-bg-base: #0d1117;
- --color-bg-subtle: #161b22;
- --color-bg-muted: #21262d;
- --color-border: #30363d;
- --color-border-muted: #21262d;
- --color-fg-default: #e6edf3;
- --color-fg-muted: #8b949e;
- --color-fg-subtle: #6e7681;
- --color-accent-green: #3fb950;
- --color-accent-yellow: #d29922;
- --color-accent-red: #f85149;
- --color-accent-blue: #58a6ff;
- --color-accent-purple: #a371f7;
+@layer base {
+  :root {
+    --color-bg-base: #0d1117;
+    --color-bg-subtle: #161b22;
+    --color-bg-muted: #21262d;
+    --color-border: #30363d;
+    --color-border-muted: #21262d;
+    --color-fg-default: #e6edf3;
+    --color-fg-muted: #8b949e;
+    --color-fg-subtle: #6e7681;
+    --color-accent-green: #3fb950;
+    --color-accent-yellow: #d29922;
+    --color-accent-red: #f85149;
+    --color-accent-blue: #58a6ff;
+    --color-accent-purple: #a371f7;
+    color-scheme: dark;
+  }
+
+  * { -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background-color: #0d1117;
+    color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
 }
 
-:root {
- color-scheme: dark;
-}
-
-body {
- background-color: var(--color-bg-base);
- color: var(--color-fg-default);
- font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
- -webkit-font-smoothing: antialiased;
- overscroll-behavior: none;
-}
-
-.safe-bottom {
- padding-bottom: env(safe-area-inset-bottom);
-}
-
-.safe-top {
- padding-top: env(safe-area-inset-top);
-}
-
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.safe-top { padding-top: env(safe-area-inset-top); }
 .page-content {
- padding-top: 48px;
- padding-bottom: calc(56px + env(safe-area-inset-bottom));
- min-height: 100dvh;
-}
-
-* {
- -webkit-tap-highlight-color: transparent;
+  padding-top: 48px;
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  min-height: 100dvh;
 }

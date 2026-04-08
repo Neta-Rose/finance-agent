@@ -1,4 +1,5 @@
-export function formatILS(value: number): string {
+export function formatILS(value: number | null | undefined): string {
+  if (value == null) return "—";
   const abs = Math.abs(value);
   const sign = value < 0 ? "-" : "";
   if (abs >= 1_000_000) {
@@ -10,7 +11,8 @@ export function formatILS(value: number): string {
   return `${sign}₪${abs.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-export function formatPct(value: number): string {
+export function formatPct(value: number | null | undefined): string {
+  if (value == null) return "—";
   const sign = value >= 0 ? "+" : "";
   return `${sign}${value.toFixed(1)}%`;
 }
@@ -43,7 +45,8 @@ export function formatDate(isoString: string): string {
   return `${month} ${day}, ${year}`;
 }
 
-export function plColor(pl: number): string {
+export function plColor(pl: number | null | undefined): string {
+  if (pl == null) return "text-[var(--color-fg-muted)]";
   if (pl > 0) return "text-[var(--color-accent-green)]";
   if (pl < 0) return "text-[var(--color-accent-red)]";
   return "text-[var(--color-fg-muted)]";

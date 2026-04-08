@@ -52,8 +52,13 @@ router.get(
     let tickerDirs: string[] = [];
     try {
       tickerDirs = await fs.readdir(ws.tickersDir);
-    } catch {
-      // no tickers yet
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        // tickers dir doesn't exist yet — return empty verdicts
+        res.json({ updatedAt: new Date().toISOString(), verdicts: [] });
+        return;
+      }
+      throw err;
     }
 
     const verdicts: VerdictRow[] = [];

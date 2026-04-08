@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchVerdicts } from "../api/portfolio";
 import { fetchConditionCheck } from "../api/conditions";
+import { fetchOnboardStatus } from "../api/onboarding";
 import { triggerJob } from "../api/jobs";
 import { TopBar } from "../components/ui/TopBar";
 import { StrategyModal } from "../components/portfolio/StrategyModal";
@@ -26,6 +27,12 @@ export function Alerts() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: onboardStatus } = useQuery({
+    queryKey: ["onboard-status"],
+    queryFn: fetchOnboardStatus,
+    staleTime: 60_000,
+  });
+
   const { critical, warning, opportunities, isEmpty } = useMemo(() => {
     if (!verdictsData) return { critical: [], warning: [], opportunities: [], isEmpty: true };
     const v = verdictsData.verdicts;
@@ -42,9 +49,15 @@ export function Alerts() {
   const handleRunFullReport = async () => {
     try {
       await triggerJob("full_report");
-      showToast("Full portfolio analysis started", "info");
-    } catch {
-      showToast("Failed to start full report", "error");
+      showToast("Full portfolio analysis started — you'll be notified when ready", "success");
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string; reason?: string } } };
+      const msg = axiosErr.response?.data?.reason || axiosErr.response?.data?.error;
+      if (msg) {
+        showToast(msg, "error");
+      } else {
+        showToast("Failed to start full report", "error");
+      }
     }
   };
 
@@ -79,6 +92,7 @@ export function Alerts() {
       <TopBar
         title="Alerts"
         subtitle={subtitle}
+        greeting={onboardStatus?.displayName ? `Hello ${onboardStatus.displayName} — Keep an eye on things 👀` : undefined}
       />
 
       {/* Escalation banner */}

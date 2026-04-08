@@ -157,7 +157,7 @@ export function Strategies() {
                       <td className="px-3 py-2.5"><ConfidenceBadge confidence={s.confidence} /></td>
                       <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] capitalize">{s.timeframe}</td>
                       <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{formatILS(s.positionSizeILS)}</td>
-                      <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{s.positionWeightPct.toFixed(1)}%</td>
+                      <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{(s.positionWeightPct ?? 0).toFixed(1)}%</td>
                       <td className="px-3 py-2.5 text-xs text-[var(--color-fg-muted)] max-w-[200px] truncate">{s.reasoning}</td>
                       <td className="px-3 py-2.5 text-[10px] text-[var(--color-fg-subtle)]">{timeAgo(s.updatedAt)}</td>
                       <td className="px-3 py-2.5 text-center">{s.hasExpiredCatalysts ? "🔴" : ""}</td>
