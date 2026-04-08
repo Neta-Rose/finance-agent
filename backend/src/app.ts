@@ -6,6 +6,8 @@ import express, {
 } from "express";
 import helmet from "helmet";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import { logger } from "./services/logger.js";
 import { ZodError } from "zod";
 import { WorkspaceViolationError } from "./middleware/userIsolation.js";
@@ -56,6 +58,16 @@ export function createApp(): Express {
   app.use("/api", conditionRoutes); // GET /api/conditions/*
   app.use("/api", strategyRoutes); // GET /api/strategies/*
   app.use("/api", telegramRoutes); // POST /api/telegram/webhook — no auth
+
+  // ── Serve React frontend (SPA fallback) ──────────────────────────────────
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const frontendDist = path.resolve(__dirname, "../../frontend/dist");
+  app.use(express.static(frontendDist));
+  app.get("/{*path}", (_req: Request, res: Response) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+
 
   // Global error handler
   app.use(
