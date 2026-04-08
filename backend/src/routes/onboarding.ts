@@ -91,6 +91,15 @@ router.post(
       "utf-8"
     );
 
+    // Update USER.md with the actual display name
+    try {
+      const userMdRaw = await fs.readFile(ws.userMdFile, "utf-8");
+      const updated = userMdRaw.replace(/\[DISPLAY_NAME\]/g, displayName);
+      await fs.writeFile(ws.userMdFile, updated, "utf-8");
+    } catch {
+      // USER.md will be created fresh if missing
+    }
+
     res.status(201).json({
       userId,
       created: true,
@@ -220,6 +229,7 @@ router.get(
       userId,
       state: stateData.state,
       displayName: profile?.displayName ?? null,
+      telegramChatId: profile?.telegramChatId ?? null,
       bootstrapProgress,
       portfolioLoaded,
       readyForTrading: stateData.state === "ACTIVE",

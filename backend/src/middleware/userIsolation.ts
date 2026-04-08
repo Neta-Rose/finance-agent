@@ -26,6 +26,7 @@ export interface UserWorkspace {
   snapshotsDir: string;
   jobsDir: string;
   triggersDir: string;
+  userMdFile: string;
   strategyFile: (ticker: string) => string;
   eventsFile: (ticker: string) => string;
   reportFile: (ticker: string, analyst: string) => string;
@@ -47,6 +48,7 @@ export function buildWorkspace(userId: string, usersDir: string): UserWorkspace 
     snapshotsDir: path.join(dataDir, "reports", "snapshots"),
     jobsDir: path.join(dataDir, "jobs"),
     triggersDir: path.join(dataDir, "triggers"),
+    userMdFile: path.join(root, "USER.md"),
     strategyFile: (ticker: string) =>
       path.join(dataDir, "tickers", ticker, "strategy.json"),
     eventsFile: (ticker: string) =>

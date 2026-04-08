@@ -20,6 +20,7 @@ import conditionRoutes from "./routes/conditions.js";
 import strategyRoutes from "./routes/strategies.js";
 import reportsRoutes from "./routes/reports.js";
 import onboardingRoutes from "./routes/onboarding.js";
+import telegramRoutes from "./routes/telegram.js";
 
 export function createApp(): Express {
   const app = express();
@@ -54,6 +55,7 @@ export function createApp(): Express {
   app.use("/api", reportsRoutes); // GET /api/reports/*
   app.use("/api", conditionRoutes); // GET /api/conditions/*
   app.use("/api", strategyRoutes); // GET /api/strategies/*
+  app.use("/api", telegramRoutes); // POST /api/telegram/webhook — no auth
 
   // Global error handler
   app.use(

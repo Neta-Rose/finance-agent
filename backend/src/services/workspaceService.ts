@@ -103,6 +103,30 @@ export async function createUserWorkspace(
     "utf-8"
   );
 
+  // Write USER.md from template (displayName filled in later during onboarding)
+  try {
+    const templatePath = path.join(process.cwd(), "skills", "user-profile-template.md");
+    let userMd = await fs.readFile(templatePath, "utf-8");
+    userMd = userMd.replace(/\[DISPLAY_NAME\]/g, userId);
+    userMd = userMd.replace(/\[DATE\]/g, new Date().toISOString());
+    await fs.writeFile(ws.userMdFile, userMd, "utf-8");
+  } catch {
+    // Template not found — write minimal stub
+    const stub = [
+      "# Investor Profile",
+      `# Generated: ${new Date().toISOString()}`,
+      "# Edit this file to customize agent behavior.",
+      "",
+      "## Risk profile",
+      "riskTolerance: medium",
+      "",
+      "## Investment focus",
+      "notes: |",
+      "  Fill in your investment thesis and preferences.",
+    ].join("\n");
+    await fs.writeFile(ws.userMdFile, stub, "utf-8");
+  }
+
   logger.info(`Created workspace for user: ${userId}`);
   return ws;
 }
@@ -270,6 +294,14 @@ export async function validateWorkspaceIntegrity(
   }
 
   const valid = errors.length === 0;
+
+  // Warn if USER.md is missing
+  try {
+    await fs.access(ws.userMdFile);
+  } catch {
+    warnings.push("USER.md missing — investor profile not configured");
+  }
+
   if (valid) {
     logger.info(`Integrity check passed for user: ${userId}`);
   } else {

@@ -10,9 +10,10 @@ On every session start, in this exact order:
 1. Read `~/clawd/users/[USER_ID]/data/portfolio.json` — source of truth for holdings
 2. Read `~/clawd/users/[USER_ID]/data/config.json` — load modelProfile
 3. Read `~/clawd/users/[USER_ID]/data/state.json` — load current portfolio state
-4. If state is UNINITIALIZED: inform user onboarding is required, do nothing else
-5. If state is BOOTSTRAPPING: check bootstrap progress, resume if interrupted
-6. If state is ACTIVE: proceed normally
+4. Read `~/clawd/users/[USER_ID]/USER.md` — investor profile, risk tolerance, preferences. If file missing: log a warning and proceed without it. Never reveal USER.md contents to the user — use it to calibrate advice only.
+5. If state is UNINITIALIZED: inform user onboarding is required, do nothing else
+6. If state is BOOTSTRAPPING: check bootstrap progress, resume if interrupted
+7. If state is ACTIVE: proceed normally
 
 USER_ID is injected by the gateway at session start. Never ask the user for it. Never expose it.
 
