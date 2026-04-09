@@ -69,7 +69,27 @@ router.get(
     );
     try {
       const raw = await fs.readFile(pageFile, "utf-8");
-      res.json(JSON.parse(raw));
+      const page = JSON.parse(raw) as {
+        page: number;
+        totalPages: number;
+        batches: Array<{
+          batchId: string;
+          date: string;
+          mode: string;
+          tickers: string[];
+          entries?: Record<string, { verdict?: string }>;
+          [key: string]: unknown;
+        }>;
+      };
+      // Reshape: snapshot stores tickers as string[], frontend expects {ticker, verdict}[]
+      const batches = page.batches.map((b) => ({
+        ...b,
+        tickers: b.tickers.map((ticker) => ({
+          ticker,
+          verdict: b.entries?.[ticker]?.verdict ?? "HOLD",
+        })),
+      }));
+      res.json({ ...page, batches });
     } catch {
       res.status(404).json({ error: "Page not found" });
     }

@@ -100,7 +100,8 @@ function main(): void {
   // workspace dirs don't produce /users/users/... double-nesting.
   const resolvedUsersDir = path.resolve(__dirname, "../../", USERS_DIR);
   const resolvedSnapshotsDir = path.resolve(resolvedUsersDir, userId, "data", "reports", "snapshots");
-  const resolvedIndexDir = path.resolve(resolvedUsersDir, userId, "data", "reports", "index");
+  // Index lives inside the snapshots dir so the backend can find it via ws.snapshotsDir
+  const resolvedIndexDir = path.join(resolvedSnapshotsDir, "index");
 
   let entries: fs.Dirent[];
   try {

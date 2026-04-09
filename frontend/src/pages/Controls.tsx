@@ -151,20 +151,6 @@ export function Controls() {
             action="new_ideas"
             onTrigger={() => {}}
           />
-          <ActionCard
-            icon="⚙️"
-            title="Testing Mode"
-            description="Switch to test models"
-            action="switch_testing"
-            onTrigger={() => {}}
-          />
-          <ActionCard
-            icon="⚙️"
-            title="Production Mode"
-            description="Switch to production models"
-            action="switch_production"
-            onTrigger={() => {}}
-          />
         </div>
 
         {/* Active jobs */}

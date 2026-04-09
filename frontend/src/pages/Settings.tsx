@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useToastStore } from "../store/toastStore";
 import { usePreferencesStore, type Theme, type Language } from "../store/preferencesStore";
@@ -9,7 +9,7 @@ import { fetchOnboardStatus } from "../api/onboarding";
 import { useQuery } from "@tanstack/react-query";
 import { TopBar } from "../components/ui/TopBar";
 import { Card } from "../components/ui/Card";
-import { User, Lock, Clock, Bot, BarChart2, LogOut, ChevronRight, X, Sliders, Sun, Moon, Monitor } from "lucide-react";
+import { User, Lock, Clock, Bot, BarChart2, LogOut, ChevronRight, X, Sun, Moon, Monitor } from "lucide-react";
 
 const DAYS = [
   { value: "sunday", label: "Sunday" },
@@ -428,27 +428,6 @@ export function Settings() {
             )}
             <p className="text-[10px] text-[var(--color-fg-subtle)] pt-1">{t("setByAdmin", lang)}</p>
           </Card>
-        </section>
-
-        {/* Advanced Controls */}
-        <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <Sliders size={12} /> {t("advancedControls", lang).toUpperCase()}
-          </h3>
-          <Link to="/controls">
-            <Card className="p-0 divide-y divide-[var(--color-border)]">
-              <div className="flex items-center justify-between p-4 text-sm text-[var(--color-fg-default)] hover:bg-[var(--color-bg-muted)] transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">⚡</span>
-                  <span className="font-medium">{t("advancedControls", lang)}</span>
-                </div>
-                <div className="flex items-center gap-2 text-[var(--color-fg-subtle)]">
-                  <span className="text-xs">Deep dive, daily brief, new ideas</span>
-                  <ChevronRight size={16} />
-                </div>
-              </div>
-            </Card>
-          </Link>
         </section>
 
         {/* Logout */}

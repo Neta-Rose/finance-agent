@@ -132,6 +132,51 @@ After completing analysis for any ticker, write the strategy file:
 **catalyst.expiresAt is mandatory for any HOLD verdict with a time-based thesis.**
 If you write HOLD and there is no catalyst with an expiresAt date, that is a rules violation. The daily check engine will flag it.
 
+### Mandatory catalysts — always include for every ticker
+
+**1. Time-horizon review catalyst (required for every position):**
+
+Read `preferredHoldingPeriod` from USER.md. Map to a review deadline:
+- `day_trading` / `short_term`: analysisDate + 7 days
+- `swing_trading`: analysisDate + 30 days
+- `medium_term` (default if unspecified): analysisDate + 60 days
+- `long_term`: analysisDate + 180 days
+
+Add this catalyst regardless of verdict:
+```json
+{
+  "description": "Scheduled review — thesis validity window for [timeframe] position expires. Re-evaluate if fundamentals or price action has changed.",
+  "expiresAt": "[ISO_DATE per holding period above]",
+  "triggered": false
+}
+```
+
+This ensures the HOLD rule is never violated and long-forgotten positions are always flagged.
+
+**2. Price support catalyst (when technical.json is available):**
+
+If `keyLevels.support` is non-null in technical.json, add:
+```json
+{
+  "description": "Price drops below technical support at [support_value] — thesis at risk, re-evaluate immediately.",
+  "expiresAt": null,
+  "triggered": false
+}
+```
+Also add to `exitConditions[]`: "Price closes below support at [support_value]"
+
+**3. Price resistance / take-profit catalyst (when technical.json is available):**
+
+If `keyLevels.resistance` is non-null, add:
+```json
+{
+  "description": "Price breaks above resistance at [resistance_value] — consider taking partial profit or adding if breakout confirmed.",
+  "expiresAt": null,
+  "triggered": false
+}
+```
+Also add to `exitConditions[]` or `entryConditions[]` as appropriate per verdict.
+
 After writing strategy.json:
 - Validate JSON (same python3 check)
 - Append a one-line entry to `~/clawd/users/[USER_ID]/data/tickers/[TICKER]/events.jsonl`:
