@@ -1,0 +1,20 @@
+{
+  "testing": {
+    "orchestrator": "deepseek-v3",
+    "analysts": "gemini-flash-lite",
+    "risk": "gemini-flash-lite",
+    "researchers": "deepseek-v3"
+  },
+  "production": {
+    "orchestrator": "claude-opus",
+    "analysts": "claude-sonnet",
+    "risk": "claude-haiku",
+    "researchers": "claude-opus"
+  },
+  "free": {
+    "orchestrator": "meta-llama/llama-3.3-70b-instruct:free",
+    "analysts": "google/gemma-3-27b-it:free",
+    "risk": "google/gemma-3-27b-it:free",
+    "researchers": "meta-llama/llama-3.3-70b-instruct:free"
+  }
+}
