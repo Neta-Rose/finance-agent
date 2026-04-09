@@ -39,8 +39,11 @@ export function createApp(): Express {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  // Rate limiter on all API routes
-  app.use("/api", apiLimiter);
+  // Rate limiter on all API routes except /api/admin (which uses X-Admin-Key auth)
+  app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/admin")) return next();
+    return apiLimiter(req, res, next);
+  });
 
   // Auth routes — login/logout/register (no JWT required)
   // Mounted BEFORE global authMiddleware so /api/auth/* bypasses auth

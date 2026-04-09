@@ -188,7 +188,7 @@ router.post(
       logger.warn(`Failed to add agent for ${userId}`, { err });
     }
 
-    await restartGateway();
+    // No extra restartGateway() here — addUserAgent() already restarts it internally
 
     res.status(201).json({ userId, created: true });
   })
