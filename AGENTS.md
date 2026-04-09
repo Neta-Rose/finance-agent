@@ -89,6 +89,37 @@ mkdir -p ~/clawd/users/[USER_ID]/data/reports/[TICKER]
 8. Dispatch Bull Researcher (Round 2) → `BULL_DONE — [TICKER] Round 2` → verify `bull_case.json` updated
 9. Dispatch Bear Researcher (Round 2) → `BEAR_DONE — [TICKER] Round 2` → verify `bear_case.json` updated
 
+### Rule: No existing strategy requires full Mode 2 (bull/bear mandatory)
+A ticker MUST receive full Mode 2 analysis (all 5 analysts + bull/bear debate, steps 1–9) if ANY of:
+- `~/clawd/users/[USER_ID]/data/tickers/[TICKER]/strategy.json` does not exist
+- strategy.json exists but `lastDeepDiveAt` is null
+
+**Never write a strategy.json with `bullCase: null` or `bearCase: null` for these tickers.**
+This applies during Mode 4 escalation — "escalate to Mode 2" means ALL 9 steps, not just steps 1–5.
+
+### Job file progress updates (required for dashboard feedback)
+For every job triggered by the dashboard (trigger file contains a `id` field = JOB_ID):
+- Read the job file at: `~/clawd/users/[USER_ID]/data/jobs/[JOB_ID].json`
+- After EACH analyst step completes, update the `progress` field and write the file back:
+
+```json
+{
+  "id": "job_...",
+  "action": "full_report",
+  "status": "running",
+  "progress": {
+    "currentTicker": "AAPL",
+    "currentStep": "technical",
+    "completedAnalysts": ["fundamentals"],
+    "completedTickers": [],
+    "remainingTickers": ["MSFT", "GOOGL"]
+  }
+}
+```
+
+Rules: preserve ALL existing fields in the job file. Only update/add the `progress` object.
+Read → merge `progress` → write. Never overwrite the whole file from scratch.
+
 ---
 
 ## 5. Strategy file protocol
@@ -190,9 +221,7 @@ After snapshot: update index by running `node ~/clawd/backend/dist/scripts/rebui
 Read from `~/clawd/users/[USER_ID]/data/config.json` on every session start.
 Never hardcode model names.
 
-Profiles:
-- testing: orchestrator=deepseek-v3, analysts=gemini-flash-lite, risk=gemini-flash-lite, researchers=deepseek-v3
-- production: orchestrator=claude-opus, analysts=claude-sonnet, risk=claude-haiku, researchers=claude-opus
+Profiles are defined in `~/clawd/data/model-profiles.json`. Read that file to get the actual model IDs for your current profile. Never hardcode model names — always read config.json first, then look up the profile in model-profiles.json.
 
 ---
 

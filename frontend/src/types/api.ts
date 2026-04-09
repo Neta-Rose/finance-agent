@@ -81,6 +81,17 @@ export interface VerdictsResponse {
  verdicts: VerdictRow[];
 }
 
+export interface JobProgress {
+ pct: number;
+ currentTicker: string | null;
+ currentStep: string | null;
+ completedTickers: string[];
+ remainingTickers: string[];
+ totalTickers: number;
+ completedSteps: number;
+ totalSteps: number;
+}
+
 export interface Job {
  id: string;
  action: JobAction;
@@ -91,6 +102,7 @@ export interface Job {
  completed_at: string | null;
  result: string | null;
  error: string | null;
+ progress?: JobProgress | null;
 }
 
 export interface JobsResponse { jobs: Job[]; }

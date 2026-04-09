@@ -6,10 +6,11 @@ import type { PositionRow as PositionRowType, VerdictRow } from "../../types/api
 interface PositionRowProps {
   position: PositionRowType;
   verdict?: VerdictRow;
+  hasAlert?: boolean;
   onClick: () => void;
 }
 
-export function PositionRow({ position, verdict, onClick }: PositionRowProps) {
+export function PositionRow({ position, verdict, hasAlert, onClick }: PositionRowProps) {
   const plClass = plColor(position.plPct);
   const stale = position.priceStale;
 
@@ -25,6 +26,15 @@ export function PositionRow({ position, verdict, onClick }: PositionRowProps) {
                 {position.exchange}
               </span>
               {verdict && <VerdictBadge verdict={verdict.verdict} size="sm" />}
+              {hasAlert && (
+                <span
+                  className="text-[10px] px-1 py-0.5 rounded font-medium"
+                  style={{ background: "rgba(239,68,68,0.12)", color: "var(--color-accent-red)" }}
+                  title="Needs attention"
+                >
+                  !
+                </span>
+              )}
               {stale && <span className="text-[10px]" title="Price may be stale">⚠️</span>}
             </div>
             <span className={`text-sm font-semibold shrink-0 ${plClass}`}>

@@ -49,6 +49,17 @@ export function Portfolio() {
     return map;
   }, [verdictsData]);
 
+  // Tickers that need attention: action-needed verdict or expired catalyst
+  const alertTickers = useMemo(() => {
+    const set = new Set<string>();
+    verdictsData?.verdicts.forEach((v) => {
+      if (["SELL", "REDUCE", "CLOSE"].includes(v.verdict) || v.hasExpiredCatalysts) {
+        set.add(v.ticker);
+      }
+    });
+    return set;
+  }, [verdictsData]);
+
   const { winners, losers } = useMemo(() => {
     if (!portfolio) return { winners: 0, losers: 0 };
     return {
@@ -151,6 +162,7 @@ export function Portfolio() {
             key={pos.ticker}
             position={pos}
             verdict={verdictMap[pos.ticker]}
+            hasAlert={alertTickers.has(pos.ticker)}
             onClick={() => handlePositionClick(pos)}
           />
         ))}
