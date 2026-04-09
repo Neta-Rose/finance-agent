@@ -6,6 +6,8 @@ import { Spinner } from "../ui/Spinner";
 import { ErrorState } from "../ui/ErrorState";
 import { VerdictBadge, ConfidenceBadge } from "../ui/Badge";
 import { useToastStore } from "../../store/toastStore";
+import { usePreferencesStore } from "../../store/preferencesStore";
+import { t, tConfidence, tTimeframe } from "../../store/i18n";
 import { timeAgo } from "../../utils/format";
 import type { StrategyRow } from "../../types/api";
 
@@ -16,6 +18,7 @@ interface StrategyModalProps {
 }
 
 function CatalystRow({ cat }: { cat: { description: string; expiresAt: string | null; triggered: boolean } }) {
+  const language = usePreferencesStore((s) => s.language);
   const isExpired = cat.expiresAt && new Date(cat.expiresAt) < new Date() && !cat.triggered;
   const isFuture = cat.expiresAt && new Date(cat.expiresAt) > new Date() && !cat.triggered;
   const daysOver = cat.expiresAt
@@ -27,20 +30,24 @@ function CatalystRow({ cat }: { cat: { description: string; expiresAt: string | 
 
   let icon = "⚪";
   let textColor = "text-[var(--color-fg-subtle)]";
-  let label = "No expiry";
+  let label = t("noExpiry", language);
 
   if (cat.triggered) {
     icon = "✅";
     textColor = "text-[var(--color-accent-green)]";
-    label = "Triggered";
+    label = t("triggered", language);
   } else if (isExpired) {
     icon = "🔴";
     textColor = "text-[var(--color-accent-red)]";
-    label = `Expired ${daysOver} day${daysOver !== 1 ? "s" : ""} ago`;
+    label = language === "he"
+      ? `פג לפני ${daysOver} יום`
+      : `Expired ${daysOver} day${daysOver !== 1 ? "s" : ""} ago`;
   } else if (isFuture) {
     icon = "🟡";
     textColor = "text-[var(--color-accent-yellow)]";
-    label = `Expires in ${daysUntil} day${daysUntil !== 1 ? "s" : ""}`;
+    label = language === "he"
+      ? `יפוג בעוד ${daysUntil} יום`
+      : `Expires in ${daysUntil} day${daysUntil !== 1 ? "s" : ""}`;
   }
 
   return (
@@ -55,43 +62,44 @@ function CatalystRow({ cat }: { cat: { description: string; expiresAt: string | 
 }
 
 function StrategyContent({ strategy }: { strategy: StrategyRow }) {
+  const language = usePreferencesStore((s) => s.language);
   return (
     <div className="space-y-4">
       {/* Meta row */}
       <div className="flex items-center gap-3 text-[10px] text-[var(--color-fg-muted)]">
-        <ConfidenceBadge confidence={strategy.confidence} />
+        <ConfidenceBadge confidence={tConfidence(strategy.confidence, language)} />
         <span>·</span>
-        <span>Updated {timeAgo(strategy.updatedAt)}</span>
+        <span>{t("strategyUpdated", language)} {timeAgo(strategy.updatedAt)}</span>
         <span>·</span>
-        <span className="capitalize">{strategy.timeframe}</span>
+        <span>{tTimeframe(strategy.timeframe, language)}</span>
       </div>
 
       {/* Reasoning */}
       <div>
-        <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">Reasoning</p>
+        <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">{t("reasoning", language)}</p>
         <p className="text-sm text-[var(--color-fg-default)] leading-relaxed">{strategy.reasoning}</p>
       </div>
 
       {/* Bull Case */}
       {strategy.verdict !== "BUY" && strategy.verdict !== "ADD" && (
         <div>
-          <p className="text-[10px] font-medium text-[var(--color-accent-green)] uppercase mb-1.5">Bull Case</p>
-          <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">Coming soon</p>
+          <p className="text-[10px] font-medium text-[var(--color-accent-green)] uppercase mb-1.5">{t("bullCase", language)}</p>
+          <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">{t("comingSoon", language)}</p>
         </div>
       )}
 
       {/* Bear Case */}
       {strategy.verdict !== "SELL" && strategy.verdict !== "CLOSE" && (
         <div>
-          <p className="text-[10px] font-medium text-[var(--color-accent-red)] uppercase mb-1.5">Bear Case</p>
-          <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">Coming soon</p>
+          <p className="text-[10px] font-medium text-[var(--color-accent-red)] uppercase mb-1.5">{t("bearCase", language)}</p>
+          <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">{t("comingSoon", language)}</p>
         </div>
       )}
 
       {/* Entry Conditions */}
       {strategy.entryConditions.length > 0 && (
         <div>
-          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">Entry Conditions</p>
+          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">{t("entryConditions", language)}</p>
           <ul className="space-y-1">
             {strategy.entryConditions.map((c, i) => (
               <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-fg-default)]">
@@ -106,7 +114,7 @@ function StrategyContent({ strategy }: { strategy: StrategyRow }) {
       {/* Exit Conditions */}
       {strategy.exitConditions.length > 0 && (
         <div>
-          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">Exit Conditions</p>
+          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">{t("exitConditions", language)}</p>
           <ul className="space-y-1">
             {strategy.exitConditions.map((c, i) => (
               <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-fg-default)]">
@@ -121,7 +129,7 @@ function StrategyContent({ strategy }: { strategy: StrategyRow }) {
       {/* Catalysts */}
       {strategy.catalysts.length > 0 && (
         <div>
-          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-2">Catalysts</p>
+          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-2">{t("catalysts", language)}</p>
           <div className="bg-[var(--color-bg-muted)] rounded-lg px-3">
             {strategy.catalysts.map((cat, i) => (
               <CatalystRow key={i} cat={cat} />
@@ -134,6 +142,7 @@ function StrategyContent({ strategy }: { strategy: StrategyRow }) {
 }
 
 export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProps) {
+  const language = usePreferencesStore((s) => s.language);
   const showToast = useToastStore((s) => s.show);
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -146,10 +155,10 @@ export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProp
     if (!ticker) return;
     try {
       await triggerJob("deep_dive", ticker);
-      showToast(`Deep dive queued for ${ticker}`, "success");
+      showToast(`${t("jobDeepDiveTitle", language)} — ${ticker} ${t("jobQueued", language)}`, "success");
       onDeepDive?.(ticker);
     } catch {
-      showToast("Failed to trigger deep dive", "error");
+      showToast(t("jobFailed", language), "error");
     }
   };
 
@@ -191,7 +200,7 @@ export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProp
             </div>
           )}
           {error && (
-            <ErrorState message="Failed to load strategy" onRetry={() => refetch()} />
+            <ErrorState message={t("failedLoadStrategy", language)} onRetry={() => refetch()} />
           )}
           {data && <StrategyContent strategy={data} />}
         </div>
@@ -203,7 +212,7 @@ export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProp
               onClick={handleDeepDive}
               className="w-full py-3 rounded-lg bg-[var(--color-accent-purple)] text-white text-sm font-semibold"
             >
-              🔬 Run Deep Dive
+              {t("runDeepDive", language)}
             </button>
           </div>
         )}

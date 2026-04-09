@@ -29,6 +29,13 @@ apiClient.interceptors.response.use(
  localStorage.removeItem("auth-storage");
  window.location.href = "/login";
  }
+ if (
+ err.response?.status === 404 &&
+ err.response?.data?.error === "user workspace not found"
+ ) {
+ localStorage.removeItem("auth-storage");
+ window.location.href = "/login";
+ }
  return Promise.reject(err);
  }
 );

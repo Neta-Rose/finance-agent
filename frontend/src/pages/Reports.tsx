@@ -2,9 +2,55 @@ import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import { TopBar } from "../components/ui/TopBar";
-
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
+import { usePreferencesStore } from "../store/preferencesStore";
+import { t } from "../store/i18n";
+
+function ReportTypeRow({
+  type,
+  batchId,
+  ticker,
+  content,
+  onExpand,
+}: {
+  type: string;
+  batchId: string;
+  ticker: string;
+  content: string | undefined;
+  onExpand: (key: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const key = `${batchId}:${ticker}:${type}`;
+  return (
+    <div className="bg-[var(--color-bg-base)] rounded-lg overflow-hidden">
+      <button
+        onClick={() => {
+          if (!expanded) onExpand(key);
+          setExpanded((v) => !v);
+        }}
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-muted)] capitalize"
+      >
+        {type.replace(/_/g, " ")}
+        <span className="text-[var(--color-fg-subtle)]">{expanded ? "▲" : "▼"}</span>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3">
+          {!content ? (
+            <div className="flex items-center gap-2 py-2">
+              <Spinner size="sm" />
+              <span className="text-[10px] text-[var(--color-fg-subtle)]">Loading...</span>
+            </div>
+          ) : (
+            <pre className="text-[10px] text-[var(--color-fg-muted)] whitespace-pre-wrap break-all font-mono bg-[var(--color-bg-muted)] rounded p-2 max-h-48 overflow-y-auto">
+              {content}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function modeIcon(mode: string) {
   switch (mode) {
@@ -43,6 +89,7 @@ interface ReportPageData {
 }
 
 export function Reports() {
+  const language = usePreferencesStore((s) => s.language);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
@@ -74,9 +121,18 @@ export function Reports() {
       const res = await apiClient.get(`/reports/batch/${batchId}/${ticker}/${type}`);
       setReportContent((prev) => ({ ...prev, [key]: JSON.stringify(res.data, null, 2) }));
     } catch {
-      setReportContent((prev) => ({ ...prev, [key]: "Failed to load report" }));
+      setReportContent((prev) => ({ ...prev, [key]: t("reportLoadError", language) }));
     }
-  }, [reportContent]);
+  }, [reportContent, language]);
+
+  // Called by ReportTypeRow when expanded — key format: "batchId:ticker:type"
+  const loadReport = useCallback((key: string) => {
+    const parts = key.split(":");
+    if (parts.length >= 3) {
+      const [batchId, ticker, ...typeParts] = parts;
+      fetchReport(batchId, ticker, typeParts.join(":"));
+    }
+  }, [fetchReport]);
 
   const toggleBatch = (batchId: string) => {
     setExpandedBatch((prev) => (prev === batchId ? null : batchId));
@@ -96,7 +152,7 @@ export function Reports() {
 
   return (
     <>
-      <TopBar title="Reports" subtitle={`${totalBatches} total`} />
+      <TopBar title={t("reports", language)} subtitle={`${totalBatches}`} />
 
       <div className="px-4 pt-3 pb-8 space-y-3">
         {isLoading && (
@@ -106,7 +162,7 @@ export function Reports() {
         )}
 
         {!isLoading && (!data || data.batches.length === 0) && (
-          <EmptyState message="No reports yet" icon="📄" />
+          <EmptyState message={t("emptyReports", language)} icon="📄" />
         )}
 
         {data?.batches.map((batch) => {
@@ -132,7 +188,7 @@ export function Reports() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-[var(--color-fg-muted)]">{batch.tickers.length} stocks</span>
+                  <span className="text-xs text-[var(--color-fg-muted)]">{batch.tickers.length}</span>
                   <span className="text-[var(--color-fg-subtle)]">{isExpanded ? "▲" : "▼"}</span>
                 </div>
               </div>
@@ -164,36 +220,16 @@ export function Reports() {
                     const types = ["fundamentals", "technical", "sentiment", "macro", "risk", "bull_case", "bear_case", "strategy"];
                     return (
                       <div className="space-y-2 pl-2 border-l-2 border-[var(--color-border)]">
-                        {types.map((type) => {
-                          const key = `${batch.batchId}:${ticker}:${type}`;
-                          const content = reportContent[key];
-                          const [typeExpanded, setTypeExpanded] = useState(false);
-                          return (
-                            <div key={type} className="bg-[var(--color-bg-base)] rounded-lg overflow-hidden">
-                              <button
-                                onClick={() => setTypeExpanded((v) => !v)}
-                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-muted)] capitalize"
-                              >
-                                {type.replace("_", " ")}
-                                <span className="text-[var(--color-fg-subtle)]">{typeExpanded ? "▲" : "▼"}</span>
-                              </button>
-                              {typeExpanded && (
-                                <div className="px-3 pb-3">
-                                  {!content ? (
-                                    <div className="flex items-center gap-2 py-2">
-                                      <Spinner size="sm" />
-                                      <span className="text-[10px] text-[var(--color-fg-subtle)]">Loading...</span>
-                                    </div>
-                                  ) : (
-                                    <pre className="text-[10px] text-[var(--color-fg-muted)] whitespace-pre-wrap break-all font-mono bg-[var(--color-bg-muted)] rounded p-2 max-h-48 overflow-y-auto">
-                                      {content}
-                                    </pre>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {types.map((type) => (
+                          <ReportTypeRow
+                            key={type}
+                            type={type}
+                            batchId={batch.batchId}
+                            ticker={ticker}
+                            content={reportContent[`${batch.batchId}:${ticker}:${type}`]}
+                            onExpand={loadReport}
+                          />
+                        ))}
                       </div>
                     );
                   })()}
@@ -211,17 +247,17 @@ export function Reports() {
               disabled={currentPage === 1}
               className="px-4 py-2 rounded-lg border border-[var(--color-border)] text-xs font-medium text-[var(--color-fg-muted)] disabled:opacity-30"
             >
-              ← Newer
+              {t("newerBtn", language)}
             </button>
             <span className="text-xs text-[var(--color-fg-subtle)]">
-              Page {currentPage} of {totalPages}
+              {t("pageOf", language)} {currentPage} / {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="px-4 py-2 rounded-lg border border-[var(--color-border)] text-xs font-medium text-[var(--color-fg-muted)] disabled:opacity-30"
             >
-              Older →
+              {t("olderBtn", language)}
             </button>
           </div>
         )}

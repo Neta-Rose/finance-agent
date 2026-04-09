@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchJob } from "../../api/jobs";
+import { usePreferencesStore } from "../../store/preferencesStore";
+import { t } from "../../store/i18n";
 import type { Job } from "../../types/api";
 
 interface JobCardProps {
@@ -39,6 +41,7 @@ function actionLabel(action: string): string {
 }
 
 export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
+  const language = usePreferencesStore((s) => s.language);
   const [job, setJob] = useState<Job>(initialJob);
   const [expanded, setExpanded] = useState(false);
   const [elapsedStr, setElapsedStr] = useState(() => elapsed(initialJob.started_at));
@@ -65,7 +68,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
 
   useEffect(() => {
     if (job.status === "pending" || job.status === "running") {
-      const id = setInterval(poll, 5000);
+      const id = setInterval(poll, 10000);
       return () => clearInterval(id);
     }
   }, [poll, job.status]);
@@ -131,7 +134,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
                       <span> · {prog.currentStep}</span>
                     )}
                   </>
-                : "Initializing…"
+                : t("jobInitializing", language)
               }
             </span>
             <span className="text-[10px] text-[var(--color-fg-subtle)] shrink-0 ml-2">
@@ -154,7 +157,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
           {/* Ticker count for multi-ticker jobs */}
           {prog && prog.totalTickers > 1 && (
             <div className="text-[10px] text-[var(--color-fg-subtle)]">
-              {prog.completedTickers.length} / {prog.totalTickers} tickers complete
+              {prog.completedTickers.length} / {prog.totalTickers} {t("jobTickersComplete", language)}
               {prog.remainingTickers.length > 0 && (
                 <span className="ml-1 text-[var(--color-fg-subtle)]">
                   · next: {prog.remainingTickers.slice(0, 3).join(", ")}
@@ -172,7 +175,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
           <div className="flex gap-4 text-[10px] text-[var(--color-fg-subtle)]">
             <span>ID: <span className="font-mono">{job.id.slice(-10)}</span></span>
             {job.triggered_at && (
-              <span>Queued: {new Date(job.triggered_at).toLocaleTimeString()}</span>
+              <span>{t("jobQueued2", language)} {new Date(job.triggered_at).toLocaleTimeString()}</span>
             )}
           </div>
           {job.status === "completed" && job.result && (
@@ -181,14 +184,14 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
             </p>
           )}
           {job.status === "completed" && !job.result && (
-            <p className="text-xs text-[var(--color-fg-subtle)]">Completed successfully.</p>
+            <p className="text-xs text-[var(--color-fg-subtle)]">{t("jobCompletedOk", language)}</p>
           )}
           {job.status === "failed" && job.error && (
             <p className="text-xs text-[var(--color-accent-red)]">{job.error}</p>
           )}
           {prog?.completedTickers && prog.completedTickers.length > 0 && (
             <p className="text-[10px] text-[var(--color-fg-subtle)]">
-              Done: {prog.completedTickers.join(", ")}
+              {t("jobDone", language)} {prog.completedTickers.join(", ")}
             </p>
           )}
         </div>

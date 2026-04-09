@@ -28,6 +28,8 @@ const VALID_REPORT_TYPES = [
   "risk",
   "bull",
   "bear",
+  "bull_case",
+  "bear_case",
   "strategy",
 ];
 

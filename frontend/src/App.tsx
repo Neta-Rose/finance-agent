@@ -2,6 +2,8 @@ import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "./store/authStore";
+import { usePreferencesStore } from "./store/preferencesStore";
+import { t } from "./store/i18n";
 import { BottomNav } from "./components/ui/BottomNav";
 import { ToastContainer } from "./components/ui/Toast";
 import { Login } from "./pages/Login";
@@ -27,8 +29,9 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
- const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
- const [bannerDismissed, setBannerDismissed] = useState(false);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const language = usePreferencesStore((s) => s.language);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
  const { data: onboardStatus, isLoading, error } = useQuery({
    queryKey: ["onboard-status"],
@@ -69,7 +72,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
            color: "var(--color-accent-red)",
          }}
        >
-         <span>Your AI advisor is experiencing issues. Reports may be delayed — please contact support.</span>
+         <span>{t("healthBanner", language)}</span>
          <button
            onClick={() => setBannerDismissed(true)}
            className="ml-4 shrink-0 text-base leading-none opacity-70 hover:opacity-100"

@@ -17,9 +17,12 @@ import {
   type ProfileDefinition,
   type ProfilesRegistry,
 } from "../api/admin";
+import { usePreferencesStore } from "../store/preferencesStore";
+import { t } from "../store/i18n";
 
 // ---- Login ----
 function AdminLogin({ onLogin }: { onLogin: () => void }) {
+  const language = usePreferencesStore((s) => s.language);
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
 
@@ -32,7 +35,7 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
       onLogin();
     } catch {
       sessionStorage.removeItem("admin_key");
-      setError("Invalid admin key");
+      setError(t("adminLoginError", language));
     }
   };
 
@@ -41,20 +44,20 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">🦞</div>
-          <h1 className="text-xl font-bold text-[var(--color-fg-default)]">Admin Panel</h1>
-          <p className="text-sm text-[var(--color-fg-muted)] mt-1">rebalancer.shop</p>
+          <h1 className="text-xl font-bold text-[var(--color-fg-default)]">{t("adminTitle", language)}</h1>
+          <p className="text-sm text-[var(--color-fg-muted)] mt-1">{t("adminLoginSub", language)}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="password"
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder="Admin Key"
+            placeholder={t("adminKeyPlaceholder", language)}
             className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
           />
           {error && <p className="text-[var(--color-accent-red)] text-sm text-center">{error}</p>}
           <button type="submit" className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white font-semibold text-sm">
-            Sign In
+            {t("adminSignIn", language)}
           </button>
         </form>
       </div>
@@ -72,6 +75,7 @@ function RateLimitsEditor({
   onSave: (l: RateLimits) => void;
   onCancel: () => void;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const [draft, setDraft] = useState<RateLimits>({ ...limits });
 
   const update = (key: keyof RateLimits, field: "maxPerPeriod" | "periodHours", val: number) => {
@@ -82,10 +86,10 @@ function RateLimitsEditor({
   };
 
   const rows: Array<{ key: keyof RateLimits; label: string }> = [
-    { key: "full_report", label: "Full report" },
-    { key: "daily_brief", label: "Daily brief" },
-    { key: "deep_dive", label: "Deep dive" },
-    { key: "new_ideas", label: "New ideas" },
+    { key: "full_report", label: t("fullReport", language) },
+    { key: "daily_brief", label: t("dailyBriefLimit", language) },
+    { key: "deep_dive", label: t("deepDiveLimit", language) },
+    { key: "new_ideas", label: t("newIdeasLimit", language) },
   ];
 
   return (
@@ -93,7 +97,7 @@ function RateLimitsEditor({
       {rows.map(({ key, label }) => (
         <div key={key} className="flex items-center gap-2 text-xs">
           <span className="w-24 text-[var(--color-fg-muted)] shrink-0">{label}</span>
-          <span className="text-[var(--color-fg-subtle)]">max</span>
+          <span className="text-[var(--color-fg-subtle)]">{t("adminMax", language)}</span>
           <input
             type="number"
             value={draft[key].maxPerPeriod}
@@ -101,7 +105,7 @@ function RateLimitsEditor({
             onChange={(e) => update(key, "maxPerPeriod", Number(e.target.value))}
             className="w-16 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
           />
-          <span className="text-[var(--color-fg-subtle)]">per</span>
+          <span className="text-[var(--color-fg-subtle)]">{t("adminPer", language)}</span>
           <input
             type="number"
             value={draft[key].periodHours}
@@ -109,15 +113,15 @@ function RateLimitsEditor({
             onChange={(e) => update(key, "periodHours", Number(e.target.value))}
             className="w-16 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
           />
-          <span className="text-[var(--color-fg-subtle)]">hrs</span>
+          <span className="text-[var(--color-fg-subtle)]">{t("adminHrs", language)}</span>
         </div>
       ))}
       <div className="flex gap-2 pt-2">
         <button onClick={onCancel} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-medium text-[var(--color-fg-muted)]">
-          Cancel
+          {t("cancel", language)}
         </button>
         <button onClick={() => onSave(draft)} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold">
-          Save
+          {t("save", language)}
         </button>
       </div>
     </div>
@@ -126,6 +130,7 @@ function RateLimitsEditor({
 
 // ---- Add User Modal ----
 function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const language = usePreferencesStore((s) => s.language);
   const [form, setForm] = useState({
     userId: "",
     password: "",
@@ -154,7 +159,7 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.userId.trim() || !form.password) { setError("User ID and password required"); return; }
+    if (!form.userId.trim() || !form.password) { setError(t("adminUserCreationError", language)); return; }
     setLoading(true);
     setError("");
     try {
@@ -180,73 +185,78 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
       onAdded();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create user");
+      setError(err instanceof Error ? err.message : t("adminUserCreationFailed", language));
     } finally {
       setLoading(false);
     }
   };
+
+  const inputCls = "w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]";
+  const labelCls = "text-xs text-[var(--color-fg-muted)] block mb-1";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative w-full bg-[var(--color-bg-subtle)] md:rounded-xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between">
-          <h2 className="text-sm font-bold">Add User</h2>
+          <h2 className="text-sm font-bold">{t("adminAddUser", language)}</h2>
           <button onClick={onClose} className="text-[var(--color-fg-muted)] text-lg">×</button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && <p className="text-[var(--color-accent-red)] text-xs">{error}</p>}
 
           <div className="space-y-3">
-            <div><label className="text-xs text-[var(--color-fg-muted)] block mb-1">User ID *</label>
-              <input type="text" value={form.userId} onChange={set("userId")}
-                placeholder="john-doe" maxLength={32}
-                className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
+            <div>
+              <label className={labelCls}>{t("adminUserIdLabel", language)} *</label>
+              <input type="text" value={form.userId} onChange={set("userId")} placeholder="john-doe" maxLength={32} className={inputCls} />
             </div>
-            <div><label className="text-xs text-[var(--color-fg-muted)] block mb-1">Password *</label>
-              <input type="password" value={form.password} onChange={set("password")}
-                className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
+            <div>
+              <label className={labelCls}>{t("adminPasswordLabel", language)} *</label>
+              <input type="password" value={form.password} onChange={set("password")} className={inputCls} />
             </div>
-            <div><label className="text-xs text-[var(--color-fg-muted)] block mb-1">Display Name</label>
-              <input type="text" value={form.displayName} onChange={set("displayName")}
-                className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
+            <div>
+              <label className={labelCls}>{t("adminDisplayNameLabel", language)}</label>
+              <input type="text" value={form.displayName} onChange={set("displayName")} className={inputCls} />
             </div>
           </div>
 
           <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">Telegram (optional)</p>
+            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminTelegramSection", language)}</p>
             <div className="space-y-2">
-              <div><label className="text-xs text-[var(--color-fg-muted)] block mb-1">Chat ID</label>
-                <input type="text" value={form.telegramChatId} onChange={set("telegramChatId")}
-                  className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
+              <div>
+                <label className={labelCls}>{t("chatId", language)}</label>
+                <input type="text" value={form.telegramChatId} onChange={set("telegramChatId")} className={inputCls} />
               </div>
-              <div><label className="text-xs text-[var(--color-fg-muted)] block mb-1">Bot Token (from BotFather)</label>
-                <input type="text" value={form.botToken} onChange={set("botToken")}
-                  className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
+              <div>
+                <label className={labelCls}>{t("botToken", language)}</label>
+                <input type="text" value={form.botToken} onChange={set("botToken")} className={inputCls} />
               </div>
             </div>
           </div>
 
           <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">Schedule</p>
+            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminScheduleSection", language)}</p>
             <div className="grid grid-cols-3 gap-2">
-              <div><label className="text-xs text-[var(--color-fg-muted)] block mb-1">Daily time</label>
+              <div>
+                <label className={labelCls}>{t("adminDailyTime", language)}</label>
                 <input type="time" value={form.dailyBriefTime} onChange={set("dailyBriefTime")}
                   className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-fg-default)] outline-none w-full" />
               </div>
-              <div><label className="text-xs text-[var(--color-fg-muted)] block mb-1">Weekly day</label>
+              <div>
+                <label className={labelCls}>{t("adminWeeklyDay", language)}</label>
                 <select value={form.weeklyResearchDay} onChange={set("weeklyResearchDay")}
                   className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-fg-default)] outline-none w-full">
                   {["sunday","monday","tuesday","wednesday","thursday","friday","saturday"].map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
-              <div><label className="text-xs text-[var(--color-fg-muted)] block mb-1">Weekly time</label>
+              <div>
+                <label className={labelCls}>{t("adminWeeklyTime", language)}</label>
                 <input type="time" value={form.weeklyResearchTime} onChange={set("weeklyResearchTime")}
                   className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-fg-default)] outline-none w-full" />
               </div>
             </div>
             <div className="mt-2">
-              <label className="text-xs text-[var(--color-fg-muted)] block mb-1">Timezone</label>
+              <label className={labelCls}>{t("timezone", language)}</label>
               <select value={form.timezone} onChange={set("timezone")}
                 className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--color-fg-default)] outline-none w-full">
                 {["Asia/Jerusalem","America/New_York","America/Los_Angeles","America/Chicago","Europe/London","Europe/Paris","Asia/Tokyo","Asia/Singapore","Australia/Sydney"].map(tz => <option key={tz} value={tz}>{tz}</option>)}
@@ -255,25 +265,25 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           </div>
 
           <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">Rate Limits</p>
+            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminRateLimitsSection", language)}</p>
             <div className="space-y-1.5 text-xs">
               {[
-                { key: "full_report", label: "Full report", maxKey: "full_report_max", periodKey: "full_report_period" },
-                { key: "daily_brief", label: "Daily brief", maxKey: "daily_brief_max", periodKey: "daily_brief_period" },
-                { key: "deep_dive", label: "Deep dive", maxKey: "deep_dive_max", periodKey: "deep_dive_period" },
-                { key: "new_ideas", label: "New ideas", maxKey: "new_ideas_max", periodKey: "new_ideas_period" },
+                { key: "full_report", label: t("fullReport", language), maxKey: "full_report_max", periodKey: "full_report_period" },
+                { key: "daily_brief", label: t("dailyBriefLimit", language), maxKey: "daily_brief_max", periodKey: "daily_brief_period" },
+                { key: "deep_dive", label: t("deepDiveLimit", language), maxKey: "deep_dive_max", periodKey: "deep_dive_period" },
+                { key: "new_ideas", label: t("newIdeasLimit", language), maxKey: "new_ideas_max", periodKey: "new_ideas_period" },
               ].map(({ key, label, maxKey, periodKey }) => (
                 <div key={key} className="flex items-center gap-2">
                   <span className="w-24 text-[var(--color-fg-muted)]">{label}</span>
-                  <span className="text-[var(--color-fg-subtle)]">max</span>
+                  <span className="text-[var(--color-fg-subtle)]">{t("adminMax", language)}</span>
                   <input type="number" value={(form as Record<string,string>)[maxKey]} min={1}
                     onChange={set(maxKey as keyof typeof form)}
                     className="w-14 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none" />
-                  <span className="text-[var(--color-fg-subtle)]">per</span>
+                  <span className="text-[var(--color-fg-subtle)]">{t("adminPer", language)}</span>
                   <input type="number" value={(form as Record<string,string>)[periodKey]} min={1}
                     onChange={set(periodKey as keyof typeof form)}
                     className="w-14 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none" />
-                  <span className="text-[var(--color-fg-subtle)]">hrs</span>
+                  <span className="text-[var(--color-fg-subtle)]">{t("adminHrs", language)}</span>
                 </div>
               ))}
             </div>
@@ -282,11 +292,11 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 rounded-lg border border-[var(--color-border)] text-sm font-medium text-[var(--color-fg-muted)]">
-              Cancel
+              {t("cancel", language)}
             </button>
             <button type="submit" disabled={loading}
               className="flex-1 py-2.5 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50">
-              {loading ? "Creating..." : "Create User"}
+              {loading ? t("adminCreating", language) : t("adminCreateUser", language)}
             </button>
           </div>
         </form>
@@ -305,29 +315,30 @@ function ProfileEditor({
   onSave: (def: ProfileDefinition) => void;
   onCancel: () => void;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const [draft, setDraft] = useState<ProfileDefinition>({ ...initial });
-  const fields: Array<{ key: keyof ProfileDefinition; label: string }> = [
-    { key: "orchestrator", label: "Orchestrator" },
-    { key: "analysts", label: "Analysts" },
-    { key: "risk", label: "Risk" },
-    { key: "researchers", label: "Researchers" },
+  const fields: Array<{ key: keyof ProfileDefinition; labelKey: "adminOrchestrator" | "adminAnalysts" | "adminRisk" | "adminResearchers" }> = [
+    { key: "orchestrator", labelKey: "adminOrchestrator" },
+    { key: "analysts", labelKey: "adminAnalysts" },
+    { key: "risk", labelKey: "adminRisk" },
+    { key: "researchers", labelKey: "adminResearchers" },
   ];
   return (
     <div className="space-y-2 pt-1">
-      {fields.map(({ key, label }) => (
+      {fields.map(({ key, labelKey }) => (
         <div key={key} className="flex items-center gap-2 text-xs">
-          <span className="w-24 shrink-0 text-[var(--color-fg-muted)]">{label}</span>
+          <span className="w-24 shrink-0 text-[var(--color-fg-muted)]">{t(labelKey, language)}</span>
           <input
             value={draft[key]}
             onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
             className="flex-1 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
-            placeholder={`model id for ${label.toLowerCase()}`}
+            placeholder={`model id`}
           />
         </div>
       ))}
       <div className="flex gap-2 pt-2">
-        <button onClick={onCancel} className="flex-1 py-1.5 rounded border border-[var(--color-border)] text-xs text-[var(--color-fg-muted)]">Cancel</button>
-        <button onClick={() => onSave(draft)} className="flex-1 py-1.5 rounded bg-[var(--color-accent-blue)] text-white text-xs font-semibold">Save</button>
+        <button onClick={onCancel} className="flex-1 py-1.5 rounded border border-[var(--color-border)] text-xs text-[var(--color-fg-muted)]">{t("cancel", language)}</button>
+        <button onClick={() => onSave(draft)} className="flex-1 py-1.5 rounded bg-[var(--color-accent-blue)] text-white text-xs font-semibold">{t("save", language)}</button>
       </div>
     </div>
   );
@@ -335,6 +346,7 @@ function ProfileEditor({
 
 // ---- Profiles Section ----
 function ProfilesSection({ onError }: { onError: (msg: string) => void }) {
+  const language = usePreferencesStore((s) => s.language);
   const [profiles, setProfiles] = useState<ProfilesRegistry>({});
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -346,9 +358,9 @@ function ProfilesSection({ onError }: { onError: (msg: string) => void }) {
       const { profiles: p } = await adminFetchProfiles();
       setProfiles(p);
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Failed to load profiles");
+      onError(e instanceof Error ? e.message : t("adminFailedLoadProfiles", language));
     }
-  }, [onError]);
+  }, [onError, language]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -358,7 +370,7 @@ function ProfilesSection({ onError }: { onError: (msg: string) => void }) {
       setEditing(null);
       await load();
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Failed to update profile");
+      onError(e instanceof Error ? e.message : t("adminFailedUpdateProfile", language));
     }
   };
 
@@ -370,28 +382,28 @@ function ProfilesSection({ onError }: { onError: (msg: string) => void }) {
       setNewDef({ orchestrator: "", analysts: "", risk: "", researchers: "" });
       await load();
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Failed to create profile");
+      onError(e instanceof Error ? e.message : t("adminFailedCreateProfile", language));
     }
   };
 
   const handleDelete = async (name: string) => {
-    if (!confirm(`Delete profile "${name}"? This cannot be undone.`)) return;
+    if (!confirm(`${t("adminConfirmDeleteProfile", language)} "${name}"?`)) return;
     try {
       await adminDeleteProfile(name);
       await load();
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Failed to delete profile");
+      onError(e instanceof Error ? e.message : t("adminFailedDeleteProfile", language));
     }
   };
 
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-[var(--color-fg-default)]">Model Profiles</h2>
+        <h2 className="text-sm font-bold text-[var(--color-fg-default)]">{t("adminModelProfiles", language)}</h2>
         <button
           onClick={() => setAdding(true)}
           className="text-xs px-3 py-1 rounded-lg bg-[var(--color-accent-blue)] text-white font-semibold"
-        >+ Add Profile</button>
+        >{t("adminAddProfile", language)}</button>
       </div>
       <div className="space-y-2">
         {Object.entries(profiles).map(([name, def]) => (
@@ -401,10 +413,10 @@ function ProfilesSection({ onError }: { onError: (msg: string) => void }) {
               <div className="flex gap-3">
                 <button onClick={() => setEditing(editing === name ? null : name)}
                   className="text-xs text-[var(--color-accent-blue)]">
-                  {editing === name ? "Cancel" : "Edit"}
+                  {editing === name ? t("cancel", language) : t("edit", language)}
                 </button>
                 <button onClick={() => handleDelete(name)}
-                  className="text-xs text-[var(--color-accent-red)]">Delete</button>
+                  className="text-xs text-[var(--color-accent-red)]">{t("delete", language)}</button>
               </div>
             </div>
             {editing !== name && (
@@ -426,11 +438,11 @@ function ProfilesSection({ onError }: { onError: (msg: string) => void }) {
         {adding && (
           <div className="bg-[var(--color-bg-subtle)] rounded-xl px-4 py-3 border border-[var(--color-accent-blue)]">
             <div className="mb-2">
-              <label className="text-xs text-[var(--color-fg-muted)] block mb-1">Profile Name</label>
+              <label className="text-xs text-[var(--color-fg-muted)] block mb-1">{t("adminProfileName", language)}</label>
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. budget"
+                placeholder={t("adminProfileNameHint", language)}
                 className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
               />
             </div>
@@ -460,6 +472,7 @@ function ProfileBadge({
   onChanged: () => void;
   onError: (msg: string) => void;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const [open, setOpen] = useState(false);
   const colorMap: Record<string, string> = {
     testing: "bg-blue-500/20 text-blue-400",
@@ -474,7 +487,7 @@ function ProfileBadge({
       await adminSetUserProfile(userId, name);
       onChanged();
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Failed to switch profile");
+      onError(e instanceof Error ? e.message : t("adminFailedSwitchProfile", language));
     }
   };
 
@@ -505,8 +518,9 @@ function ProfileBadge({
 
 // ---- Health Badge ----
 function HealthBadge({ health }: { health: UserSummary["agentHealth"] }) {
+  const language = usePreferencesStore((s) => s.language);
   if (health.healthy) {
-    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">OK</span>;
+    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">{t("adminStatusOk", language)}</span>;
   }
   const tooltip = health.lastErrorReason
     ? `${health.lastErrorReason} (${health.consecutiveErrors} errors)`
@@ -518,7 +532,7 @@ function HealthBadge({ health }: { health: UserSummary["agentHealth"] }) {
       title={tooltip}
       className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium cursor-help"
     >
-      Error ⚠
+      {t("adminStatusError", language)}
     </span>
   );
 }
@@ -541,6 +555,7 @@ function UserCard({
   onProfileChanged: () => void;
   onError: (msg: string) => void;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const [showLimits, setShowLimits] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -571,6 +586,11 @@ function UserCard({
     setShowLimits(false);
   };
 
+  const stateLabel = user.state === "ACTIVE" ? t("adminStateActive", language)
+    : user.state === "BOOTSTRAPPING" ? t("adminStateBootstrapping", language)
+    : user.state;
+  const portfolioLabel = user.portfolioLoaded ? t("adminPortfolioLoaded", language) : t("adminPortfolioMissing", language);
+
   return (
     <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg p-4">
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -580,8 +600,7 @@ function UserCard({
             <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono">@{user.userId}</span>
           </div>
           <p className={`text-[10px] font-medium uppercase mt-0.5 ${stateColor}`}>
-            {user.state}
-            {user.portfolioLoaded ? " · portfolio ✓" : " · portfolio ✗"}
+            {stateLabel} · {portfolioLabel}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -598,45 +617,45 @@ function UserCard({
 
       <div className="text-[11px] text-[var(--color-fg-muted)] space-y-0.5 mb-3">
         {user.hasTelegram ? (
-          <p>🔔 Telegram: ✅ connected{user.telegramChatId ? ` (${user.telegramChatId})` : ""}</p>
+          <p>{t("adminTelegramYes", language)}{user.telegramChatId ? ` (${user.telegramChatId})` : ""}</p>
         ) : (
-          <p>🔔 Telegram: ✗ not connected</p>
+          <p>{t("adminTelegramNo", language)}</p>
         )}
-        <p>📊 Deep dives: {user.rateLimits.deep_dive.maxPerPeriod}/day · Full reports: {user.rateLimits.full_report.maxPerPeriod}/week</p>
+        <p>{t("adminDeepDives", language)} {user.rateLimits.deep_dive.maxPerPeriod}/{t("perDay", language).replace("/ ", "")} · {t("adminFullReportsLabel", language)} {user.rateLimits.full_report.maxPerPeriod}/{t("perWeek", language).replace("/ ", "")}</p>
       </div>
 
       <div className="flex gap-2 flex-wrap">
         {user.hasTelegram ? (
           <button onClick={() => setShowTelegram(!showTelegram)}
             className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[10px] font-medium text-[var(--color-fg-muted)]">
-            Edit Telegram
+            {t("adminEditTelegram", language)}
           </button>
         ) : (
           <button onClick={() => setShowTelegram(!showTelegram)}
             className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[10px] font-medium text-[var(--color-accent-blue)]">
-            Add Telegram
+            {t("adminAddTelegram", language)}
           </button>
         )}
         <button onClick={() => setShowLimits(!showLimits)}
           className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[10px] font-medium text-[var(--color-fg-muted)]">
-          Edit Limits
+          {t("adminEditLimits", language)}
         </button>
         <button onClick={() => setShowDelete(true)}
           className="px-3 py-1.5 rounded-lg border border-[var(--color-accent-red)]/40 text-[10px] font-medium text-[var(--color-accent-red)]">
-          Delete
+          {t("delete", language)}
         </button>
       </div>
 
       {/* Edit Telegram */}
       {showTelegram && (
         <div className="mt-3 pt-3 border-t border-[var(--color-border)] space-y-2">
-          <input type="text" placeholder="Bot Token" value={botToken} onChange={(e) => setBotToken(e.target.value)}
+          <input type="text" placeholder={t("botToken", language)} value={botToken} onChange={(e) => setBotToken(e.target.value)}
             className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
-          <input type="text" placeholder="Chat ID" value={chatId} onChange={(e) => setChatId(e.target.value)}
+          <input type="text" placeholder={t("chatId", language)} value={chatId} onChange={(e) => setChatId(e.target.value)}
             className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
           <button onClick={() => { onAddTelegram(user.userId, botToken, chatId); setShowTelegram(false); setBotToken(""); }}
             className="w-full py-1.5 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold">
-            Save Telegram
+            {t("adminSaveTelegram", language)}
           </button>
         </div>
       )}
@@ -652,14 +671,14 @@ function UserCard({
       {showDelete && (
         <div className="mt-3 pt-3 border-t border-[var(--color-border)] space-y-2">
           <p className="text-[10px] text-[var(--color-accent-red)]">
-            Type <strong>{user.userId}</strong> to confirm deletion:
+            {t("adminTypeToConfirm", language)} <strong>{user.userId}</strong> {t("adminToConfirmDeletion", language)}
           </p>
           <input type="text" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)}
             placeholder={user.userId}
             className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-accent-red)]/40 rounded-lg px-3 py-1.5 text-xs text-[var(--color-fg-default)] outline-none" />
           <button onClick={handleDelete} disabled={deleteConfirm !== user.userId || deleting}
             className="w-full py-1.5 rounded-lg bg-[var(--color-accent-red)] text-white text-xs font-semibold disabled:opacity-40">
-            {deleting ? "Deleting..." : "Confirm Delete"}
+            {deleting ? t("adminDeleting", language) : t("adminConfirmDelete", language)}
           </button>
         </div>
       )}
@@ -669,6 +688,7 @@ function UserCard({
 
 // ---- Main Admin Page ----
 export function Admin() {
+  const language = usePreferencesStore((s) => s.language);
   const isLoggedIn = !!sessionStorage.getItem("admin_key");
   const [loggedIn, setLoggedIn] = useState(isLoggedIn);
   const [status, setStatus] = useState<AdminStatus | null>(null);
@@ -723,12 +743,12 @@ export function Admin() {
       <div className="sticky top-0 z-30 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">🦞</span>
-          <span className="font-bold text-sm text-[var(--color-fg-default)]">Admin Panel</span>
-          <span className="text-xs text-[var(--color-fg-subtle)]">rebalancer.shop</span>
+          <span className="font-bold text-sm text-[var(--color-fg-default)]">{t("adminTitle", language)}</span>
+          <span className="text-xs text-[var(--color-fg-subtle)]">{t("adminLoginSub", language)}</span>
         </div>
         <button onClick={() => { sessionStorage.removeItem("admin_key"); setLoggedIn(false); }}
           className="text-[10px] text-[var(--color-fg-muted)] border border-[var(--color-border)] rounded px-2 py-1">
-          Logout
+          {t("logout", language)}
         </button>
       </div>
 
@@ -736,19 +756,19 @@ export function Admin() {
         {/* Status bar */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-center">
-            <p className="text-xs text-[var(--color-fg-subtle)]">Gateway</p>
+            <p className="text-xs text-[var(--color-fg-subtle)]">{t("adminGateway", language)}</p>
             <p className={`text-sm font-bold mt-0.5 ${status?.gatewayRunning ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
-              {status?.gatewayRunning ? "🟢 running" : "🔴 stopped"}
+              {status?.gatewayRunning ? t("adminRunning", language) : t("adminStopped", language)}
             </p>
           </div>
           <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-center">
-            <p className="text-xs text-[var(--color-fg-subtle)]">Users</p>
+            <p className="text-xs text-[var(--color-fg-subtle)]">{t("adminUsers", language)}</p>
             <p className="text-sm font-bold text-[var(--color-fg-default)] mt-0.5">
-              {users.length} total
+              {users.length} {t("adminTotal", language)}
             </p>
           </div>
           <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-center">
-            <p className="text-xs text-[var(--color-fg-subtle)]">Active</p>
+            <p className="text-xs text-[var(--color-fg-subtle)]">{t("adminActive", language)}</p>
             <p className="text-sm font-bold text-[var(--color-accent-green)] mt-0.5">
               {status?.activeAgents ?? 0}
             </p>
@@ -769,14 +789,14 @@ export function Admin() {
         {/* Add user */}
         <button onClick={() => setShowAdd(true)}
           className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold">
-          + Add User
+          + {t("adminAddUser", language)}
         </button>
 
         {/* User cards */}
         {loading && users.length === 0 ? (
-          <div className="text-center py-12 text-[var(--color-fg-muted)] text-sm">Loading...</div>
+          <div className="text-center py-12 text-[var(--color-fg-muted)] text-sm">{t("loading", language)}</div>
         ) : users.length === 0 ? (
-          <div className="text-center py-12 text-[var(--color-fg-muted)] text-sm">No users yet</div>
+          <div className="text-center py-12 text-[var(--color-fg-muted)] text-sm">{t("adminNoUsers", language)}</div>
         ) : (
           <div className="space-y-3">
             {users.map((user) => (

@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useToastStore } from "../store/toastStore";
+import { usePreferencesStore } from "../store/preferencesStore";
 import { submitOnboardInit, submitPortfolio, type PositionEntry } from "../api/onboarding";
 import { login } from "../api/auth";
 import { generateId } from "../utils/id";
 import { apiClient } from "../api/client";
+import { t, type TranslationKey } from "../store/i18n";
 
 const EXCHANGES = [
   { value: "NYSE", label: "NYSE", currency: "USD" },
@@ -21,14 +23,14 @@ const CURRENCIES = ["USD", "ILA", "GBP", "EUR"] as const;
 type Exchange = typeof EXCHANGES[number]["value"];
 type Currency = typeof CURRENCIES[number];
 
-const DAYS = [
-  { value: "sunday", label: "Sunday" },
-  { value: "monday", label: "Monday" },
-  { value: "tuesday", label: "Tuesday" },
-  { value: "wednesday", label: "Wednesday" },
-  { value: "thursday", label: "Thursday" },
-  { value: "friday", label: "Friday" },
-  { value: "saturday", label: "Saturday" },
+const DAY_KEYS: Array<{ value: string; key: TranslationKey }> = [
+  { value: "sunday", key: "daySunday" },
+  { value: "monday", key: "dayMonday" },
+  { value: "tuesday", key: "dayTuesday" },
+  { value: "wednesday", key: "dayWednesday" },
+  { value: "thursday", key: "dayThursday" },
+  { value: "friday", key: "dayFriday" },
+  { value: "saturday", key: "daySaturday" },
 ];
 
 const TIMEZONES = [
@@ -63,7 +65,6 @@ interface OnboardingState {
   weeklyResearchTime: string;
   timezone: string;
   accounts: Account[];
-  // Telegram step fields
   botToken: string;
   telegramSkip: boolean;
 }
@@ -107,17 +108,18 @@ function ProgressDots({ step, total = 5 }: { step: number; total?: number }) {
   );
 }
 
-function BottomBar({ onBack, onNext, nextLabel = "Next", nextDisabled = false, showBack = true }: {
+function BottomBar({ onBack, onNext, nextLabel, nextDisabled = false, showBack = true }: {
   onBack?: () => void; onNext: () => void; nextLabel?: string; nextDisabled?: boolean; showBack?: boolean;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border)] p-4 flex gap-3 safe-bottom z-30">
       {showBack ? (
-        <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">← Back</button>
+        <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">{t("back", language)}</button>
       ) : <div className="flex-1" />}
       <button onClick={onNext} disabled={nextDisabled}
         className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50">
-        {nextLabel}
+        {nextLabel ?? t("next", language)}
       </button>
     </div>
   );
@@ -138,17 +140,18 @@ function FieldError({ message }: { message: string }) {
 
 // ---- Step 1: New User Account Setup ----
 function Step1({ state, update, onNext }: { state: OnboardingState; update: <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => void; onNext: () => void }) {
+  const language = usePreferencesStore((s) => s.language);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!state.adminKey.trim()) e.adminKey = "Required";
-    if (!state.userId.trim()) e.userId = "Required";
-    else if (!/^[a-zA-Z0-9-]{4,32}$/.test(state.userId)) e.userId = "4-32 alphanumeric or hyphens";
-    if (!state.password) e.password = "Required";
-    else if (state.password.length < 8) e.password = "Min 8 characters";
-    if (state.password !== state.confirmPassword) e.confirmPassword = "Passwords do not match";
-    if (!state.displayName.trim()) e.displayName = "Required";
+    if (!state.adminKey.trim()) e.adminKey = t("onboardFieldRequired", language);
+    if (!state.userId.trim()) e.userId = t("onboardFieldRequired", language);
+    else if (!/^[a-zA-Z0-9-]{4,32}$/.test(state.userId)) e.userId = t("onboardUserIdError", language);
+    if (!state.password) e.password = t("onboardFieldRequired", language);
+    else if (state.password.length < 8) e.password = t("onboardPasswordError", language);
+    if (state.password !== state.confirmPassword) e.confirmPassword = t("onboardPasswordMismatch", language);
+    if (!state.displayName.trim()) e.displayName = t("onboardFieldRequired", language);
     return e;
   };
 
@@ -161,12 +164,33 @@ function Step1({ state, update, onNext }: { state: OnboardingState; update: <K e
   return (
     <>
       <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
-        <StepTitle title="Account Setup" subtitle="Create your portfolio agent account" />
-        <div><label className={labelCls}>Beta Access Code</label><input type="text" value={state.adminKey} onChange={(e) => update("adminKey", e.target.value)} placeholder="Enter your beta access code" className={inputCls} /><FieldError message={errors.adminKey} /></div>
-        <div><label className={labelCls}>User ID</label><input type="text" value={state.userId} onChange={(e) => update("userId", e.target.value.toLowerCase().replace(/[^a-zA-Z0-9-]/g, ""))} placeholder="john-doe" maxLength={32} className={inputCls} /><p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">Login identifier. Cannot be changed.</p><FieldError message={errors.userId} /></div>
-        <div><label className={labelCls}>Password</label><input type="password" value={state.password} onChange={(e) => update("password", e.target.value)} placeholder="Min 8 characters" className={inputCls} /><FieldError message={errors.password} /></div>
-        <div><label className={labelCls}>Confirm Password</label><input type="password" value={state.confirmPassword} onChange={(e) => update("confirmPassword", e.target.value)} placeholder="Repeat your password" className={inputCls} /><FieldError message={errors.confirmPassword} /></div>
-        <div><label className={labelCls}>Display Name</label><input type="text" value={state.displayName} onChange={(e) => update("displayName", e.target.value)} placeholder="How should we call you?" className={inputCls} /><FieldError message={errors.displayName} /></div>
+        <StepTitle title={t("onboardStep1Title", language)} subtitle={t("onboardStep1Sub", language)} />
+        <div>
+          <label className={labelCls}>{t("onboardAdminKey", language)}</label>
+          <input type="text" value={state.adminKey} onChange={(e) => update("adminKey", e.target.value)} placeholder={t("onboardAdminKey", language)} className={inputCls} />
+          <FieldError message={errors.adminKey} />
+        </div>
+        <div>
+          <label className={labelCls}>{t("onboardUserId", language)}</label>
+          <input type="text" value={state.userId} onChange={(e) => update("userId", e.target.value.toLowerCase().replace(/[^a-zA-Z0-9-]/g, ""))} placeholder="john-doe" maxLength={32} className={inputCls} />
+          <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">{t("onboardUserIdHint", language)}</p>
+          <FieldError message={errors.userId} />
+        </div>
+        <div>
+          <label className={labelCls}>{t("onboardPassword", language)}</label>
+          <input type="password" value={state.password} onChange={(e) => update("password", e.target.value)} placeholder={t("onboardPasswordHint", language)} className={inputCls} />
+          <FieldError message={errors.password} />
+        </div>
+        <div>
+          <label className={labelCls}>{t("onboardConfirmPassword", language)}</label>
+          <input type="password" value={state.confirmPassword} onChange={(e) => update("confirmPassword", e.target.value)} placeholder={t("onboardConfirmPassword", language)} className={inputCls} />
+          <FieldError message={errors.confirmPassword} />
+        </div>
+        <div>
+          <label className={labelCls}>{t("onboardDisplayName", language)}</label>
+          <input type="text" value={state.displayName} onChange={(e) => update("displayName", e.target.value)} placeholder={t("onboardDisplayName", language)} className={inputCls} />
+          <FieldError message={errors.displayName} />
+        </div>
       </div>
       <BottomBar onNext={handleNext} showBack={false} />
     </>
@@ -175,16 +199,17 @@ function Step1({ state, update, onNext }: { state: OnboardingState; update: <K e
 
 // ---- Step 1: Authenticated User — Change Password ----
 function AuthStep1({ state, update, onNext }: { state: OnboardingState; update: <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => void; onNext: () => void }) {
+  const language = usePreferencesStore((s) => s.language);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!state.currentPassword) e.currentPassword = "Required";
-    if (!state.password) e.password = "Required";
-    else if (state.password.length < 8) e.password = "Min 8 characters";
-    if (state.password !== state.confirmPassword) e.confirmPassword = "Passwords do not match";
+    if (!state.currentPassword) e.currentPassword = t("onboardFieldRequired", language);
+    if (!state.password) e.password = t("onboardFieldRequired", language);
+    else if (state.password.length < 8) e.password = t("onboardPasswordError", language);
+    if (state.password !== state.confirmPassword) e.confirmPassword = t("onboardPasswordMismatch", language);
     return e;
   };
 
@@ -204,9 +229,9 @@ function AuthStep1({ state, update, onNext }: { state: OnboardingState; update: 
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
       if (axiosErr.response?.data?.error === "incorrect_password") {
-        setApiError("Current password is incorrect");
+        setApiError(t("onboardPasswordIncorrect", language));
       } else {
-        setApiError("Failed to change password");
+        setApiError(t("onboardPasswordChangeFailed", language));
       }
     } finally {
       setLoading(false);
@@ -216,31 +241,61 @@ function AuthStep1({ state, update, onNext }: { state: OnboardingState; update: 
   return (
     <>
       <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
-        <StepTitle title="🔐 Set Your Password" subtitle="You've been given a temporary password by your admin. Please set a new one now." />
+        <StepTitle title={t("onboardSetPasswordTitle", language)} subtitle={t("onboardSetPasswordSub", language)} />
         <div>
-          <label className={labelCls}>Current Password</label>
-          <input type="password" value={state.currentPassword} onChange={(e) => update("currentPassword", e.target.value)} placeholder="Enter current password" className={inputCls} />
+          <label className={labelCls}>{t("currentPassword", language)}</label>
+          <input type="password" value={state.currentPassword} onChange={(e) => update("currentPassword", e.target.value)} placeholder={t("currentPassword", language)} className={inputCls} />
           <FieldError message={errors.currentPassword || apiError} />
         </div>
-        <div><label className={labelCls}>New Password</label><input type="password" value={state.password} onChange={(e) => update("password", e.target.value)} placeholder="Min 8 characters" className={inputCls} /><FieldError message={errors.password} /></div>
-        <div><label className={labelCls}>Confirm Password</label><input type="password" value={state.confirmPassword} onChange={(e) => update("confirmPassword", e.target.value)} placeholder="Repeat your password" className={inputCls} /><FieldError message={errors.confirmPassword} /></div>
+        <div>
+          <label className={labelCls}>{t("newPassword", language)}</label>
+          <input type="password" value={state.password} onChange={(e) => update("password", e.target.value)} placeholder={t("onboardPasswordHint", language)} className={inputCls} />
+          <FieldError message={errors.password} />
+        </div>
+        <div>
+          <label className={labelCls}>{t("onboardConfirmPassword", language)}</label>
+          <input type="password" value={state.confirmPassword} onChange={(e) => update("confirmPassword", e.target.value)} placeholder={t("onboardConfirmPassword", language)} className={inputCls} />
+          <FieldError message={errors.confirmPassword} />
+        </div>
       </div>
-      <BottomBar onNext={handleNext} nextLabel={loading ? "Saving..." : "Continue →"} nextDisabled={loading} showBack={false} />
+      <BottomBar
+        onNext={handleNext}
+        nextLabel={loading ? t("onboardConnecting", language) : t("onboardContinue", language)}
+        nextDisabled={loading}
+        showBack={false}
+      />
     </>
   );
 }
 
 // ---- Step 2: Schedule (shared) ----
 function Step2({ state, update, onBack, onNext }: { state: OnboardingState; update: <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => void; onBack?: () => void; onNext: () => void }) {
+  const language = usePreferencesStore((s) => s.language);
   return (
     <>
       <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
-        <StepTitle title="⏰ Your Brief Schedule" subtitle="When should your daily portfolio brief run?" />
-        <div><label className={labelCls}>Daily Brief Time</label><input type="time" value={state.dailyBriefTime} onChange={(e) => update("dailyBriefTime", e.target.value)} className={inputCls} /></div>
-        <div><label className={labelCls}>Weekly Research Day</label><select value={state.weeklyResearchDay} onChange={(e) => update("weeklyResearchDay", e.target.value)} className={inputCls}>{DAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}</select></div>
-        <div><label className={labelCls}>Weekly Research Time</label><input type="time" value={state.weeklyResearchTime} onChange={(e) => update("weeklyResearchTime", e.target.value)} className={inputCls} /></div>
-        <div><label className={labelCls}>Timezone</label><select value={state.timezone} onChange={(e) => update("timezone", e.target.value)} className={inputCls}>{TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}</select></div>
-        <p className="text-[10px] text-[var(--color-fg-subtle)]">All times in your selected timezone. Daily briefs run on weekdays only.</p>
+        <StepTitle title={t("onboardStep2Title", language)} subtitle={t("onboardStep2Sub", language)} />
+        <div>
+          <label className={labelCls}>{t("onboardDailyBriefTime", language)}</label>
+          <input type="time" value={state.dailyBriefTime} onChange={(e) => update("dailyBriefTime", e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>{t("onboardWeeklyDay", language)}</label>
+          <select value={state.weeklyResearchDay} onChange={(e) => update("weeklyResearchDay", e.target.value)} className={inputCls}>
+            {DAY_KEYS.map((d) => <option key={d.value} value={d.value}>{t(d.key, language)}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>{t("onboardWeeklyTime", language)}</label>
+          <input type="time" value={state.weeklyResearchTime} onChange={(e) => update("weeklyResearchTime", e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>{t("timezone", language)}</label>
+          <select value={state.timezone} onChange={(e) => update("timezone", e.target.value)} className={inputCls}>
+            {TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+          </select>
+        </div>
+        <p className="text-[10px] text-[var(--color-fg-subtle)]">{t("onboardScheduleHint", language)}</p>
       </div>
       <BottomBar onBack={onBack} onNext={onNext} />
     </>
@@ -249,21 +304,22 @@ function Step2({ state, update, onBack, onNext }: { state: OnboardingState; upda
 
 // ---- Step 3: Telegram (shared) ----
 function Step3({ state, update, onBack, onNext }: { state: OnboardingState; update: <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => void; onBack?: () => void; onNext: () => void }) {
+  const language = usePreferencesStore((s) => s.language);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const showToast = useToastStore((s) => s.show);
 
   const handleConnect = async () => {
     if (!state.botToken.trim() || !state.telegramChatId.trim()) {
-      setError("Both bot token and chat ID are required");
+      setError(t("onboardBothFields", language));
       return;
     }
     if (!/^\d+:[A-Za-z0-9_-]{35,}$/.test(state.botToken)) {
-      setError("Invalid bot token format");
+      setError(t("onboardInvalidBotToken", language));
       return;
     }
     if (!/^\d+$/.test(state.telegramChatId)) {
-      setError("Invalid chat ID format");
+      setError(t("onboardInvalidChatId", language));
       return;
     }
     setLoading(true);
@@ -273,10 +329,10 @@ function Step3({ state, update, onBack, onNext }: { state: OnboardingState; upda
         botToken: state.botToken,
         telegramChatId: state.telegramChatId,
       });
-      showToast("Telegram connected!", "success");
+      showToast(t("onboardTelegramConnected", language), "success");
       onNext();
     } catch {
-      setError("Failed to connect Telegram. Check your token and chat ID.");
+      setError(t("onboardTelegramFailed", language));
     } finally {
       setLoading(false);
     }
@@ -290,29 +346,29 @@ function Step3({ state, update, onBack, onNext }: { state: OnboardingState; upda
   return (
     <>
       <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
-        <StepTitle title="🤖 Connect Telegram (Optional)" subtitle="Get portfolio alerts and interact with your agent via Telegram." />
+        <StepTitle title={t("onboardStep3Title", language)} subtitle={t("onboardStep3Sub", language)} />
         <div className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg p-3 text-xs text-[var(--color-fg-muted)] space-y-1">
-          <p>1. Open Telegram → find <strong>@BotFather</strong></p>
-          <p>2. Send <code className="bg-[var(--color-bg-base)] px-1 rounded">/newbot</code> → follow instructions</p>
-          <p>3. Paste your bot token below</p>
+          <p>{t("onboardTelegramStep1", language)}</p>
+          <p>{t("onboardTelegramStep2", language)}</p>
+          <p>{t("onboardTelegramStep3", language)}</p>
         </div>
         <div>
-          <label className={labelCls}>Bot Token</label>
+          <label className={labelCls}>{t("botToken", language)}</label>
           <input type="text" value={state.botToken} onChange={(e) => update("botToken", e.target.value)} placeholder="123456789:ABC-xyz..." className={inputCls} />
-          <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">format: 123456789:ABC-xyz...</p>
+          <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">{t("onboardBotTokenHint", language)}</p>
         </div>
         <div>
-          <label className={labelCls}>Your Chat ID</label>
+          <label className={labelCls}>{t("chatId", language)}</label>
           <input type="text" value={state.telegramChatId} onChange={(e) => update("telegramChatId", e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
-          <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">Get from @userinfobot on Telegram</p>
+          <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">{t("onboardChatIdHint", language)}</p>
         </div>
         <FieldError message={error} />
       </div>
       <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border)] p-4 flex gap-3 safe-bottom z-30">
-        {onBack && <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">← Back</button>}
-        <button onClick={handleSkip} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">Skip for now</button>
+        {onBack && <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">{t("back", language)}</button>}
+        <button onClick={handleSkip} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">{t("onboardSkip", language)}</button>
         <button onClick={handleConnect} disabled={loading} className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50">
-          {loading ? "Connecting..." : "Connect & Continue →"}
+          {loading ? t("onboardConnecting", language) : t("onboardConnect", language)}
         </button>
       </div>
     </>
@@ -327,6 +383,7 @@ function PositionCard({
   accounts: Account[];
   updateAccount: (id: string, updated: Account) => void;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const acc = accounts.find((a) => a.id === accountName)!;
   const updatePos = (patch: Partial<PositionEntry>) => {
     const currency = (patch.exchange
@@ -345,21 +402,21 @@ function PositionCard({
       </button>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className={labelCls}>Ticker</label>
+          <label className={labelCls}>{t("onboardTickerLabel", language)}</label>
           <input type="text" value={pos.ticker} onChange={(e) => updatePos({ ticker: e.target.value.toUpperCase().slice(0, 10) })} placeholder="AAPL" className={`${inputCls} text-center font-mono font-bold uppercase`} />
         </div>
         <div>
-          <label className={labelCls}>Exchange</label>
+          <label className={labelCls}>{t("onboardExchangeLabel", language)}</label>
           <select value={pos.exchange} onChange={(e) => updatePos({ exchange: e.target.value as Exchange })} className={inputCls}>
             {EXCHANGES.map((ex) => <option key={ex.value} value={ex.value}>{ex.label}</option>)}
           </select>
         </div>
         <div>
-          <label className={labelCls}>Shares</label>
+          <label className={labelCls}>{t("onboardSharesLabel", language)}</label>
           <input type="number" value={pos.shares} onChange={(e) => updatePos({ shares: e.target.value })} min="1" step="1" placeholder="100" className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>Avg Price ({pos.currency})</label>
+          <label className={labelCls}>{t("onboardAvgPriceLabel", language)} ({pos.currency})</label>
           <input type="number" value={pos.avgPrice} onChange={(e) => updatePos({ avgPrice: e.target.value })} min="0.01" step="0.01" placeholder="150.00" className={inputCls} />
         </div>
       </div>
@@ -376,11 +433,12 @@ function AccountSection({
   deleteAccount: (id: string) => void;
   showDelete: boolean;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(account.name);
 
   const commitRename = () => {
-    const trimmed = nameVal.trim() || "Account";
+    const trimmed = nameVal.trim() || t("onboardDefaultAccount", language);
     updateAccount(account.id, { ...account, name: trimmed });
     setEditingName(false);
   };
@@ -392,6 +450,9 @@ function AccountSection({
     };
     updateAccount(account.id, { ...account, positions: [...account.positions, newPos] });
   };
+
+  const posCount = account.positions.length;
+  const posLabel = posCount === 1 ? t("onboardPosition", language) : t("onboardPositions", language);
 
   return (
     <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg overflow-hidden">
@@ -412,15 +473,15 @@ function AccountSection({
             <span className="text-sm font-semibold text-[var(--color-fg-default)] truncate">{account.name}</span>
           )}
           <span className="text-[10px] text-[var(--color-fg-subtle)] bg-[var(--color-bg-base)] px-1.5 py-0.5 rounded">
-            {account.positions.length} {account.positions.length === 1 ? "position" : "positions"}
+            {posCount} {posLabel}
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => setEditingName(true)} className="p-1.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]" title="Rename">
+          <button onClick={() => setEditingName(true)} className="p-1.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           {showDelete && (
-            <button onClick={() => deleteAccount(account.id)} className="p-1.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-accent-red)]" title="Delete account">
+            <button onClick={() => deleteAccount(account.id)} className="p-1.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-accent-red)]">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
             </button>
           )}
@@ -432,7 +493,7 @@ function AccountSection({
         ))}
         <button onClick={addPosition}
           className="w-full py-2 rounded-lg border border-dashed border-[var(--color-border)] text-xs text-[var(--color-accent-blue)] font-medium">
-          + Add Position
+          {t("onboardAddPosition", language)}
         </button>
       </div>
     </div>
@@ -446,6 +507,7 @@ function Step4({
   state: OnboardingState; update: <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => void;
   onBack?: () => void; onNext: () => void;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const updateAccount = (id: string, updated: Account) => {
@@ -459,9 +521,9 @@ function Step4({
 
   const addAccount = () => {
     const existingNames = state.accounts.map((a) => a.name);
-    let newName = "New Account";
+    let newName = t("onboardDefaultAccount", language);
     let n = 1;
-    while (existingNames.includes(newName)) { newName = `Account ${n++}`; }
+    while (existingNames.includes(newName)) { newName = `${t("onboardDefaultAccount", language)} ${n++}`; }
     const acc: Account = { id: generateId(), name: newName, positions: [] };
     update("accounts", [...state.accounts, acc]);
   };
@@ -471,20 +533,20 @@ function Step4({
     let hasPositions = false;
     state.accounts.forEach((acc, ai) => {
       acc.positions.forEach((p, pi) => {
-        if (!p.ticker.trim()) e[`t_${ai}_${pi}`] = "Ticker required";
-        if (!p.shares || Number(p.shares) < 1) e[`s_${ai}_${pi}`] = "Positive integer";
-        if (!p.avgPrice || Number(p.avgPrice) < 0.01) e[`p_${ai}_${pi}`] = "Positive number";
+        if (!p.ticker.trim()) e[`t_${ai}_${pi}`] = t("onboardTickerRequired", language);
+        if (!p.shares || Number(p.shares) < 1) e[`s_${ai}_${pi}`] = t("onboardSharesError", language);
+        if (!p.avgPrice || Number(p.avgPrice) < 0.01) e[`p_${ai}_${pi}`] = t("onboardAvgPriceError", language);
         hasPositions = true;
       });
       const seen = new Map<string, number>();
       acc.positions.forEach((p, i) => {
         const key = p.ticker.toUpperCase();
         if (!key) return;
-        if (seen.has(key)) { e[`t_${ai}_${seen.get(key)}`] = "Duplicate ticker"; }
+        if (seen.has(key)) { e[`t_${ai}_${seen.get(key)}`] = t("onboardDuplicateTicker", language); }
         else seen.set(key, i);
       });
     });
-    if (!hasPositions) e.positions = "Add at least one position";
+    if (!hasPositions) e.positions = t("onboardAddPositionError", language);
     setErrors(e);
     if (Object.keys(e).length === 0) onNext();
   };
@@ -492,7 +554,7 @@ function Step4({
   return (
     <>
       <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
-        <StepTitle title="Portfolio" subtitle="Add your positions across all accounts" />
+        <StepTitle title={t("onboardStep4Title", language)} subtitle={t("onboardStep4Sub", language)} />
         {errors.positions && <p className="text-[10px] text-[var(--color-accent-red)]">{errors.positions}</p>}
         {state.accounts.map((account) => (
           <AccountSection
@@ -506,83 +568,85 @@ function Step4({
         ))}
         <button onClick={addAccount}
           className="w-full py-3 rounded-lg border border-dashed border-[var(--color-border)] text-sm text-[var(--color-accent-blue)] font-medium">
-          + Add Account
+          {t("onboardAddAccount", language)}
         </button>
       </div>
-      <BottomBar onBack={onBack} onNext={handleNext} nextLabel="Review" showBack={!!onBack} />
+      <BottomBar onBack={onBack} onNext={handleNext} nextLabel={t("onboardReview", language)} showBack={!!onBack} />
     </>
   );
 }
 
 // ---- Step 5: Confirm & Launch ----
 function Step5({ state }: { state: OnboardingState }) {
+  const language = usePreferencesStore((s) => s.language);
   const totalPositions = state.accounts.reduce((sum, a) => sum + a.positions.length, 0);
+  const weeklyDay = DAY_KEYS.find((d) => d.value === state.weeklyResearchDay);
+  const posLabel = totalPositions === 1 ? t("onboardPosition", language) : t("onboardPositions", language);
+  const accLabel = state.accounts.length === 1 ? t("onboardAccountSingular", language) : t("accounts", language).toLowerCase();
 
   return (
     <>
       <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
-        <StepTitle title="Confirm & Launch" subtitle="Review before launching" />
+        <StepTitle title={t("onboardStep5Title", language)} subtitle={t("onboardStep5Sub", language)} />
         <div className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg p-4 space-y-3">
           {state.userId && (
             <div>
-              <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">Account</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewAccount", language)}</p>
               <p className="text-sm font-semibold text-[var(--color-fg-default)]">{state.displayName || state.userId}</p>
               {state.userId && <p className="text-xs text-[var(--color-fg-muted)]">@{state.userId}</p>}
             </div>
           )}
           <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">Schedule</p>
+            <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewSchedule", language)}</p>
             <p className="text-sm text-[var(--color-fg-default)]">
-              Daily at {state.dailyBriefTime} · {DAYS.find((d) => d.value === state.weeklyResearchDay)?.label} at {state.weeklyResearchTime}
+              {t("onboardDailyAt", language)} {state.dailyBriefTime} · {weeklyDay ? t(weeklyDay.key, language) : state.weeklyResearchDay} {t("onboardAt", language)} {state.weeklyResearchTime}
             </p>
             <p className="text-xs text-[var(--color-fg-muted)]">{state.timezone}</p>
           </div>
           {state.telegramChatId && (
             <div className="border-t border-[var(--color-border)] pt-3">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">Telegram</p>
-              <p className="text-sm text-[var(--color-fg-default)]">✓ Connected</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewTelegram", language)}</p>
+              <p className="text-sm text-[var(--color-fg-default)]">{t("onboardTelegramYes", language)}</p>
             </div>
           )}
           <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">Portfolio</p>
+            <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewPortfolio", language)}</p>
             <p className="text-sm text-[var(--color-fg-default)]">
-              {totalPositions} position{totalPositions !== 1 ? "s" : ""} across {state.accounts.length} account{state.accounts.length !== 1 ? "s" : ""}
+              {totalPositions} {posLabel} {t("onboardAcross", language)} {state.accounts.length} {accLabel}
             </p>
           </div>
-        </div>
-        <div className="border-t border-[var(--color-border)] pt-3 space-y-4">
-          {state.accounts.map((acc) => (
-            <div key={acc.id}>
-              <p className="text-xs font-medium text-[var(--color-fg-muted)] mb-2 flex items-center gap-1.5">
-                📁 {acc.name} <span className="text-[10px] opacity-60">({acc.positions.length} {acc.positions.length === 1 ? "position" : "positions"})</span>
-              </p>
-              <div className="space-y-1.5">
-                {acc.positions.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between text-xs py-1.5 border-b border-[var(--color-border-muted)] last:border-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-[var(--color-fg-default)]">{p.ticker || "—"}</span>
-                      <span className="text-[var(--color-fg-subtle)]">{p.exchange}</span>
+          <div className="border-t border-[var(--color-border)] pt-3 space-y-4">
+            {state.accounts.map((acc) => (
+              <div key={acc.id}>
+                <p className="text-xs font-medium text-[var(--color-fg-muted)] mb-2 flex items-center gap-1.5">
+                  📁 {acc.name} <span className="text-[10px] opacity-60">({acc.positions.length} {acc.positions.length === 1 ? t("onboardPosition", language) : t("onboardPositions", language)})</span>
+                </p>
+                <div className="space-y-1.5">
+                  {acc.positions.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between text-xs py-1.5 border-b border-[var(--color-border-muted)] last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-[var(--color-fg-default)]">{p.ticker || "—"}</span>
+                        <span className="text-[var(--color-fg-subtle)]">{p.exchange}</span>
+                      </div>
+                      <span className="text-[var(--color-fg-muted)]">{p.shares || "—"} @ {p.avgPrice || "—"} {p.currency}</span>
                     </div>
-                    <span className="text-[var(--color-fg-muted)]">{p.shares || "—"} @ {p.avgPrice || "—"} {p.currency}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </>
   );
 }
 
-// ---- Success ----
-// Removed - now redirects immediately to portfolio
-
 // ---- Main Component ----
 export function Onboarding() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const loginStore = useAuthStore((s) => s.login);
   const showToast = useToastStore((s) => s.show);
+  const language = usePreferencesStore((s) => s.language);
   const navigate = useNavigate();
 
   const [state, setState] = useState<OnboardingState>({
@@ -626,14 +690,12 @@ export function Onboarding() {
       };
 
       if (isAuthenticated) {
-        // Authenticated: portfolio + schedule in body
         await submitPortfolio({
           meta: { currency: "ILS", transactionFeeILS: 0, note: "" },
           accounts: accountsPayload as Record<string, import("../api/onboarding").PortfolioPosition[]>,
           schedule,
         });
       } else {
-        // New user: init + login + portfolio
         const initPayload = {
           userId: state.userId,
           password: state.password,
@@ -651,10 +713,9 @@ export function Onboarding() {
         });
       }
 
-      // Immediately redirect to portfolio - no success screen
       navigate("/portfolio", { replace: true });
     } catch {
-      showToast("Setup failed. Please check your details and try again.", "error");
+      showToast(t("onboardSetupFailed", language), "error");
       setSubmitting(false);
     }
   };
@@ -698,7 +759,7 @@ export function Onboarding() {
             <BottomBar
               onBack={() => update("step", 4)}
               onNext={handleSubmit}
-              nextLabel={submitting ? "Launching..." : "Launch My Portfolio Agent 🚀"}
+              nextLabel={submitting ? t("onboardLaunching", language) : t("onboardLaunchBtn", language)}
               nextDisabled={submitting}
               showBack={true}
             />

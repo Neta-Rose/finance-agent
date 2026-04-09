@@ -7,15 +7,16 @@ import { TopBar } from "../components/ui/TopBar";
 import { SummaryStrip } from "../components/portfolio/SummaryStrip";
 import { PositionRow } from "../components/portfolio/PositionRow";
 import { PositionDetailModal } from "../components/portfolio/PositionDetailModal";
-import { StrategyModal } from "../components/portfolio/StrategyModal";
 import { Spinner } from "../components/ui/Spinner";
 import { ErrorState } from "../components/ui/ErrorState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatILS } from "../utils/format";
+import { usePreferencesStore } from "../store/preferencesStore";
+import { t, getGreeting } from "../store/i18n";
 import type { VerdictRow, PositionRow as PositionRowType } from "../types/api";
 
 export function Portfolio() {
-  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const language = usePreferencesStore((s) => s.language);
   const [selectedPosition, setSelectedPosition] = useState<PositionRowType | null>(null);
 
   const { data: portfolio, isLoading, error, refetch, isFetching } = useQuery({
@@ -76,13 +77,12 @@ export function Portfolio() {
 
   const handlePositionClick = (pos: PositionRowType) => {
     setSelectedPosition(pos);
-    setSelectedTicker(pos.ticker);
   };
 
   if (isLoading) {
     return (
       <>
-        <TopBar title="Portfolio" />
+        <TopBar title={t("portfolio", language)} />
         <div className="flex items-center justify-center h-48">
           <Spinner size="lg" />
         </div>
@@ -93,8 +93,8 @@ export function Portfolio() {
   if (error) {
     return (
       <>
-        <TopBar title="Portfolio" />
-        <ErrorState message="Failed to load portfolio" onRetry={refetch} />
+        <TopBar title={t("portfolio", language)} />
+        <ErrorState message={t("errorLoadPortfolio", language)} onRetry={refetch} />
       </>
     );
   }
@@ -102,8 +102,8 @@ export function Portfolio() {
   if (!portfolio || portfolio.positions.length === 0) {
     return (
       <>
-        <TopBar title="Portfolio" />
-        <EmptyState message="No positions found" icon="📭" />
+        <TopBar title={t("portfolio", language)} />
+        <EmptyState message={t("emptyPortfolio", language)} icon="📭" />
       </>
     );
   }
@@ -111,9 +111,9 @@ export function Portfolio() {
   return (
     <>
       <TopBar
-        title="Portfolio"
+        title={t("portfolio", language)}
         subtitle={formatILS(portfolio.totalILS ?? null)}
-        greeting={onboardStatus?.displayName ? `Hello ${onboardStatus.displayName} — Let's monitor some positions 📈` : undefined}
+        greeting={getGreeting(onboardStatus?.displayName, language)}
         onRefresh={refetch}
         refreshing={isFetching}
       />
@@ -124,7 +124,7 @@ export function Portfolio() {
           <div className="flex items-center gap-2 text-xs text-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/10 border border-[var(--color-accent-blue)]/30 rounded-lg px-3 py-2">
             <span className="animate-spin">🔄</span>
             <span className="font-medium">
-              {activeJobs.length} job{activeJobs.length !== 1 ? "s" : ""} running
+              {activeJobs.length} {t("jobsRunning", language)}
             </span>
             <div className="flex-1" />
             <div className="h-1.5 w-24 bg-[var(--color-bg-muted)] rounded-full overflow-hidden">
@@ -151,7 +151,7 @@ export function Portfolio() {
           onClick={() => {/* TODO: Navigate to add position */}}
           className="w-full py-2.5 rounded-lg border border-dashed border-[var(--color-border)] text-xs text-[var(--color-accent-blue)] font-medium hover:bg-[var(--color-bg-muted)] transition-colors"
         >
-          + Add Position
+          {t("addPosition", language)}
         </button>
       </div>
 
@@ -174,7 +174,7 @@ export function Portfolio() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[var(--color-border)]">
-                {["Ticker", "Shares", "Avg ₪", "Live ₪", "Value ₪", "P/L %", "P/L ₪", "Weight", "Verdict"].map((h) => (
+                {[t("colTicker",language), t("colShares",language), t("colAvgPrice",language), t("colLivePrice",language), t("colValue",language), t("colPlPct",language), t("colPl",language), t("colWeight",language), t("colVerdict",language)].map((h) => (
                   <th key={h} className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase">{h}</th>
                 ))}
               </tr>
@@ -195,16 +195,11 @@ export function Portfolio() {
 
       <PositionDetailModal
         position={selectedPosition}
+        verdict={selectedPosition ? verdictMap[selectedPosition.ticker] : undefined}
         onClose={() => {
           setSelectedPosition(null);
-          setSelectedTicker(null);
           refetch();
         }}
-      />
-
-      <StrategyModal
-        ticker={selectedTicker}
-        onClose={() => setSelectedTicker(null)}
       />
     </>
   );

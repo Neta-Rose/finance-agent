@@ -6,18 +6,23 @@ import type { CandlestickData, LineData } from "lightweight-charts";
 import { fetchPositionHistory } from "../../api/portfolio";
 import { updatePosition } from "../../api/portfolio";
 import { useToastStore } from "../../store/toastStore";
+import { usePreferencesStore } from "../../store/preferencesStore";
+import { t } from "../../store/i18n";
 import { formatILS, formatPct } from "../../utils/format";
-import type { PositionRow } from "../../types/api";
+import type { PositionRow, VerdictRow } from "../../types/api";
 import { Spinner } from "../ui/Spinner";
+import { VerdictBadge } from "../ui/Badge";
 
 interface PositionDetailModalProps {
   position: PositionRow | null;
+  verdict?: VerdictRow;
   onClose: () => void;
 }
 
 type Timeframe = "1D" | "1W" | "1M" | "3M" | "1Y";
 
-export function PositionDetailModal({ position, onClose }: PositionDetailModalProps) {
+export function PositionDetailModal({ position, verdict, onClose }: PositionDetailModalProps) {
+  const language = usePreferencesStore((s) => s.language);
   const [timeframe, setTimeframe] = useState<Timeframe>("1M");
   const [loading, setLoading] = useState(false);
   const [chartData, setChartData] = useState<CandlestickData[] | LineData[]>([]);
@@ -144,10 +149,10 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
         shares: Number(editShares),
         avgPriceILS: Number(editAvgPrice),
       });
-      showToast("Position updated", "success");
+      showToast(t("saveChanges", language) + " ✓", "success");
       setEditMode(false);
     } catch {
-      showToast("Failed to update position", "error");
+      showToast(t("errorLoadPortfolio", language), "error");
     } finally {
       setSaving(false);
     }
@@ -185,7 +190,7 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
                 : "bg-[var(--color-bg-muted)] text-[var(--color-fg-muted)] border border-[var(--color-border)]"
             }`}
           >
-            {editMode ? "Cancel" : "Edit"}
+            {editMode ? t("cancel", language) : t("edit", language)}
           </button>
         </div>
 
@@ -194,7 +199,7 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
           {/* Key Metrics */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Shares</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("shares", language)}</p>
               {editMode ? (
                 <input
                   type="number"
@@ -208,7 +213,7 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
               )}
             </div>
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Avg Buy Price</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("avgBuyPrice", language)}</p>
               {editMode ? (
                 <input
                   type="number"
@@ -223,25 +228,25 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
               )}
             </div>
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Live Price</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("livePrice", language)}</p>
               <p className="text-sm font-bold text-[var(--color-fg-default)]">{formatILS(position.livePriceILS)}</p>
             </div>
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Current Value</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("currentValue", language)}</p>
               <p className="text-sm font-bold text-[var(--color-fg-default)]">{formatILS(position.currentILS)}</p>
             </div>
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Cost Basis</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("costBasis", language)}</p>
               <p className="text-sm font-bold text-[var(--color-fg-default)]">{formatILS(position.costILS)}</p>
             </div>
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">P/L</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("colPl", language)}</p>
               <p className={`text-sm font-bold ${plClass}`}>
                 {position.plPct >= 0 ? "+" : ""}{formatILS(position.plILS)} ({formatPct(position.plPct)})
               </p>
             </div>
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3 col-span-2">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Weight in Portfolio</p>
+              <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("weight", language)}</p>
               <p className="text-sm font-bold text-[var(--color-fg-default)]">{position.weightPct.toFixed(2)}%</p>
             </div>
           </div>
@@ -253,14 +258,14 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
               disabled={saving}
               className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? t("saving", language) : t("saveChanges", language)}
             </button>
           )}
 
           {/* Price Chart */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium text-[var(--color-fg-muted)]">Price History</p>
+              <p className="text-xs font-medium text-[var(--color-fg-muted)]">{t("priceHistory", language)}</p>
               <div className="flex gap-1">
                 {(["1D", "1W", "1M", "3M", "1Y"] as Timeframe[]).map((tf) => (
                   <button
@@ -284,7 +289,7 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
                 </div>
               ) : chartData.length === 0 ? (
                 <div className="h-[180px] flex items-center justify-center text-xs text-[var(--color-fg-subtle)]">
-                  No chart data available
+                  {t("noChartData", language)}
                 </div>
               ) : (
                 <div ref={chartContainerRef} className="w-full" style={{ height: 180 }} />
@@ -295,7 +300,7 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
           {/* Accounts */}
           {position.accounts && position.accounts.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-[var(--color-fg-muted)] mb-2">Accounts</p>
+              <p className="text-xs font-medium text-[var(--color-fg-muted)] mb-2">{t("accounts", language)}</p>
               <div className="flex flex-wrap gap-2">
                 {position.accounts.map((acc) => (
                   <span key={acc} className="px-2 py-1 bg-[var(--color-bg-muted)] rounded text-xs text-[var(--color-fg-default)]">
@@ -310,7 +315,17 @@ export function PositionDetailModal({ position, onClose }: PositionDetailModalPr
           {position.priceStale && (
             <div className="flex items-center gap-2 p-3 bg-[var(--color-accent-yellow)]/10 border border-[var(--color-accent-yellow)]/30 rounded-lg">
               <span className="text-[var(--color-accent-yellow)]">⚠️</span>
-              <p className="text-xs text-[var(--color-accent-yellow)]">Price data may be stale</p>
+              <p className="text-xs text-[var(--color-accent-yellow)]">{t("priceStale", language)}</p>
+            </div>
+          )}
+
+          {/* Strategy snippet */}
+          {verdict && (
+            <div className="flex items-start gap-2 p-3 bg-[var(--color-bg-muted)] rounded-lg border border-[var(--color-border)]">
+              <VerdictBadge verdict={verdict.verdict} size="sm" />
+              <p className="text-xs text-[var(--color-fg-muted)] leading-snug line-clamp-2">
+                {verdict.reasoning.slice(0, 120)}{verdict.reasoning.length > 120 ? "…" : ""}
+              </p>
             </div>
           )}
         </div>

@@ -22,6 +22,7 @@ users/
 # OpenClaw internals
 memory/
 canvas/
+docs/
 .openclaw/
 .clawhub/
 

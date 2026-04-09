@@ -8,6 +8,8 @@ import { Spinner } from "../components/ui/Spinner";
 import { ErrorState } from "../components/ui/ErrorState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatILS, timeAgo } from "../utils/format";
+import { usePreferencesStore } from "../store/preferencesStore";
+import { t, tConfidence, tTimeframe } from "../store/i18n";
 import type { Verdict, StrategyRow } from "../types/api";
 
 const VERDICT_ORDER: Record<Verdict, number> = {
@@ -31,6 +33,7 @@ function sortStrategies(strategies: StrategyRow[]): StrategyRow[] {
 }
 
 export function Strategies() {
+  const language = usePreferencesStore((s) => s.language);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [verdictFilter, setVerdictFilter] = useState<string>("All");
@@ -59,7 +62,7 @@ export function Strategies() {
 
   return (
     <>
-      <TopBar title="Strategies" subtitle={`${data?.strategies.length ?? 0} positions`} />
+      <TopBar title={t("strategies", language)} subtitle={`${data?.strategies.length ?? 0} ${t("positions", language).toLowerCase()}`} />
 
       {/* Filters */}
       <div className="px-4 pt-3 pb-2 space-y-2">
@@ -67,7 +70,7 @@ export function Strategies() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search ticker..."
+          placeholder={t("searchTicker", language)}
           className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
         />
         <div className="flex gap-1.5 flex-wrap">
@@ -94,12 +97,12 @@ export function Strategies() {
           </div>
         )}
 
-        {error && <ErrorState message="Failed to load strategies" onRetry={refetch} />}
+        {error && <ErrorState message={t("errorLoadStrategies", language)} onRetry={refetch} />}
 
-        {isEmpty && <EmptyState message="No strategies yet — run a full report" icon="🎯" />}
+        {isEmpty && <EmptyState message={t("emptyStrategies", language)} icon="🎯" />}
 
         {noResults && (
-          <EmptyState message="No strategies match your filter" icon="🔍" />
+          <EmptyState message={t("noStrategyMatches", language)} icon="🔍" />
         )}
 
         {/* Mobile card list */}
@@ -121,13 +124,13 @@ export function Strategies() {
                     <div className="text-[10px] text-[var(--color-fg-subtle)] shrink-0">{timeAgo(s.updatedAt)}</div>
                   </div>
                   <div className="text-[10px] text-[var(--color-fg-muted)] mb-1.5">
-                    {s.confidence} · {s.timeframe} · {formatILS(s.positionSizeILS)}
+                    {tConfidence(s.confidence, language)} · {tTimeframe(s.timeframe, language)} · {formatILS(s.positionSizeILS)}
                   </div>
                   <p className="text-xs text-[var(--color-fg-muted)] line-clamp-2 leading-snug">
                     {s.reasoning}
                   </p>
                   {s.hasExpiredCatalysts && (
-                    <p className="text-[10px] text-[var(--color-accent-red)] mt-1">🔴 Expired catalyst</p>
+                    <p className="text-[10px] text-[var(--color-accent-red)] mt-1">🔴 {t("expiredCatalyst", language)}</p>
                   )}
                 </div>
               ))}
@@ -138,7 +141,7 @@ export function Strategies() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[var(--color-border)]">
-                    {["Ticker", "Verdict", "Confidence", "Timeframe", "Size ₪", "Weight %", "Reasoning", "Updated", "⚠️"].map((h) => (
+                    {[t("colTicker",language), t("colVerdict",language), t("colConfidence",language), t("colTimeframe",language), t("colSize",language), t("colWeightPct",language), t("colReasoning",language), t("colUpdated",language), "⚠️"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase">{h}</th>
                     ))}
                   </tr>
@@ -154,8 +157,8 @@ export function Strategies() {
                         <span className="font-mono font-bold text-sm text-[var(--color-fg-default)]">{s.ticker}</span>
                       </td>
                       <td className="px-3 py-2.5"><VerdictBadge verdict={s.verdict} size="sm" /></td>
-                      <td className="px-3 py-2.5"><ConfidenceBadge confidence={s.confidence} /></td>
-                      <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] capitalize">{s.timeframe}</td>
+                      <td className="px-3 py-2.5"><ConfidenceBadge confidence={tConfidence(s.confidence, language)} /></td>
+                      <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)]">{tTimeframe(s.timeframe, language)}</td>
                       <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{formatILS(s.positionSizeILS)}</td>
                       <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{(s.positionWeightPct ?? 0).toFixed(1)}%</td>
                       <td className="px-3 py-2.5 text-xs text-[var(--color-fg-muted)] max-w-[200px] truncate">{s.reasoning}</td>

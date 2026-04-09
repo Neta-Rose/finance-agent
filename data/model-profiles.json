@@ -16,5 +16,11 @@
     "analysts": "openrouter/google/gemma-3-27b-it:free",
     "risk": "openrouter/google/gemma-3-27b-it:free",
     "researchers": "openrouter/meta-llama/llama-3.3-70b-instruct:free"
+  },
+  "qwen": {
+    "orchestrator": "openrouter/qwen/qwen3.6-plus",
+    "analysts": "openrouter/qwen/qwen3.6-plus",
+    "risk": "openrouter/qwen/qwen3.6-plus",
+    "researchers": "openrouter/qwen/qwen3.6-plus"
   }
 }

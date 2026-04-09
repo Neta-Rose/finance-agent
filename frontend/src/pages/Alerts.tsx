@@ -10,8 +10,11 @@ import { VerdictBadge, ConfidenceBadge } from "../components/ui/Badge";
 import { Spinner } from "../components/ui/Spinner";
 import { ErrorState } from "../components/ui/ErrorState";
 import { useToastStore } from "../store/toastStore";
+import { usePreferencesStore } from "../store/preferencesStore";
+import { t, tConfidence, tTimeframe, getGreeting } from "../store/i18n";
 
 export function Alerts() {
+  const language = usePreferencesStore((s) => s.language);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const showToast = useToastStore((s) => s.show);
 
@@ -49,22 +52,18 @@ export function Alerts() {
   const handleRunFullReport = async () => {
     try {
       await triggerJob("full_report");
-      showToast("Full portfolio analysis started — you'll be notified when ready", "success");
+      showToast(t("fullReportStarted", language), "success");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string; reason?: string } } };
       const msg = axiosErr.response?.data?.reason || axiosErr.response?.data?.error;
-      if (msg) {
-        showToast(msg, "error");
-      } else {
-        showToast("Failed to start full report", "error");
-      }
+      showToast(msg || t("errorStartFullReport", language), "error");
     }
   };
 
   if (isLoading) {
     return (
       <>
-        <TopBar title="Alerts" />
+        <TopBar title={t("alerts", language)} />
         <div className="flex items-center justify-center h-48">
           <Spinner size="lg" />
         </div>
@@ -75,24 +74,22 @@ export function Alerts() {
   if (error) {
     return (
       <>
-        <TopBar title="Alerts" />
-        <ErrorState message="Failed to load alerts" onRetry={refetch} />
+        <TopBar title={t("alerts", language)} />
+        <ErrorState message={t("errorLoadAlerts", language)} onRetry={refetch} />
       </>
     );
   }
 
   const subtitle = escalationCount > 0
-    ? `${escalationCount} need attention`
-    : isEmpty
-    ? "All clear"
-    : "All clear";
+    ? `${escalationCount} ${t("alertsNeedAttention", language)}`
+    : undefined;
 
   return (
     <>
       <TopBar
-        title="Alerts"
+        title={t("alerts", language)}
         subtitle={subtitle}
-        greeting={onboardStatus?.displayName ? `Hello ${onboardStatus.displayName} — Keep an eye on things 👀` : undefined}
+        greeting={getGreeting(onboardStatus?.displayName, language)}
       />
 
       {/* Escalation banner */}
@@ -101,14 +98,14 @@ export function Alerts() {
           <div className="flex items-center gap-2 text-xs text-[var(--color-accent-yellow)]">
             <span>⚡</span>
             <span className="font-medium">
-              {escalationCount} position{escalationCount !== 1 ? "s" : ""} need deep analysis
+              {escalationCount} {t("escalationNeeds", language)}
             </span>
           </div>
           <button
             onClick={handleRunFullReport}
             className="shrink-0 text-[10px] font-semibold text-[var(--color-accent-yellow)] border border-[var(--color-accent-yellow)]/40 rounded px-2 py-1"
           >
-            Run Now
+            {t("runNow", language)}
           </button>
         </div>
       )}
@@ -117,15 +114,14 @@ export function Alerts() {
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <span className="text-4xl">✅</span>
-            <p className="text-sm text-[var(--color-fg-muted)] text-center">All clear — no alerts right now</p>
+            <p className="text-sm text-[var(--color-fg-muted)] text-center">{t("emptyAlerts", language)}</p>
           </div>
         ) : (
           <>
-            {/* Critical: SELL / CLOSE */}
             {critical.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-[var(--color-accent-red)] uppercase mb-2 flex items-center gap-1.5">
-                  <span>🔴</span> Sell / Close
+                  <span>🔴</span> {t("alertCritical", language)}
                 </h2>
                 <div className="space-y-2">
                   {critical.map((v) => (
@@ -139,14 +135,14 @@ export function Alerts() {
                           <span className="font-mono font-bold text-sm text-[var(--color-fg-default)]">{v.ticker}</span>
                           <VerdictBadge verdict={v.verdict} size="sm" />
                         </div>
-                        <ConfidenceBadge confidence={v.confidence} />
+                        <ConfidenceBadge confidence={tConfidence(v.confidence, language)} />
                       </div>
-                      <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1 capitalize">{v.timeframe}</p>
+                      <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{tTimeframe(v.timeframe, language)}</p>
                       <p className="text-xs text-[var(--color-fg-muted)] leading-snug line-clamp-2">
                         {v.reasoning.slice(0, 120)}{v.reasoning.length > 120 ? "…" : ""}
                       </p>
                       {v.hasExpiredCatalysts && (
-                        <p className="text-[10px] text-[var(--color-accent-red)] mt-1">🔴 Expired catalyst</p>
+                        <p className="text-[10px] text-[var(--color-accent-red)] mt-1">🔴 {t("expiredCatalyst", language)}</p>
                       )}
                     </div>
                   ))}
@@ -154,11 +150,10 @@ export function Alerts() {
               </section>
             )}
 
-            {/* Warning: REDUCE */}
             {warning.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-[var(--color-accent-yellow)] uppercase mb-2 flex items-center gap-1.5">
-                  <span>⚠️</span> Reduce
+                  <span>⚠️</span> {t("alertWarning", language)}
                 </h2>
                 <div className="space-y-2">
                   {warning.map((v) => (
@@ -172,14 +167,14 @@ export function Alerts() {
                           <span className="font-mono font-bold text-sm text-[var(--color-fg-default)]">{v.ticker}</span>
                           <VerdictBadge verdict={v.verdict} size="sm" />
                         </div>
-                        <ConfidenceBadge confidence={v.confidence} />
+                        <ConfidenceBadge confidence={tConfidence(v.confidence, language)} />
                       </div>
-                      <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1 capitalize">{v.timeframe}</p>
+                      <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{tTimeframe(v.timeframe, language)}</p>
                       <p className="text-xs text-[var(--color-fg-muted)] leading-snug line-clamp-2">
                         {v.reasoning.slice(0, 120)}{v.reasoning.length > 120 ? "…" : ""}
                       </p>
                       {v.hasExpiredCatalysts && (
-                        <p className="text-[10px] text-[var(--color-accent-yellow)] mt-1">🟡 Expired catalyst</p>
+                        <p className="text-[10px] text-[var(--color-accent-yellow)] mt-1">🟡 {t("expiredCatalyst", language)}</p>
                       )}
                     </div>
                   ))}
@@ -187,11 +182,10 @@ export function Alerts() {
               </section>
             )}
 
-            {/* Opportunities: BUY / ADD */}
             {opportunities.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-[var(--color-accent-blue)] uppercase mb-2 flex items-center gap-1.5">
-                  <span>🔵</span> Buy / Add
+                  <span>🔵</span> {t("alertOpportunities", language)}
                 </h2>
                 <div className="space-y-2">
                   {opportunities.map((v) => (
@@ -205,9 +199,9 @@ export function Alerts() {
                           <span className="font-mono font-bold text-sm text-[var(--color-fg-default)]">{v.ticker}</span>
                           <VerdictBadge verdict={v.verdict} size="sm" />
                         </div>
-                        <ConfidenceBadge confidence={v.confidence} />
+                        <ConfidenceBadge confidence={tConfidence(v.confidence, language)} />
                       </div>
-                      <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1 capitalize">{v.timeframe}</p>
+                      <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{tTimeframe(v.timeframe, language)}</p>
                       <p className="text-xs text-[var(--color-fg-muted)] leading-snug line-clamp-2">
                         {v.reasoning.slice(0, 120)}{v.reasoning.length > 120 ? "…" : ""}
                       </p>

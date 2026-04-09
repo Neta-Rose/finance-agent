@@ -6,6 +6,8 @@ import { Card } from "../components/ui/Card";
 import { JobCard } from "../components/jobs/JobCard";
 import { Spinner } from "../components/ui/Spinner";
 import { useToastStore } from "../store/toastStore";
+import { usePreferencesStore } from "../store/preferencesStore";
+import { t } from "../store/i18n";
 import type { Job, JobAction } from "../types/api";
 
 function ActionCard({
@@ -23,26 +25,26 @@ function ActionCard({
   tickerRequired?: boolean;
   onTrigger: (job: Job) => void;
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const [ticker, setTicker] = useState("");
   const [loading, setLoading] = useState(false);
   const showToast = useToastStore((s) => s.show);
 
   const handleTrigger = async () => {
     if (tickerRequired && !ticker.trim()) {
-      showToast("Enter a ticker symbol", "warning");
+      showToast(t("tickerRequired", language), "warning");
       return;
     }
     setLoading(true);
     try {
       const res = await triggerJob(action, tickerRequired ? ticker.trim().toUpperCase() : undefined);
       onTrigger(res.job);
-      const actionLabel = action.replace(/_/g, " ");
-      showToast(`${actionLabel} queued — you'll be notified when done`, "success");
+      showToast(`${title} — ${t("jobQueued", language)}`, "success");
       if (tickerRequired) setTicker("");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { reason?: string; error?: string } } };
       const reason = axiosErr.response?.data?.reason || axiosErr.response?.data?.error;
-      showToast(reason || `Failed to trigger ${action}`, "error");
+      showToast(reason || `${t("jobFailed", language)}: ${action}`, "error");
     } finally {
       setLoading(false);
     }
@@ -60,7 +62,7 @@ function ActionCard({
           type="text"
           value={ticker}
           onChange={(e) => setTicker(e.target.value.toUpperCase().slice(0, 10))}
-          placeholder="TICKER"
+          placeholder={t("enterTicker", language)}
           className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)] mt-1"
         />
       )}
@@ -69,13 +71,14 @@ function ActionCard({
         disabled={loading}
         className="w-full py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50 mt-1"
       >
-        {loading ? "..." : "Run"}
+        {loading ? "..." : t("run", language)}
       </button>
     </Card>
   );
 }
 
 export function Controls() {
+  const language = usePreferencesStore((s) => s.language);
   const queryClient = useQueryClient();
   const showToast = useToastStore((s) => s.show);
 
@@ -83,7 +86,7 @@ export function Controls() {
     queryKey: ["jobs"],
     queryFn: fetchJobs,
     staleTime: 30_000,
-    refetchInterval: 15_000, // auto-refresh every 15s
+    refetchInterval: 30_000, // auto-refresh every 30s
   });
 
   const allJobs = jobsData?.jobs ?? [];
@@ -96,11 +99,12 @@ export function Controls() {
     .slice(0, 15);
 
   const handleJobComplete = useCallback((job: Job) => {
-    const actionLabel = job.action.replace(/_/g, " ");
+    const label = job.action.replace(/_/g, " ");
+    const ticker = job.ticker ? ` (${job.ticker})` : "";
     if (job.status === "completed") {
-      showToast(`${actionLabel}${job.ticker ? ` (${job.ticker})` : ""} completed ✓`, "success");
+      showToast(`${label}${ticker} ${t("jobCompletedNotif", language)}`, "success");
     } else {
-      showToast(`${actionLabel}${job.ticker ? ` (${job.ticker})` : ""} failed — check logs`, "error");
+      showToast(`${label}${ticker} ${t("jobFailedNotif", language)}`, "error");
     }
     // Refresh the jobs list to update UI
     queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -109,10 +113,10 @@ export function Controls() {
   return (
     <>
       <TopBar
-        title="Controls"
+        title={t("controls", language)}
         subtitle={
           activeJobs.length > 0
-            ? `${activeJobs.length} job${activeJobs.length !== 1 ? "s" : ""} active`
+            ? `${activeJobs.length} ${t("activeJobs", language).toLowerCase()}`
             : undefined
         }
         onRefresh={() => refetchJobs()}
@@ -124,30 +128,30 @@ export function Controls() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <ActionCard
             icon="📋"
-            title="Daily Brief"
-            description="Run today's portfolio brief"
+            title={t("jobDailyTitle", language)}
+            description={t("jobDailyDesc", language)}
             action="daily_brief"
             onTrigger={() => {}}
           />
           <ActionCard
             icon="📊"
-            title="Full Report"
-            description="Analyze all positions"
+            title={t("jobFullTitle", language)}
+            description={t("jobFullDesc", language)}
             action="full_report"
             onTrigger={() => {}}
           />
           <ActionCard
             icon="🔬"
-            title="Deep Dive"
-            description="Full analysis on one ticker"
+            title={t("jobDeepDiveTitle", language)}
+            description={t("jobDeepDiveDesc", language)}
             action="deep_dive"
             tickerRequired
             onTrigger={() => {}}
           />
           <ActionCard
             icon="💡"
-            title="New Ideas"
-            description="Weekly research scan"
+            title={t("jobNewIdeasTitle", language)}
+            description={t("jobNewIdeasDesc", language)}
             action="new_ideas"
             onTrigger={() => {}}
           />
@@ -157,7 +161,7 @@ export function Controls() {
         {activeJobs.length > 0 && (
           <div className="mt-5 space-y-2">
             <h2 className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase">
-              Active Jobs ({activeJobs.length})
+              {t("activeJobs", language)} ({activeJobs.length})
             </h2>
             {activeJobs.map((job) => (
               <JobCard
@@ -172,7 +176,7 @@ export function Controls() {
         {/* Job history */}
         <div className="mt-6">
           <h2 className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-3">
-            Recent Jobs
+            {t("recentJobs", language)}
           </h2>
 
           {!jobsData ? (
@@ -182,7 +186,7 @@ export function Controls() {
           ) : recentHistory.length === 0 && activeJobs.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-3xl mb-2">📋</p>
-              <p className="text-xs text-[var(--color-fg-muted)]">No jobs yet — use the buttons above to get started</p>
+              <p className="text-xs text-[var(--color-fg-muted)]">{t("noJobs", language)}</p>
             </div>
           ) : (
             <div className="space-y-1.5">

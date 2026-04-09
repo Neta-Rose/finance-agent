@@ -65,12 +65,20 @@ export const usePreferencesStore = create<PreferencesState>()(
         applyTheme(theme);
         set({ theme });
       },
-      setLanguage: (language) => set({ language }),
+      setLanguage: (language) => {
+        document.documentElement.setAttribute("dir", language === "he" ? "rtl" : "ltr");
+        document.documentElement.setAttribute("lang", language);
+        set({ language });
+      },
     }),
     {
       name: "preferences-storage",
       onRehydrateStorage: () => (state) => {
-        if (state) applyTheme(state.theme);
+        if (state) {
+          applyTheme(state.theme);
+          document.documentElement.setAttribute("dir", state.language === "he" ? "rtl" : "ltr");
+          document.documentElement.setAttribute("lang", state.language ?? "en");
+        }
       },
     }
   )
