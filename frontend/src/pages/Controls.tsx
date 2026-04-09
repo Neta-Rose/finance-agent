@@ -8,7 +8,8 @@ import { Spinner } from "../components/ui/Spinner";
 import { useToastStore } from "../store/toastStore";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t } from "../store/i18n";
-import type { Job, JobAction } from "../types/api";
+import { TickerSearch } from "../components/ui/TickerSearch";
+import type { Job, JobAction, TickerSelection } from "../types/api";
 
 function ActionCard({
   icon,
@@ -26,21 +27,21 @@ function ActionCard({
   onTrigger: (job: Job) => void;
 }) {
   const language = usePreferencesStore((s) => s.language);
-  const [ticker, setTicker] = useState("");
+  const [tickerSelection, setTickerSelection] = useState<TickerSelection | null>(null);
   const [loading, setLoading] = useState(false);
   const showToast = useToastStore((s) => s.show);
 
   const handleTrigger = async () => {
-    if (tickerRequired && !ticker.trim()) {
+    if (tickerRequired && !tickerSelection) {
       showToast(t("tickerRequired", language), "warning");
       return;
     }
     setLoading(true);
     try {
-      const res = await triggerJob(action, tickerRequired ? ticker.trim().toUpperCase() : undefined);
+      const res = await triggerJob(action, tickerRequired ? tickerSelection?.symbol : undefined);
       onTrigger(res.job);
       showToast(`${title} — ${t("jobQueued", language)}`, "success");
-      if (tickerRequired) setTicker("");
+      if (tickerRequired) setTickerSelection(null);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { reason?: string; error?: string } } };
       const reason = axiosErr.response?.data?.reason || axiosErr.response?.data?.error;
@@ -58,17 +59,17 @@ function ActionCard({
         <p className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">{description}</p>
       </div>
       {tickerRequired && (
-        <input
-          type="text"
-          value={ticker}
-          onChange={(e) => setTicker(e.target.value.toUpperCase().slice(0, 10))}
-          placeholder={t("enterTicker", language)}
-          className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)] mt-1"
-        />
+        <div className="mt-1">
+          <TickerSearch
+            value={tickerSelection}
+            onChange={setTickerSelection}
+            placeholder={t("enterTicker", language)}
+          />
+        </div>
       )}
       <button
         onClick={handleTrigger}
-        disabled={loading}
+        disabled={loading || (tickerRequired && !tickerSelection)}
         className="w-full py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50 mt-1"
       >
         {loading ? "..." : t("run", language)}
