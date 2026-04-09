@@ -47,12 +47,31 @@ export interface UserSummary {
   createdAt: string;
   rateLimits: RateLimits;
   schedule: Schedule;
+  modelProfile: string;
+  agentHealth: AgentHealth;
 }
 
 export interface AdminStatus {
   gatewayRunning: boolean;
   totalUsers: number;
   activeAgents: number;
+}
+
+export interface ProfileDefinition {
+  orchestrator: string;
+  analysts: string;
+  risk: string;
+  researchers: string;
+}
+
+export type ProfilesRegistry = Record<string, ProfileDefinition>;
+
+export interface AgentHealth {
+  healthy: boolean;
+  consecutiveErrors: number;
+  lastError: string | null;
+  lastErrorReason: string | null;
+  lastRunAt: string | null;
 }
 
 export const adminFetchUsers = async (): Promise<{ users: UserSummary[] }> =>
@@ -92,3 +111,31 @@ export const adminAddTelegram = async (userId: string, botToken: string, chatId:
 
 export const adminGetStatus = async (): Promise<AdminStatus> =>
   adminFetch("/api/admin/status");
+
+export const adminFetchProfiles = async (): Promise<{ profiles: ProfilesRegistry }> =>
+  adminFetch("/api/admin/profiles");
+
+export const adminCreateProfile = async (name: string, definition: ProfileDefinition): Promise<void> => {
+  await adminFetch("/api/admin/profiles", {
+    method: "POST",
+    body: JSON.stringify({ name, definition }),
+  });
+};
+
+export const adminUpdateProfile = async (name: string, definition: ProfileDefinition): Promise<void> => {
+  await adminFetch(`/api/admin/profiles/${encodeURIComponent(name)}`, {
+    method: "PATCH",
+    body: JSON.stringify(definition),
+  });
+};
+
+export const adminDeleteProfile = async (name: string): Promise<void> => {
+  await adminFetch(`/api/admin/profiles/${encodeURIComponent(name)}`, { method: "DELETE" });
+};
+
+export const adminSetUserProfile = async (userId: string, profileName: string): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/profile`, {
+    method: "PATCH",
+    body: JSON.stringify({ profileName }),
+  });
+};
