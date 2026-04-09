@@ -63,7 +63,7 @@ async function getPriceFromYF(
   exchange: Exchange,
   usdIlsRate: number
 ): Promise<PriceResult> {
-  const yfTicker = exchange === "TASE" ? `${ticker}.TA` : ticker;
+  const yfTicker = exchange === "TASE" && !ticker.endsWith(".TA") ? `${ticker}.TA` : ticker;
 
   const quote = await yf.quote(yfTicker);
   const rawPrice = quote["regularMarketPrice"];
@@ -198,7 +198,7 @@ export async function getPriceHistory(
   timeframe: string
 ): Promise<CandlestickData[]> {
   const { period1, period2, interval } = timeframeToRange(timeframe);
-  const yfTicker = ticker.includes(".TA") ? ticker : ticker;
+  const yfTicker = ticker;
 
   try {
     const result = await yf.chart(yfTicker, {
