@@ -18,7 +18,7 @@ import {
   initUserWorkspace,
 } from "../services/workspaceService.js";
 import { createJob } from "../services/jobService.js";
-import { updateUserTelegram, restartGateway } from "../services/agentService.js";
+import { updateUserTelegram, restartGateway, getUserAgentHealth } from "../services/agentService.js";
 import { DEFAULT_RATE_LIMITS } from "../types/index.js";
 import type { RateLimits } from "../types/index.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -232,6 +232,8 @@ router.get(
 
     const rateLimits: RateLimits = (profile?.rateLimits as RateLimits) ?? DEFAULT_RATE_LIMITS;
 
+    const agentHealth = await getUserAgentHealth(userId);
+
     res.json({
       userId,
       state: stateData.state,
@@ -243,6 +245,7 @@ router.get(
       rateLimits,
       schedule: profile?.schedule ?? null,
       telegramConnected: !!profile?.telegramChatId,
+      agentHealthy: agentHealth.healthy,
     });
   })
 );
