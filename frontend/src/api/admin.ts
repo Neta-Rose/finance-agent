@@ -1,3 +1,5 @@
+import type { AgentHealth } from "../types/api";
+
 const ADMIN_KEY = () => sessionStorage.getItem("admin_key") ?? "";
 
 const adminHeaders = (): HeadersInit => ({
@@ -66,13 +68,7 @@ export interface ProfileDefinition {
 
 export type ProfilesRegistry = Record<string, ProfileDefinition>;
 
-export interface AgentHealth {
-  healthy: boolean;
-  consecutiveErrors: number;
-  lastError: string | null;
-  lastErrorReason: string | null;
-  lastRunAt: string | null;
-}
+export type { AgentHealth };
 
 export const adminFetchUsers = async (): Promise<{ users: UserSummary[] }> =>
   adminFetch("/api/admin/users");
