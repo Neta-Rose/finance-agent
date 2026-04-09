@@ -23,6 +23,7 @@ import reportsRoutes from "./routes/reports.js";
 import onboardingRoutes from "./routes/onboarding.js";
 import telegramRoutes from "./routes/telegram.js";
 import adminRoutes from "./routes/admin.js";
+import searchRoutes from "./routes/search.js";
 
 export function createApp(): Express {
   const app = express();
@@ -67,6 +68,7 @@ export function createApp(): Express {
   app.use("/api", conditionRoutes); // GET /api/conditions/*
   app.use("/api", strategyRoutes); // GET /api/strategies/*
   app.use("/api", telegramRoutes); // POST /api/telegram/webhook — no auth
+  app.use("/api", searchRoutes); // GET /api/search/ticker — no user workspace needed
 
   // ── Serve React frontend (SPA fallback) ──────────────────────────────────
   const frontendDist = process.env.FRONTEND_DIST ?? path.resolve(process.cwd(), "../frontend/dist");
