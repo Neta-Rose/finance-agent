@@ -6,9 +6,16 @@ import {
   adminUpdateLimits,
   adminAddTelegram,
   adminGetStatus,
+  adminFetchProfiles,
+  adminCreateProfile,
+  adminUpdateProfile,
+  adminDeleteProfile,
+  adminSetUserProfile,
   type UserSummary,
   type RateLimits,
   type AdminStatus,
+  type ProfileDefinition,
+  type ProfilesRegistry,
 } from "../api/admin";
 
 // ---- Login ----
@@ -288,17 +295,251 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   );
 }
 
+// ---- Profile Editor ----
+function ProfileEditor({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial: ProfileDefinition;
+  onSave: (def: ProfileDefinition) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState<ProfileDefinition>({ ...initial });
+  const fields: Array<{ key: keyof ProfileDefinition; label: string }> = [
+    { key: "orchestrator", label: "Orchestrator" },
+    { key: "analysts", label: "Analysts" },
+    { key: "risk", label: "Risk" },
+    { key: "researchers", label: "Researchers" },
+  ];
+  return (
+    <div className="space-y-2 pt-1">
+      {fields.map(({ key, label }) => (
+        <div key={key} className="flex items-center gap-2 text-xs">
+          <span className="w-24 shrink-0 text-[var(--color-fg-muted)]">{label}</span>
+          <input
+            value={draft[key]}
+            onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+            className="flex-1 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
+            placeholder={`model id for ${label.toLowerCase()}`}
+          />
+        </div>
+      ))}
+      <div className="flex gap-2 pt-2">
+        <button onClick={onCancel} className="flex-1 py-1.5 rounded border border-[var(--color-border)] text-xs text-[var(--color-fg-muted)]">Cancel</button>
+        <button onClick={() => onSave(draft)} className="flex-1 py-1.5 rounded bg-[var(--color-accent-blue)] text-white text-xs font-semibold">Save</button>
+      </div>
+    </div>
+  );
+}
+
+// ---- Profiles Section ----
+function ProfilesSection({ onError }: { onError: (msg: string) => void }) {
+  const [profiles, setProfiles] = useState<ProfilesRegistry>({});
+  const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDef, setNewDef] = useState<ProfileDefinition>({ orchestrator: "", analysts: "", risk: "", researchers: "" });
+
+  const load = useCallback(async () => {
+    try {
+      const { profiles: p } = await adminFetchProfiles();
+      setProfiles(p);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to load profiles");
+    }
+  }, [onError]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const handleUpdate = async (name: string, def: ProfileDefinition) => {
+    try {
+      await adminUpdateProfile(name, def);
+      setEditing(null);
+      await load();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to update profile");
+    }
+  };
+
+  const handleCreate = async (def: ProfileDefinition) => {
+    try {
+      await adminCreateProfile(newName.trim(), def);
+      setAdding(false);
+      setNewName("");
+      setNewDef({ orchestrator: "", analysts: "", risk: "", researchers: "" });
+      await load();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to create profile");
+    }
+  };
+
+  const handleDelete = async (name: string) => {
+    if (!confirm(`Delete profile "${name}"? This cannot be undone.`)) return;
+    try {
+      await adminDeleteProfile(name);
+      await load();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to delete profile");
+    }
+  };
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-[var(--color-fg-default)]">Model Profiles</h2>
+        <button
+          onClick={() => setAdding(true)}
+          className="text-xs px-3 py-1 rounded-lg bg-[var(--color-accent-blue)] text-white font-semibold"
+        >+ Add Profile</button>
+      </div>
+      <div className="space-y-2">
+        {Object.entries(profiles).map(([name, def]) => (
+          <div key={name} className="bg-[var(--color-bg-subtle)] rounded-xl px-4 py-3 border border-[var(--color-border)]">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-[var(--color-fg-default)]">{name}</span>
+              <div className="flex gap-3">
+                <button onClick={() => setEditing(editing === name ? null : name)}
+                  className="text-xs text-[var(--color-accent-blue)]">
+                  {editing === name ? "Cancel" : "Edit"}
+                </button>
+                <button onClick={() => handleDelete(name)}
+                  className="text-xs text-[var(--color-accent-red)]">Delete</button>
+              </div>
+            </div>
+            {editing !== name && (
+              <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                {(["orchestrator", "analysts", "risk", "researchers"] as const).map((k) => (
+                  <span key={k} className="text-xs text-[var(--color-fg-muted)]">
+                    <span className="text-[var(--color-fg-subtle)]">{k}: </span>{def[k]}
+                  </span>
+                ))}
+              </div>
+            )}
+            {editing === name && (
+              <div className="mt-2">
+                <ProfileEditor initial={def} onSave={(d) => handleUpdate(name, d)} onCancel={() => setEditing(null)} />
+              </div>
+            )}
+          </div>
+        ))}
+        {adding && (
+          <div className="bg-[var(--color-bg-subtle)] rounded-xl px-4 py-3 border border-[var(--color-accent-blue)]">
+            <div className="mb-2">
+              <label className="text-xs text-[var(--color-fg-muted)] block mb-1">Profile Name</label>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. budget"
+                className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
+              />
+            </div>
+            <ProfileEditor
+              initial={newDef}
+              onSave={(d) => handleCreate(d)}
+              onCancel={() => { setAdding(false); setNewName(""); }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---- Profile Badge ----
+function ProfileBadge({
+  userId,
+  current,
+  profiles,
+  onChanged,
+  onError,
+}: {
+  userId: string;
+  current: string;
+  profiles: ProfilesRegistry;
+  onChanged: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const colorMap: Record<string, string> = {
+    testing: "bg-blue-500/20 text-blue-400",
+    production: "bg-green-500/20 text-green-400",
+    free: "bg-gray-500/20 text-gray-400",
+  };
+  const colorClass = colorMap[current] ?? "bg-purple-500/20 text-purple-400";
+
+  const handleSwitch = async (name: string) => {
+    setOpen(false);
+    try {
+      await adminSetUserProfile(userId, name);
+      onChanged();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to switch profile");
+    }
+  };
+
+  return (
+    <div className="relative inline-block">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${colorClass}`}
+      >
+        {current} ▾
+      </button>
+      {open && (
+        <div className="absolute left-0 top-6 z-20 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 min-w-[120px]">
+          {Object.keys(profiles).map((name) => (
+            <button
+              key={name}
+              onClick={() => handleSwitch(name)}
+              className={`w-full text-left text-xs px-3 py-1.5 hover:bg-[var(--color-bg-muted)] ${name === current ? "font-bold text-[var(--color-accent-blue)]" : "text-[var(--color-fg-default)]"}`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Health Badge ----
+function HealthBadge({ health }: { health: UserSummary["agentHealth"] }) {
+  if (health.healthy) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">OK</span>;
+  }
+  const tooltip = health.lastErrorReason
+    ? `${health.lastErrorReason} (${health.consecutiveErrors} errors)`
+    : health.lastError
+    ? health.lastError.slice(0, 160)
+    : `${health.consecutiveErrors} consecutive errors`;
+  return (
+    <span
+      title={tooltip}
+      className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium cursor-help"
+    >
+      Error ⚠
+    </span>
+  );
+}
+
 // ---- User Card ----
 function UserCard({
   user,
+  profiles,
   onDelete,
   onUpdateLimits,
   onAddTelegram,
+  onProfileChanged,
+  onError,
 }: {
   user: UserSummary;
+  profiles: ProfilesRegistry;
   onDelete: (userId: string) => void;
   onUpdateLimits: (userId: string, limits: Partial<RateLimits>) => void;
   onAddTelegram: (userId: string, botToken: string, chatId: string) => void;
+  onProfileChanged: () => void;
+  onError: (msg: string) => void;
 }) {
   const [showLimits, setShowLimits] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -342,6 +583,16 @@ function UserCard({
             {user.state}
             {user.portfolioLoaded ? " · portfolio ✓" : " · portfolio ✗"}
           </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <ProfileBadge
+            userId={user.userId}
+            current={user.modelProfile}
+            profiles={profiles}
+            onChanged={onProfileChanged}
+            onError={onError}
+          />
+          <HealthBadge health={user.agentHealth} />
         </div>
       </div>
 
@@ -422,17 +673,24 @@ export function Admin() {
   const [loggedIn, setLoggedIn] = useState(isLoggedIn);
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
+  const [profiles, setProfiles] = useState<ProfilesRegistry>({});
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, u] = await Promise.all([adminGetStatus(), adminFetchUsers()]);
+      const [s, { users: u }, { profiles: p }] = await Promise.all([
+        adminGetStatus(),
+        adminFetchUsers(),
+        adminFetchProfiles(),
+      ]);
       setStatus(s);
-      setUsers(u.users);
+      setUsers(u);
+      setProfiles(p);
     } catch {
-      // error handled in login
+      // handled by login
     } finally {
       setLoading(false);
     }
@@ -497,6 +755,17 @@ export function Admin() {
           </div>
         </div>
 
+        {/* Error banner */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 text-xs text-[var(--color-accent-red)] flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="ml-2 opacity-60 hover:opacity-100">×</button>
+          </div>
+        )}
+
+        {/* Model Profiles */}
+        <ProfilesSection onError={setError} />
+
         {/* Add user */}
         <button onClick={() => setShowAdd(true)}
           className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold">
@@ -514,9 +783,12 @@ export function Admin() {
               <UserCard
                 key={user.userId}
                 user={user}
+                profiles={profiles}
                 onDelete={handleDelete}
                 onUpdateLimits={handleUpdateLimits}
                 onAddTelegram={handleAddTelegram}
+                onProfileChanged={load}
+                onError={setError}
               />
             ))}
           </div>
