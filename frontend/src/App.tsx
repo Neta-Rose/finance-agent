@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "./store/authStore";
@@ -54,7 +55,34 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
    return <Navigate to="/onboarding" replace />;
  }
 
- return <>{children}</>;
+ const [bannerDismissed, setBannerDismissed] = useState(false);
+ const showBanner = !bannerDismissed && onboardStatus?.agentHealthy === false;
+
+ return (
+   <>
+     {showBanner && (
+       <div
+         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium"
+         style={{
+           background: "rgba(239,68,68,0.12)",
+           borderBottom: "1px solid rgba(239,68,68,0.3)",
+           color: "var(--color-accent-red)",
+         }}
+       >
+         <span>Your AI advisor is experiencing issues. Reports may be delayed — please contact support.</span>
+         <button
+           onClick={() => setBannerDismissed(true)}
+           className="ml-4 shrink-0 text-base leading-none opacity-70 hover:opacity-100"
+         >
+           ×
+         </button>
+       </div>
+     )}
+     <div style={showBanner ? { paddingTop: "36px" } : undefined}>
+       {children}
+     </div>
+   </>
+ );
 }
 
 // Separate route guard for onboarding - prevents returning to completed onboarding
