@@ -28,6 +28,7 @@ const queryClient = new QueryClient({
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+ const [bannerDismissed, setBannerDismissed] = useState(false);
 
  const { data: onboardStatus, isLoading, error } = useQuery({
    queryKey: ["onboard-status"],
@@ -55,8 +56,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
    return <Navigate to="/onboarding" replace />;
  }
 
- const [bannerDismissed, setBannerDismissed] = useState(false);
- const showBanner = !bannerDismissed && onboardStatus?.agentHealthy === false;
+ const showBanner = !bannerDismissed && onboardStatus.agentHealthy === false;
 
  return (
    <>
