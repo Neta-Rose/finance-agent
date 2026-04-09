@@ -1,4 +1,11 @@
 export {
+  ProfileDefinitionSchema,
+  ProfilesRegistrySchema,
+  UserConfigSchema,
+} from "./profile.js";
+export type { ProfileDefinition, ProfilesRegistry, UserConfig } from "./profile.js";
+
+export {
   FundamentalsReportSchema,
   TechnicalReportSchema,
   SentimentReportSchema,
