@@ -343,3 +343,47 @@ export async function getUserAgentStatus(userId: string): Promise<{
     return { configured: false, hasTelegram: false, telegramChatId: undefined };
   }
 }
+
+export interface AgentHealth {
+  healthy: boolean;
+  consecutiveErrors: number;
+  lastError: string | null;
+  lastRunAt: string | null;
+}
+
+const CRON_JOBS_PATH = "/root/.openclaw/cron/jobs.json";
+const HEALTH_ERROR_THRESHOLD = 10;
+
+export async function getUserAgentHealth(userId: string): Promise<AgentHealth> {
+  try {
+    const raw = await fs.readFile(CRON_JOBS_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as {
+      jobs?: Array<{
+        name?: string;
+        agentId?: string;
+        state?: {
+          consecutiveErrors?: number;
+          lastError?: string;
+          lastRunAtMs?: number;
+        };
+      }>;
+    };
+    const jobs = parsed.jobs ?? [];
+    const cronJob = jobs.find(
+      (j) => j.name === `${userId}-heartbeat` || j.agentId === userId
+    );
+    if (!cronJob?.state) {
+      return { healthy: true, consecutiveErrors: 0, lastError: null, lastRunAt: null };
+    }
+    const { consecutiveErrors = 0, lastError, lastRunAtMs } = cronJob.state;
+    return {
+      healthy: consecutiveErrors < HEALTH_ERROR_THRESHOLD,
+      consecutiveErrors,
+      lastError: lastError ?? null,
+      lastRunAt: lastRunAtMs ? new Date(lastRunAtMs).toISOString() : null,
+    };
+  } catch {
+    // cron file missing or unreadable — assume healthy (no errors yet)
+    return { healthy: true, consecutiveErrors: 0, lastError: null, lastRunAt: null };
+  }
+}
