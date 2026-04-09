@@ -1,6 +1,20 @@
 export type Verdict = "BUY" | "ADD" | "HOLD" | "REDUCE" | "SELL" | "CLOSE";
 export type Confidence = "high" | "medium" | "low";
 export type Exchange = "TASE" | "NYSE" | "NASDAQ" | "LSE" | "XETRA" | "EURONEXT" | "OTHER";
+
+export interface TickerSelection {
+  symbol: string;
+  shortName: string;
+  exchange: Exchange;
+  exchDisp: string;
+  flag: string;
+  price: number | null;
+  currency: string;
+}
+
+export interface SearchResponse {
+  results: TickerSelection[];
+}
 export type JobStatus = "pending" | "running" | "completed" | "failed";
 export type JobAction =
  | "daily_brief" | "full_report" | "deep_dive"
@@ -29,6 +43,7 @@ export interface PortfolioResponse {
  totalCostILS: number;
  totalPlILS: number;
  totalPlPct: number;
+ accounts: string[];
  positions: PositionRow[];
 }
 
