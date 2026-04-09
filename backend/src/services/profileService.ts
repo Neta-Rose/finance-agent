@@ -11,13 +11,11 @@ const DATA_DIR = process.env["DATA_DIR"] ?? "../data";
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 
 function registryPath(): string {
-  return path.resolve(path.join(process.cwd(), DATA_DIR, "model-profiles.json"));
+  return path.resolve(DATA_DIR, "model-profiles.json");
 }
 
 function userConfigPath(userId: string): string {
-  return path.resolve(
-    path.join(process.cwd(), USERS_DIR, userId, "data", "config.json")
-  );
+  return path.resolve(USERS_DIR, userId, "data", "config.json");
 }
 
 // ── Registry I/O ─────────────────────────────────────────────────────────────
@@ -93,7 +91,7 @@ export async function deleteProfile(name: string): Promise<void> {
   let userIds: string[] = [];
   try {
     const entries = await fs.readdir(
-      path.resolve(path.join(process.cwd(), USERS_DIR)),
+      path.resolve(USERS_DIR),
       { withFileTypes: true }
     );
     userIds = entries
