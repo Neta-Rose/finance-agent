@@ -7,11 +7,21 @@ import {
   updateUserTelegram,
   restartGateway,
   getUserAgentStatus,
+  getUserAgentHealth,
 } from "../services/agentService.js";
 import { createUserWorkspace, workspaceExists } from "../services/workspaceService.js";
 import { hashPassword } from "../middleware/auth.js";
 import { logger } from "../services/logger.js";
+import {
+  listProfiles,
+  createProfile,
+  updateProfile,
+  deleteProfile,
+  getUserProfile,
+  setUserProfile,
+} from "../services/profileService.js";
 import type { RateLimits } from "../types/index.js";
+import type { ProfileDefinition } from "../schemas/profile.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "";
@@ -92,6 +102,8 @@ router.get(
         } catch { /* no portfolio */ }
 
         const agentStatus = await getUserAgentStatus(userId);
+        const modelProfile = await getUserProfile(userId);
+        const agentHealth = await getUserAgentHealth(userId);
 
         return {
           userId,
@@ -104,6 +116,8 @@ router.get(
           createdAt,
           rateLimits,
           schedule,
+          modelProfile,
+          agentHealth,
         };
       })
     );
@@ -300,6 +314,93 @@ router.get(
     } catch { /* ignore */ }
 
     res.json({ gatewayRunning, totalUsers, activeAgents: totalUsers });
+  })
+);
+
+// GET /api/admin/profiles
+router.get(
+  "/profiles",
+  handler(async (_req, res) => {
+    const profiles = await listProfiles();
+    res.json({ profiles });
+  })
+);
+
+// POST /api/admin/profiles
+router.post(
+  "/profiles",
+  handler(async (req, res) => {
+    const body = req.body as { name?: string; definition?: ProfileDefinition };
+    const name = String(body.name ?? "").trim();
+    const def = body.definition;
+    if (!name || !def) {
+      res.status(400).json({ error: "name and definition required" });
+      return;
+    }
+    try {
+      await createProfile(name, def);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create profile";
+      const status = msg.includes("already exists") ? 409 : 400;
+      res.status(status).json({ error: msg });
+      return;
+    }
+    res.status(201).json({ created: true, name });
+  })
+);
+
+// PATCH /api/admin/profiles/:name
+router.patch(
+  "/profiles/:name",
+  handler(async (req, res) => {
+    const name = req.params.name as string;
+    const def = req.body as ProfileDefinition;
+    try {
+      await updateProfile(name, def);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to update profile";
+      const status = msg.includes("not found") ? 404 : 400;
+      res.status(status).json({ error: msg });
+      return;
+    }
+    res.json({ updated: true, name });
+  })
+);
+
+// DELETE /api/admin/profiles/:name
+router.delete(
+  "/profiles/:name",
+  handler(async (req, res) => {
+    const name = req.params.name as string;
+    try {
+      await deleteProfile(name);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to delete profile";
+      const status = msg.includes("not found") ? 404 : msg.includes("still on it") || msg.includes("reserved") ? 409 : 400;
+      res.status(status).json({ error: msg });
+      return;
+    }
+    res.json({ deleted: true, name });
+  })
+);
+
+// PATCH /api/admin/users/:userId/profile
+router.patch(
+  "/users/:userId/profile",
+  handler(async (req, res) => {
+    const userId = req.params.userId as string;
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    const { profileName } = req.body as { profileName?: string };
+    if (!profileName) { res.status(400).json({ error: "profileName required" }); return; }
+    try {
+      await setUserProfile(userId, profileName);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to set profile";
+      const status = msg.includes("not found") ? 404 : 400;
+      res.status(status).json({ error: msg });
+      return;
+    }
+    res.json({ updated: true, userId, profileName });
   })
 );
 
