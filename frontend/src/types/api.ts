@@ -135,6 +135,14 @@ export interface RateLimits {
  new_ideas: RateLimit;
 }
 
+export interface AgentHealth {
+ healthy: boolean;
+ consecutiveErrors: number;
+ lastError: string | null;
+ lastErrorReason: string | null;
+ lastRunAt: string | null;
+}
+
 export interface Schedule {
  dailyBriefTime: string;
  weeklyResearchDay: string;
@@ -158,6 +166,7 @@ export interface OnboardStatus {
  rateLimits: RateLimits;
  schedule: Schedule | null;
  telegramConnected: boolean;
+ agentHealthy: boolean;
 }
 
 export interface SummaryStripProps {
