@@ -5,9 +5,13 @@
  */
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-// Load .env so USERS_DIR is available
-const envPath = path.join(process.cwd(), ".env");
+// Script lives at backend/dist/scripts/rebuildIndex.js
+// .env lives at backend/.env — use the script's own directory, not CWD,
+// so the script works correctly regardless of where it is invoked from.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.join(__dirname, "../../.env");
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, "utf-8");
   for (const line of envContent.split("\n")) {
@@ -91,7 +95,10 @@ function main(): void {
     process.exit(1);
   }
 
-  const resolvedUsersDir = path.resolve(process.cwd(), USERS_DIR);
+  // path.resolve on an absolute USERS_DIR is a no-op; on a relative one it
+  // resolves from the script directory (not CWD) so agent invocations from
+  // workspace dirs don't produce /users/users/... double-nesting.
+  const resolvedUsersDir = path.resolve(__dirname, "../../", USERS_DIR);
   const resolvedSnapshotsDir = path.resolve(resolvedUsersDir, userId, "data", "reports", "snapshots");
   const resolvedIndexDir = path.resolve(resolvedUsersDir, userId, "data", "reports", "index");
 
