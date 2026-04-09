@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Exchange } from "../types/index.js";
-import { PortfolioFileSchema } from "../schemas/portfolio.js";
+import { PortfolioFileSchema, PortfolioPositionSchema } from "../schemas/portfolio.js";
 import { getUsdIlsRate, getPricesParallel, getPriceHistory } from "../services/priceService.js";
 
 const router = Router();
@@ -27,6 +27,7 @@ interface PortfolioResponse {
   totalCostILS: number;
   totalPlILS: number;
   totalPlPct: number;
+  accounts: string[];
   positions: PositionRow[];
 }
 
@@ -62,6 +63,7 @@ router.get(
           totalCostILS: 0,
           totalPlILS: 0,
           totalPlPct: 0,
+          accounts: [],
           positions: [],
         });
         return;
@@ -174,6 +176,7 @@ router.get(
       totalCostILS: Math.round(totalCostILS * 100) / 100,
       totalPlILS: Math.round(totalPlILS * 100) / 100,
       totalPlPct: Math.round(totalPlPct * 100) / 100,
+      accounts: Object.keys(portfolio.accounts),
       positions,
     };
 
@@ -232,6 +235,65 @@ router.patch(
 
     await fs.writeFile(ws.portfolioFile, JSON.stringify(portfolio, null, 2), "utf-8");
     res.json({ success: true });
+  })
+);
+
+// POST /portfolio/position — add a new position
+router.post(
+  "/portfolio/position",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const { ticker, exchange, shares, unitAvgBuyPrice, unitCurrency, account, force } =
+      req.body as {
+        ticker?: string;
+        exchange?: string;
+        shares?: number;
+        unitAvgBuyPrice?: number;
+        unitCurrency?: string;
+        account?: string;
+        force?: boolean;
+      };
+
+    let raw: string;
+    try {
+      raw = await fs.readFile(ws.portfolioFile, "utf-8");
+    } catch {
+      res.status(404).json({ error: "portfolio not found" });
+      return;
+    }
+
+    const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
+
+    if (!account || !portfolio.accounts[account]) {
+      res.status(400).json({ error: "account_not_found" });
+      return;
+    }
+
+    // Clash check — bypassed with force:true
+    if (!force) {
+      const clashAccounts: string[] = [];
+      for (const [accName, positions] of Object.entries(portfolio.accounts)) {
+        if (positions.some((p) => p.ticker === String(ticker ?? "").toUpperCase())) {
+          clashAccounts.push(accName);
+        }
+      }
+      if (clashAccounts.length > 0) {
+        res.status(409).json({ clash: true, existingAccounts: clashAccounts });
+        return;
+      }
+    }
+
+    const newPos = PortfolioPositionSchema.parse({
+      ticker: String(ticker ?? "").toUpperCase(),
+      exchange,
+      shares,
+      unitAvgBuyPrice,
+      unitCurrency,
+    });
+
+    portfolio.accounts[account].push(newPos);
+    await fs.writeFile(ws.portfolioFile, JSON.stringify(portfolio, null, 2), "utf-8");
+    res.status(201).json({ success: true });
   })
 );
 
