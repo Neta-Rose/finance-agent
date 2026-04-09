@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const PortfolioPositionSchema = z.object({
-  ticker: z.string().regex(/^[A-Z0-9]{1,10}$/),
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
   exchange: z.enum(["TASE", "NYSE", "NASDAQ", "LSE", "XETRA", "EURONEXT", "OTHER"]),
   shares: z.number().int().positive(),
   unitAvgBuyPrice: z.number().positive(),

@@ -220,7 +220,7 @@ NEVER use avgPrice as current value — always fetch live price.
 
 ### Strategy schema (source of truth: `backend/src/schemas/strategy.ts`)
 ```typescript
-ticker:            /^[A-Z0-9]{1,10}$/
+ticker:            /^[A-Z0-9.]{1,12}$/  ← dot allowed for TASE suffixes (e.g. TEVA.TA)
 updatedAt:         datetime string
 version:           int >= 1
 verdict:           "BUY" | "ADD" | "HOLD" | "REDUCE" | "SELL" | "CLOSE"
@@ -244,7 +244,7 @@ deepDiveTriggeredBy: string | null
 meta: { currency: "ILS", transactionFeeILS: number, note: string }
 accounts: Record<accountName, PositionEntry[]>
 // PositionEntry
-ticker: /^[A-Z0-9]{1,10}$/
+ticker: /^[A-Z0-9.]{1,12}$/
 exchange: "TASE" | "NYSE" | "NASDAQ" | "LSE" | "XETRA" | "EURONEXT" | "OTHER"
 shares: positive int
 unitAvgBuyPrice: positive number  ← ILA for TASE, USD for US

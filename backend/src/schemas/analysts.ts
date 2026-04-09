@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const FundamentalsReportSchema = z.object({
-  ticker: z.string().regex(/^[A-Z0-9]{1,10}$/),
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
   generatedAt: z.string().datetime(),
   analyst: z.literal("fundamentals"),
   earnings: z.object({
@@ -33,7 +33,7 @@ export const FundamentalsReportSchema = z.object({
 });
 
 export const TechnicalReportSchema = z.object({
-  ticker: z.string().regex(/^[A-Z0-9]{1,10}$/),
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
   generatedAt: z.string().datetime(),
   analyst: z.literal("technical"),
   price: z.object({
@@ -64,7 +64,7 @@ export const TechnicalReportSchema = z.object({
 });
 
 export const SentimentReportSchema = z.object({
-  ticker: z.string().regex(/^[A-Z0-9]{1,10}$/),
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
   generatedAt: z.string().datetime(),
   analyst: z.literal("sentiment"),
   analystActions: z
@@ -107,7 +107,7 @@ export const SentimentReportSchema = z.object({
 });
 
 export const MacroReportSchema = z.object({
-  ticker: z.string().regex(/^[A-Z0-9]{1,10}$/),
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
   generatedAt: z.string().datetime(),
   analyst: z.literal("macro"),
   rateEnvironment: z.object({
@@ -136,7 +136,7 @@ export const MacroReportSchema = z.object({
 });
 
 export const RiskReportSchema = z.object({
-  ticker: z.string().regex(/^[A-Z0-9]{1,10}$/),
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
   generatedAt: z.string().datetime(),
   analyst: z.literal("risk"),
   livePrice: z.number(),

@@ -7,7 +7,7 @@ export const StrategyCatalystSchema = z.object({
 });
 
 export const StrategySchema = z.object({
-  ticker: z.string().regex(/^[A-Z0-9]{1,10}$/),
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
   updatedAt: z.string().datetime(),
   version: z.number().int().min(1),
   verdict: z.enum(["BUY", "ADD", "HOLD", "REDUCE", "SELL", "CLOSE"]),
