@@ -127,7 +127,16 @@ export function estimateCost(
   tokensIn: number,
   tokensOut: number
 ): number {
-  const p = MODEL_COSTS[model];
+  // MODEL_COSTS keys are bare "vendor/model" without provider prefix.
+  // Try direct lookup first (handles correctly-stripped keys from OpenClaw routing).
+  // Fall back to stripping a leading "openrouter/" prefix (defensive, in case some
+  // path sends the full model string).
+  const key = MODEL_COSTS[model]
+    ? model
+    : model.startsWith("openrouter/")
+    ? model.slice("openrouter/".length)
+    : model;
+  const p = MODEL_COSTS[key];
   if (!p) return 0;
   return (tokensIn / 1_000_000) * p.in + (tokensOut / 1_000_000) * p.out;
 }

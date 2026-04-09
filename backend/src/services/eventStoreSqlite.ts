@@ -88,6 +88,7 @@ export class SqliteEventStore implements IEventStore {
       FROM llm_requests
       WHERE date(timestamp) = ?
       GROUP BY user_id
+      ORDER BY user_id
     `).all(date) as UserDailySummary[];
   }
 
