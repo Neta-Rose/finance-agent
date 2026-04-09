@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { TickerSearch } from "../components/ui/TickerSearch";
+import type { TickerSelection } from "../types/api";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useToastStore } from "../store/toastStore";
@@ -384,15 +386,39 @@ function PositionCard({
   updateAccount: (id: string, updated: Account) => void;
 }) {
   const language = usePreferencesStore((s) => s.language);
+  const [tickerSelection, setTickerSelection] = useState<TickerSelection | null>(
+    // Restore pill if ticker already set (e.g. user navigated back)
+    pos.ticker ? {
+      symbol: pos.ticker,
+      shortName: pos.ticker,
+      exchange: pos.exchange as TickerSelection["exchange"],
+      exchDisp: pos.exchange,
+      flag: "",
+      price: null,
+      currency: "USD",
+    } : null
+  );
+
   const acc = accounts.find((a) => a.id === accountName)!;
+
   const updatePos = (patch: Partial<PositionEntry>) => {
     const currency = (patch.exchange
       ? EXCHANGES.find((e) => e.value === patch.exchange)!.currency
       : pos.currency) as Currency;
     updateAccount(accountName, { ...acc, positions: acc.positions.map((p, i) => i === idx ? { ...p, ...patch, currency } : p) });
   };
+
   const removePos = () => {
     updateAccount(accountName, { ...acc, positions: acc.positions.filter((_, i) => i !== idx) });
+  };
+
+  const handleTickerChange = (val: TickerSelection | null) => {
+    setTickerSelection(val);
+    if (val) {
+      updatePos({ ticker: val.symbol, exchange: val.exchange });
+    } else {
+      updatePos({ ticker: "", exchange: "NYSE" });
+    }
   };
 
   return (
@@ -400,17 +426,13 @@ function PositionCard({
       <button onClick={removePos} className="absolute top-2 right-2 text-[var(--color-fg-subtle)] hover:text-[var(--color-accent-red)]">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
       </button>
+
+      <div className="mb-2">
+        <label className={labelCls}>{t("onboardTickerLabel", language)}</label>
+        <TickerSearch value={tickerSelection} onChange={handleTickerChange} placeholder="AAPL" />
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className={labelCls}>{t("onboardTickerLabel", language)}</label>
-          <input type="text" value={pos.ticker} onChange={(e) => updatePos({ ticker: e.target.value.toUpperCase().slice(0, 10) })} placeholder="AAPL" className={`${inputCls} text-center font-mono font-bold uppercase`} />
-        </div>
-        <div>
-          <label className={labelCls}>{t("onboardExchangeLabel", language)}</label>
-          <select value={pos.exchange} onChange={(e) => updatePos({ exchange: e.target.value as Exchange })} className={inputCls}>
-            {EXCHANGES.map((ex) => <option key={ex.value} value={ex.value}>{ex.label}</option>)}
-          </select>
-        </div>
         <div>
           <label className={labelCls}>{t("onboardSharesLabel", language)}</label>
           <input type="number" value={pos.shares} onChange={(e) => updatePos({ shares: e.target.value })} min="1" step="1" placeholder="100" className={inputCls} />
