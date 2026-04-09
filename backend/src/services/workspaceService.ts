@@ -80,23 +80,7 @@ export async function createUserWorkspace(
     "utf-8"
   );
 
-  const config = {
-    modelProfile: "testing",
-    profiles: {
-      testing: {
-        orchestrator: "deepseek-v3",
-        analysts: "gemini-flash-lite",
-        risk: "gemini-flash-lite",
-        researchers: "deepseek-v3",
-      },
-      production: {
-        orchestrator: "claude-opus",
-        analysts: "claude-sonnet",
-        risk: "claude-haiku",
-        researchers: "claude-opus",
-      },
-    },
-  };
+  const config = { modelProfile: "testing" };
   await fs.writeFile(
     ws.configFile,
     JSON.stringify(config, null, 2),
