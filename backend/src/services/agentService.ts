@@ -348,10 +348,12 @@ export interface AgentHealth {
   healthy: boolean;
   consecutiveErrors: number;
   lastError: string | null;
+  lastErrorReason: string | null;
   lastRunAt: string | null;
 }
 
 const CRON_JOBS_PATH = "/root/.openclaw/cron/jobs.json";
+// Heartbeat runs every 30 min → 10 consecutive errors ≈ 5h of failures before unhealthy
 const HEALTH_ERROR_THRESHOLD = 10;
 
 export async function getUserAgentHealth(userId: string): Promise<AgentHealth> {
@@ -364,26 +366,33 @@ export async function getUserAgentHealth(userId: string): Promise<AgentHealth> {
         state?: {
           consecutiveErrors?: number;
           lastError?: string;
+          lastErrorReason?: string;
           lastRunAtMs?: number;
         };
       }>;
     };
     const jobs = parsed.jobs ?? [];
+    // Match by heartbeat name (preferred) — agentId fallback only for heartbeat jobs
     const cronJob = jobs.find(
-      (j) => j.name === `${userId}-heartbeat` || j.agentId === userId
+      (j) => j.name === `${userId}-heartbeat` ||
+        (j.agentId === userId && j.name?.endsWith("-heartbeat"))
     );
     if (!cronJob?.state) {
-      return { healthy: true, consecutiveErrors: 0, lastError: null, lastRunAt: null };
+      return { healthy: true, consecutiveErrors: 0, lastError: null, lastErrorReason: null, lastRunAt: null };
     }
-    const { consecutiveErrors = 0, lastError, lastRunAtMs } = cronJob.state;
+    const { consecutiveErrors = 0, lastError, lastErrorReason, lastRunAtMs } = cronJob.state;
     return {
       healthy: consecutiveErrors < HEALTH_ERROR_THRESHOLD,
       consecutiveErrors,
       lastError: lastError ?? null,
+      lastErrorReason: lastErrorReason ?? null,
       lastRunAt: lastRunAtMs ? new Date(lastRunAtMs).toISOString() : null,
     };
-  } catch {
-    // cron file missing or unreadable — assume healthy (no errors yet)
-    return { healthy: true, consecutiveErrors: 0, lastError: null, lastRunAt: null };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      logger.warn(`Failed to read cron jobs file: ${(err as Error).message}`);
+    }
+    return { healthy: true, consecutiveErrors: 0, lastError: null, lastErrorReason: null, lastRunAt: null };
   }
 }
