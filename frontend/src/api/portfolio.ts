@@ -26,3 +26,17 @@ export const updatePosition = async (
 ): Promise<void> => {
  await apiClient.patch(`/portfolio/position/${ticker}`, updates);
 };
+
+export interface AddPositionPayload {
+  ticker: string;
+  exchange: string;
+  shares: number;
+  unitAvgBuyPrice: number;
+  unitCurrency: "USD" | "ILA" | "GBP" | "EUR";
+  account: string;
+  force: boolean;
+}
+
+export const addPosition = async (payload: AddPositionPayload): Promise<void> => {
+  await apiClient.post("/portfolio/position", payload);
+};

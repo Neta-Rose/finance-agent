@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchPortfolio, fetchVerdicts } from "../api/portfolio";
 import { fetchOnboardStatus } from "../api/onboarding";
@@ -13,11 +13,14 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { formatILS } from "../utils/format";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t, getGreeting } from "../store/i18n";
+import { AddPositionModal } from "../components/portfolio/AddPositionModal";
 import type { VerdictRow, PositionRow as PositionRowType } from "../types/api";
 
 export function Portfolio() {
   const language = usePreferencesStore((s) => s.language);
   const [selectedPosition, setSelectedPosition] = useState<PositionRowType | null>(null);
+  const [addPositionOpen, setAddPositionOpen] = useState(false);
+  const [editingTicker, setEditingTicker] = useState<string | null>(null);
 
   const { data: portfolio, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["portfolio"],
@@ -49,6 +52,15 @@ export function Portfolio() {
     verdictsData?.verdicts.forEach((v) => { map[v.ticker] = v; });
     return map;
   }, [verdictsData]);
+
+  // Resolve editingTicker to a position for PositionDetailModal
+  useEffect(() => {
+    if (editingTicker && portfolio) {
+      const pos = portfolio.positions.find((p) => p.ticker === editingTicker) ?? null;
+      setSelectedPosition(pos);
+      setEditingTicker(null);
+    }
+  }, [editingTicker, portfolio]);
 
   // Tickers that need attention: action-needed verdict or expired catalyst
   const alertTickers = useMemo(() => {
@@ -148,7 +160,7 @@ export function Portfolio() {
       {/* Add Position Button */}
       <div className="px-4 pt-3">
         <button
-          onClick={() => {/* TODO: Navigate to add position */}}
+          onClick={() => setAddPositionOpen(true)}
           className="w-full py-2.5 rounded-lg border border-dashed border-[var(--color-border)] text-xs text-[var(--color-accent-blue)] font-medium hover:bg-[var(--color-bg-muted)] transition-colors"
         >
           {t("addPosition", language)}
@@ -199,6 +211,15 @@ export function Portfolio() {
         onClose={() => {
           setSelectedPosition(null);
           refetch();
+        }}
+      />
+
+      <AddPositionModal
+        open={addPositionOpen}
+        onClose={() => setAddPositionOpen(false)}
+        onEditExisting={(ticker) => {
+          setAddPositionOpen(false);
+          setEditingTicker(ticker);
         }}
       />
     </>
