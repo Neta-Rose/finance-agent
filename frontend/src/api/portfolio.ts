@@ -15,7 +15,7 @@ export const fetchPositionHistory = async (
  timeframe: string
 ): Promise<PriceHistoryResponse> => {
  const { data } = await apiClient.get<PriceHistoryResponse>(
-  `/portfolio/history/${ticker}?timeframe=${timeframe}`
+  `/history/${ticker}?timeframe=${timeframe}`
  );
  return data;
 };
