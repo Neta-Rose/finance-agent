@@ -22,7 +22,6 @@ const EXCHANGES = [
 ] as const;
 
 const CURRENCIES = ["USD", "ILA", "GBP", "EUR"] as const;
-type Exchange = typeof EXCHANGES[number]["value"];
 type Currency = typeof CURRENCIES[number];
 
 const DAY_KEYS: Array<{ value: string; key: TranslationKey }> = [
