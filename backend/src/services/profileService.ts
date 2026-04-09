@@ -25,10 +25,11 @@ function userConfigPath(userId: string): string {
 export async function listProfiles(): Promise<ProfilesRegistry> {
   try {
     const raw = await fs.readFile(registryPath(), "utf-8");
-    const parsed = ProfilesRegistrySchema.safeParse(JSON.parse(raw));
+    const data = JSON.parse(raw) as unknown;
+    const parsed = ProfilesRegistrySchema.safeParse(data);
     if (!parsed.success) {
       logger.warn("model-profiles.json failed validation — returning raw");
-      return JSON.parse(raw) as ProfilesRegistry;
+      return data as ProfilesRegistry;
     }
     return parsed.data;
   } catch {
@@ -78,7 +79,13 @@ export async function updateProfile(
   logger.info(`Updated profile: ${name}`);
 }
 
+// Profiles that cannot be deleted — system fallback depends on "testing" existing
+const RESERVED_PROFILES = ["testing", "production"];
+
 export async function deleteProfile(name: string): Promise<void> {
+  if (RESERVED_PROFILES.includes(name)) {
+    throw new Error(`Cannot delete reserved profile: ${name}`);
+  }
   const registry = await listProfiles();
   if (!registry[name]) throw new Error(`Profile not found: ${name}`);
 
