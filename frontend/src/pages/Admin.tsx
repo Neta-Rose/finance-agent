@@ -11,11 +11,14 @@ import {
   adminUpdateProfile,
   adminDeleteProfile,
   adminSetUserProfile,
+  adminGetUserObservability,
   type UserSummary,
   type RateLimits,
   type AdminStatus,
   type ProfileDefinition,
   type ProfilesRegistry,
+  type UserObservability,
+  type LlmRequestEvent,
 } from "../api/admin";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t } from "../store/i18n";
@@ -537,6 +540,140 @@ function HealthBadge({ health }: { health: UserSummary["agentHealth"] }) {
   );
 }
 
+// ---- User Activity Badge ----
+function UserActivityBadge({ userId }: { userId: string }) {
+  const [data, setData] = useState<UserObservability | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    adminGetUserObservability(userId)
+      .then(setData)
+      .catch(() => { /* no data yet — silently ignore */ });
+  }, [userId]);
+
+  if (!data || (data.history.length === 0 && data.recent.length === 0)) {
+    return (
+      <p className="text-[11px] text-[var(--color-fg-subtle)] italic mt-1">
+        No LLM activity yet
+      </p>
+    );
+  }
+
+  const today = data.history[0];
+  const last = data.recent[0];
+
+  return (
+    <div className="mt-1 text-[11px] text-[var(--color-fg-muted)]">
+      <div className="flex items-center gap-3 flex-wrap">
+        {today && (
+          <>
+            <span>
+              <span className="text-[var(--color-fg-subtle)]">Today: </span>
+              <span className="font-medium text-[var(--color-fg-default)]">
+                {today.requestCount} req
+              </span>
+              {" · "}
+              <span className="text-[var(--color-accent-green)]">
+                ${today.totalCostUsd.toFixed(4)}
+              </span>
+            </span>
+            <span>
+              <span className="text-[var(--color-fg-subtle)]">Tokens: </span>
+              {((today.totalTokensIn + today.totalTokensOut) / 1000).toFixed(1)}k
+            </span>
+          </>
+        )}
+        {last && (
+          <span>
+            <span className="text-[var(--color-fg-subtle)]">Last: </span>
+            <span className="font-mono text-[10px]">{last.analyst}</span>
+            {" · "}
+            <span className="text-[10px] text-[var(--color-fg-subtle)]">
+              {new Date(last.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+            {" · "}
+            <span
+              className={
+                last.status === "success"
+                  ? "text-[var(--color-accent-green)]"
+                  : "text-[var(--color-accent-red)]"
+              }
+            >
+              {last.status}
+            </span>
+          </span>
+        )}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-[var(--color-accent-blue)] underline text-[10px]"
+        >
+          {expanded ? "hide" : `show ${data.recent.length} recent`}
+        </button>
+      </div>
+
+      {expanded && data.recent.length > 0 && (
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-[10px] border-collapse">
+            <thead>
+              <tr className="text-[var(--color-fg-subtle)] border-b border-[var(--color-border)]">
+                <th className="text-left py-1 pr-2 font-normal">Time</th>
+                <th className="text-left pr-2 font-normal">Analyst</th>
+                <th className="text-left pr-2 font-normal">Purpose</th>
+                <th className="text-left pr-2 font-normal">Model</th>
+                <th className="text-right pr-2 font-normal">Tokens</th>
+                <th className="text-right pr-2 font-normal">Cost</th>
+                <th className="text-left font-normal">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.recent.map((r: LlmRequestEvent) => (
+                <tr
+                  key={r.id}
+                  className="border-b border-[var(--color-border)] border-opacity-30 hover:bg-[var(--color-bg-muted)]"
+                >
+                  <td className="py-0.5 pr-2 text-[var(--color-fg-subtle)] font-mono whitespace-nowrap">
+                    {new Date(r.timestamp).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </td>
+                  <td className="pr-2 font-medium">{r.analyst}</td>
+                  <td className="pr-2 text-[var(--color-fg-subtle)]">
+                    {r.purpose ?? "—"}
+                    {r.ticker ? ` (${r.ticker})` : ""}
+                  </td>
+                  <td className="pr-2 font-mono text-[9px] text-[var(--color-fg-subtle)]">
+                    {r.model.split("/").slice(-1)[0]}
+                  </td>
+                  <td className="pr-2 text-right">
+                    {((r.tokensIn + r.tokensOut) / 1000).toFixed(1)}k
+                  </td>
+                  <td className="pr-2 text-right text-[var(--color-accent-green)]">
+                    ${r.costUsd.toFixed(4)}
+                  </td>
+                  <td
+                    className={
+                      r.status === "success"
+                        ? "text-[var(--color-accent-green)]"
+                        : "text-[var(--color-accent-red)]"
+                    }
+                  >
+                    {r.status}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- User Card ----
 function UserCard({
   user,
@@ -622,6 +759,7 @@ function UserCard({
           <p>{t("adminTelegramNo", language)}</p>
         )}
         <p>{t("adminDeepDives", language)} {user.rateLimits.deep_dive.maxPerPeriod}/{t("perDay", language).replace("/ ", "")} · {t("adminFullReportsLabel", language)} {user.rateLimits.full_report.maxPerPeriod}/{t("perWeek", language).replace("/ ", "")}</p>
+        <UserActivityBadge userId={user.userId} />
       </div>
 
       <div className="flex gap-2 flex-wrap">

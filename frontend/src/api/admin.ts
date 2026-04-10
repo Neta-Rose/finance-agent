@@ -135,3 +135,43 @@ export const adminSetUserProfile = async (userId: string, profileName: string): 
     body: JSON.stringify({ profileName }),
   });
 };
+
+// ── Observability ─────────────────────────────────────────────────────────────
+
+export interface LlmRequestEvent {
+  id: number;
+  userId: string;
+  purpose: string | null;
+  ticker: string | null;
+  analyst: string;
+  model: string;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  latencyMs: number;
+  status: "success" | "error" | "timeout";
+  errorMessage: string | null;
+  timestamp: string;
+}
+
+export interface UserDailySummary {
+  userId: string;
+  date: string;
+  requestCount: number;
+  totalTokensIn: number;
+  totalTokensOut: number;
+  totalCostUsd: number;
+}
+
+export interface UserObservability {
+  userId: string;
+  history: UserDailySummary[];
+  recent: LlmRequestEvent[];
+}
+
+export const adminGetUserObservability = async (
+  userId: string
+): Promise<UserObservability> =>
+  adminFetch(
+    `/api/admin/observability/users/${encodeURIComponent(userId)}`
+  ) as Promise<UserObservability>;
