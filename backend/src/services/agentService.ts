@@ -355,12 +355,12 @@ export async function applyProfileToAgent(
   // Type-widen so we can add non-interface fields openclaw accepts per-schema
   const agentEntry = entry as unknown as Record<string, unknown>;
   // Route openrouter/* models through the per-user proxy; other providers go direct.
-  agentEntry["model"] = { primary: toProxyModel(userId, orchestratorModel) };
+  agentEntry["model"] = { primary: toProxyModel(userId, orchestratorModel), fallbacks: [] };
   agentEntry["subagents"] = {
     ...(typeof agentEntry["subagents"] === "object" && agentEntry["subagents"] !== null
       ? (agentEntry["subagents"] as Record<string, unknown>)
       : {}),
-    model: { primary: toProxyModel(userId, analystsModel) },
+    model: { primary: toProxyModel(userId, analystsModel), fallbacks: [] },
   };
 
   await writeConfig(config);
@@ -472,6 +472,11 @@ export async function ensureAllProxyProviders(): Promise<void> {
       modelObj["primary"] = toProxyModel(agent.id, modelObj["primary"] as string);
       dirty = true;
     }
+    // Explicitly forbid fallbacks — no bypass path allowed
+    if (modelObj && (modelObj["fallbacks"] as unknown[] | undefined)?.length) {
+      modelObj["fallbacks"] = [];
+      dirty = true;
+    }
 
     const subagents = entry["subagents"] as Record<string, unknown> | undefined;
     const subModelObj = subagents?.["model"] as
@@ -487,6 +492,21 @@ export async function ensureAllProxyProviders(): Promise<void> {
       );
       dirty = true;
     }
+    if (subModelObj && (subModelObj["fallbacks"] as unknown[] | undefined)?.length) {
+      subModelObj["fallbacks"] = [];
+      dirty = true;
+    }
+  }
+
+  // Zero out global defaults fallbacks — agents with explicit models ignore defaults,
+  // but removing fallbacks eliminates any possible bypass path entirely.
+  const defaults = (config.agents as unknown as Record<string, unknown>)?.["defaults"] as
+    | Record<string, unknown>
+    | undefined;
+  const defaultModel = defaults?.["model"] as Record<string, unknown> | undefined;
+  if (defaultModel && (defaultModel["fallbacks"] as unknown[] | undefined)?.length) {
+    defaultModel["fallbacks"] = [];
+    dirty = true;
   }
 
   if (dirty) await writeConfig(config);
