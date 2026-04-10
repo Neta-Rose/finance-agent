@@ -16,6 +16,9 @@ import { Controls } from "./pages/Controls";
 import { Settings } from "./pages/Settings";
 import { Admin } from "./pages/Admin";
 import { fetchOnboardStatus } from "./api/onboarding";
+import { fetchControlState } from "./api/control";
+import { ControlBanner } from "./components/ControlBanner";
+import { SuspensionPage } from "./pages/SuspensionPage";
 import { Spinner } from "./components/ui/Spinner";
 
 const queryClient = new QueryClient({
@@ -31,61 +34,69 @@ const queryClient = new QueryClient({
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const language = usePreferencesStore((s) => s.language);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [healthDismissed, setHealthDismissed] = useState(false);
 
- const { data: onboardStatus, isLoading, error } = useQuery({
-   queryKey: ["onboard-status"],
-   queryFn: fetchOnboardStatus,
-   enabled: isAuthenticated,
-   staleTime: 60_000,
- });
+  const { data: onboardStatus, isLoading, error } = useQuery({
+    queryKey: ["onboard-status"],
+    queryFn: fetchOnboardStatus,
+    enabled: isAuthenticated,
+    staleTime: 60_000,
+  });
 
- if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const { data: controlState } = useQuery({
+    queryKey: ["control-state"],
+    queryFn: fetchControlState,
+    enabled: isAuthenticated,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+    retry: false,
+  });
 
- // Still loading — show spinner, don't flash a redirect
- if (isLoading) {
-   return (
-     <div className="flex items-center justify-center min-h-screen bg-[var(--color-bg-base)]">
-       <Spinner size="lg" />
-     </div>
-   );
- }
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
 
- // Error fetching status — fail open, let them through
- if (error || !onboardStatus) return <>{children}</>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[var(--color-bg-base)]">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
- // Portfolio not loaded — redirect to onboarding
- if (!onboardStatus.portfolioLoaded) {
-   return <Navigate to="/onboarding" replace />;
- }
+  if (error || !onboardStatus) return <>{children}</>;
 
- const showBanner = !bannerDismissed && onboardStatus.agentHealthy === false;
+  if (!onboardStatus.portfolioLoaded) {
+    return <Navigate to="/onboarding" replace />;
+  }
 
- return (
-   <>
-     {showBanner && (
-       <div
-         className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium"
-         style={{
-           background: "rgba(239,68,68,0.12)",
-           borderBottom: "1px solid rgba(239,68,68,0.3)",
-           color: "var(--color-accent-red)",
-         }}
-       >
-         <span>{t("healthBanner", language)}</span>
-         <button
-           onClick={() => setBannerDismissed(true)}
-           className="ml-4 shrink-0 text-base leading-none opacity-70 hover:opacity-100"
-         >
-           ×
-         </button>
-       </div>
-     )}
-     <div style={showBanner ? { paddingTop: "36px" } : undefined}>
-       {children}
-     </div>
-   </>
- );
+  // Suspended: full-screen suspension page, no navigation
+  if (controlState?.restriction === "suspended") {
+    return <SuspensionPage reason={controlState.reason} />;
+  }
+
+  const showHealthBanner = !healthDismissed && onboardStatus.agentHealthy === false;
+
+  return (
+    <>
+      {controlState && <ControlBanner state={controlState} />}
+      {showHealthBanner && (
+        <div
+          className="sticky top-0 z-40 flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium"
+          style={{
+            background: "rgba(239,68,68,0.12)",
+            borderBottom: "1px solid rgba(239,68,68,0.3)",
+            color: "var(--color-accent-red)",
+          }}
+        >
+          <span>{t("healthBanner", language)}</span>
+          <button
+            onClick={() => setHealthDismissed(true)}
+            className="ml-4 shrink-0 text-base leading-none opacity-70 hover:opacity-100"
+          >×</button>
+        </div>
+      )}
+      <div>{children}</div>
+    </>
+  );
 }
 
 // Separate route guard for onboarding - prevents returning to completed onboarding
