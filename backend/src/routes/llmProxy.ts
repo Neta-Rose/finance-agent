@@ -203,7 +203,7 @@ router.post(
 // ── Passthrough: /llm/v1/* (models list, embeddings, etc.) ───────────────────
 // Auth check only — no logging for non-completion routes.
 router.all(
-  "/*",
+  "/{*path}",
   (async (req: Request, res: Response) => {
     const authHeader = String(req.headers["authorization"] ?? "");
     const proxyKey = authHeader.replace(/^Bearer\s+/i, "").trim();
