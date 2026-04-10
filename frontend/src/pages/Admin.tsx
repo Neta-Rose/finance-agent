@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminFetchUsers,
   adminCreateUser,
@@ -12,6 +13,11 @@ import {
   adminDeleteProfile,
   adminSetUserProfile,
   adminGetUserObservability,
+  adminSetUserControl,
+  adminClearUserControl,
+  adminForceLogout,
+  adminGetSystem,
+  adminPatchSystem,
   type UserSummary,
   type RateLimits,
   type AdminStatus,
@@ -19,6 +25,8 @@ import {
   type ProfilesRegistry,
   type UserObservability,
   type LlmRequestEvent,
+  type UserControlPatch,
+  type SystemControlPatch,
 } from "../api/admin";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t } from "../store/i18n";
@@ -674,6 +682,285 @@ function UserActivityBadge({ userId }: { userId: string }) {
   );
 }
 
+// ---- System Controls ----
+function SystemControls({ onError }: { onError: (m: string) => void }) {
+  const qc = useQueryClient();
+  const { data: sys, isLoading } = useQuery({
+    queryKey: ["admin-system"],
+    queryFn: adminGetSystem,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
+
+  const [lockReason,    setLockReason]    = useState("");
+  const [lockedUntil,  setLockedUntil]    = useState("");
+  const [broadcastText, setBroadcastText] = useState("");
+  const [broadcastType, setBroadcastType] = useState<"info" | "warning" | "error">("info");
+  const [showBroadcast, setShowBroadcast] = useState(false);
+
+  const patch = async (p: SystemControlPatch) => {
+    try {
+      await adminPatchSystem(p);
+      void qc.invalidateQueries({ queryKey: ["admin-system"] });
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "System update failed");
+    }
+  };
+
+  const handleLockToggle = () => {
+    if (sys?.locked) {
+      void patch({ locked: false });
+    } else {
+      void patch({ locked: true, lockReason: lockReason || "System locked by admin", lockedUntil: lockedUntil || null });
+    }
+  };
+
+  const handleBroadcast = () => {
+    if (!broadcastText.trim()) return;
+    void patch({ broadcast: { text: broadcastText.trim(), type: broadcastType, dismissible: true, expiresAt: null } });
+    setBroadcastText(""); setShowBroadcast(false);
+  };
+
+  const clearBroadcast = () => void patch({ broadcast: null });
+  const isLocked = sys?.locked ?? false;
+
+  return (
+    <div className="rounded-xl border p-4 space-y-3"
+      style={{
+        background: isLocked ? "rgba(239,68,68,0.05)" : "var(--color-bg-subtle)",
+        borderColor: isLocked ? "rgba(239,68,68,0.3)" : "var(--color-border)",
+      }}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
+          ⚡ System Controls
+        </h3>
+        {isLocked && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ background: "rgba(239,68,68,0.15)", color: "var(--color-accent-red)" }}>
+            LOCKED
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {!isLocked && (
+          <div className="flex gap-2">
+            <input value={lockReason} onChange={e => setLockReason(e.target.value)}
+              placeholder="Lock reason (shown to users)"
+              className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+            />
+            <input type="datetime-local" value={lockedUntil} onChange={e => setLockedUntil(e.target.value)}
+              title="Auto-unlock at (optional)"
+              className="text-xs rounded-lg px-2 py-1.5 outline-none w-44"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}
+            />
+          </div>
+        )}
+        {isLocked && sys?.lockReason && (
+          <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>
+            Reason: <span style={{ color: "var(--color-fg-default)" }}>{sys.lockReason}</span>
+            {sys.lockedUntil && <> · until {new Date(sys.lockedUntil).toLocaleString()}</>}
+          </p>
+        )}
+        <button onClick={handleLockToggle} disabled={isLoading}
+          className="w-full py-2 rounded-lg text-xs font-semibold transition-colors"
+          style={isLocked
+            ? { background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "var(--color-accent-green)" }
+            : { background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-accent-red)" }}>
+          {isLocked ? "🔓 Unlock — Resume Normal Operations" : "🔒 Lock All Users"}
+        </button>
+      </div>
+
+      <div className="border-t pt-3" style={{ borderColor: "var(--color-border)" }}>
+        {sys?.broadcast ? (
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <span className="text-[10px] uppercase font-semibold" style={{ color: "var(--color-fg-muted)" }}>Broadcast active</span>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-fg-default)" }}>{sys.broadcast.text}</p>
+            </div>
+            <button onClick={clearBroadcast}
+              className="shrink-0 text-xs px-2 py-1 rounded"
+              style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>
+              Clear
+            </button>
+          </div>
+        ) : showBroadcast ? (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <select value={broadcastType} onChange={e => setBroadcastType(e.target.value as "info" | "warning" | "error")}
+                className="text-xs rounded-lg px-2 py-1.5 outline-none"
+                style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}>
+                <option value="info">ℹ Info</option>
+                <option value="warning">⚠ Warning</option>
+                <option value="error">⊗ Error</option>
+              </select>
+              <input value={broadcastText} onChange={e => setBroadcastText(e.target.value)}
+                placeholder="Message to show all users..."
+                className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+                style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleBroadcast}
+                className="flex-1 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ background: "var(--color-accent-blue)", color: "white" }}>
+                Send Broadcast
+              </button>
+              <button onClick={() => setShowBroadcast(false)}
+                className="px-3 py-1.5 rounded-lg text-xs"
+                style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setShowBroadcast(true)}
+            className="w-full py-2 rounded-lg text-xs font-medium"
+            style={{ background: "var(--color-bg-muted)", border: "1px dashed var(--color-border)", color: "var(--color-fg-muted)" }}>
+            📢 Send Broadcast Message to All Users
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---- Block Controls ----
+const RESTRICTION_LABELS = {
+  readonly:  { label: "Read-only",  color: "#3b82f6", bg: "rgba(59,130,246,0.12)"  },
+  blocked:   { label: "Blocked",    color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
+  suspended: { label: "Suspended",  color: "#ef4444", bg: "rgba(239,68,68,0.12)"   },
+};
+
+function BlockControls({
+  userId,
+  currentRestriction,
+  onChanged,
+  onError,
+}: {
+  userId: string;
+  currentRestriction: "readonly" | "blocked" | "suspended" | null;
+  onChanged: () => void;
+  onError: (m: string) => void;
+}) {
+  const [open,      setOpen]      = useState(false);
+  const [mode,      setMode]      = useState<"readonly" | "blocked" | "suspended">("blocked");
+  const [reason,    setReason]    = useState("");
+  const [untilDate, setUntilDate] = useState("");
+  const [loading,   setLoading]   = useState(false);
+
+  const handleApply = async () => {
+    setLoading(true);
+    try {
+      await adminSetUserControl(userId, { restriction: mode, reason: reason.trim(), restrictedUntil: untilDate || null } as UserControlPatch);
+      onChanged();
+      setOpen(false);
+      setReason(""); setUntilDate("");
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to apply restriction");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClear = async () => {
+    setLoading(true);
+    try {
+      await adminClearUserControl(userId);
+      onChanged();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to clear restriction");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rlabel = currentRestriction ? RESTRICTION_LABELS[currentRestriction] : null;
+
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {rlabel && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ background: rlabel.bg, color: rlabel.color, border: `1px solid ${rlabel.color}40` }}>
+            {rlabel.label}
+          </span>
+        )}
+        <button onClick={() => setOpen(o => !o)}
+          className="text-[10px] px-2 py-1 rounded-lg font-medium transition-colors"
+          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-accent-red)" }}>
+          {currentRestriction ? "Change restriction ▾" : "Restrict user ▾"}
+        </button>
+        {currentRestriction && (
+          <button onClick={handleClear} disabled={loading}
+            className="text-[10px] px-2 py-1 rounded-lg font-medium"
+            style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", color: "var(--color-accent-green)" }}>
+            ✓ Unblock
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-2 rounded-xl p-3 space-y-2.5"
+          style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
+            Restriction level
+          </p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {(["readonly", "blocked", "suspended"] as const).map(r => {
+              const lbl = RESTRICTION_LABELS[r];
+              const active = mode === r;
+              return (
+                <button key={r} onClick={() => setMode(r)}
+                  className="py-2 rounded-lg text-[11px] font-semibold transition-all"
+                  style={{
+                    background: active ? lbl.bg : "var(--color-bg-muted)",
+                    border: `1px solid ${active ? lbl.color + "80" : "var(--color-border)"}`,
+                    color: active ? lbl.color : "var(--color-fg-muted)",
+                  }}>
+                  {lbl.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-[10px] space-y-1" style={{ color: "var(--color-fg-muted)" }}>
+            {mode === "readonly"  && <p>Can view dashboard. Job triggers disabled. Info banner shown.</p>}
+            {mode === "blocked"   && <p>Can view dashboard. Job triggers disabled. Warning banner shown.</p>}
+            {mode === "suspended" && <p>Sees suspension page only. No dashboard access. Login still works.</p>}
+          </div>
+          <input value={reason} onChange={e => setReason(e.target.value)}
+            placeholder={`Reason shown to user (${mode === "suspended" ? "required" : "optional"})`}
+            className="w-full text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+          />
+          <div className="flex gap-2 items-center">
+            <input type="datetime-local" value={untilDate} onChange={e => setUntilDate(e.target.value)}
+              title="Auto-expire restriction at"
+              className="text-xs rounded-lg px-2 py-1.5 outline-none flex-1"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}
+            />
+            <span className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>or indefinite</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleApply} disabled={loading || (mode === "suspended" && !reason.trim())}
+              className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+              style={{ background: RESTRICTION_LABELS[mode].bg, border: `1px solid ${RESTRICTION_LABELS[mode].color}60`, color: RESTRICTION_LABELS[mode].color }}>
+              {loading ? "Applying…" : `Apply ${RESTRICTION_LABELS[mode].label}`}
+            </button>
+            <button onClick={() => setOpen(false)}
+              className="px-3 py-1.5 rounded-lg text-xs"
+              style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- User Card ----
 function UserCard({
   user,
@@ -682,6 +969,7 @@ function UserCard({
   onUpdateLimits,
   onAddTelegram,
   onProfileChanged,
+  onControlChanged,
   onError,
 }: {
   user: UserSummary;
@@ -690,134 +978,180 @@ function UserCard({
   onUpdateLimits: (userId: string, limits: Partial<RateLimits>) => void;
   onAddTelegram: (userId: string, botToken: string, chatId: string) => void;
   onProfileChanged: () => void;
+  onControlChanged: () => void;
   onError: (msg: string) => void;
 }) {
   const language = usePreferencesStore((s) => s.language);
-  const [showLimits, setShowLimits] = useState(false);
-  const [showDelete, setShowDelete] = useState(false);
+  const [showLimits,    setShowLimits]    = useState(false);
+  const [showDelete,    setShowDelete]    = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [botToken, setBotToken] = useState("");
-  const [chatId, setChatId] = useState(user.telegramChatId ?? "");
-  const [showTelegram, setShowTelegram] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [showTelegram,  setShowTelegram]  = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [botToken,      setBotToken]      = useState("");
+  const [chatId,        setChatId]        = useState(user.telegramChatId ?? "");
+
+  const restriction = (user as UserSummary & { restriction?: "readonly" | "blocked" | "suspended" }).restriction ?? null;
 
   const stateColor =
-    user.state === "ACTIVE" ? "text-[var(--color-accent-green)]" :
+    user.state === "ACTIVE"        ? "text-[var(--color-accent-green)]" :
     user.state === "BOOTSTRAPPING" ? "text-[var(--color-accent-yellow)]" :
-    "text-[var(--color-fg-muted)]";
+                                     "text-[var(--color-fg-muted)]";
 
   const handleDelete = async () => {
     if (deleteConfirm !== user.userId) return;
     setDeleting(true);
-    try {
-      await onDelete(user.userId);
-    } finally {
-      setDeleting(false);
-      setShowDelete(false);
-      setDeleteConfirm("");
-    }
+    try { await onDelete(user.userId); }
+    finally { setDeleting(false); setShowDelete(false); setDeleteConfirm(""); }
   };
 
-  const handleSaveLimits = (l: RateLimits) => {
-    onUpdateLimits(user.userId, l);
-    setShowLimits(false);
+  const handleForceLogout = async () => {
+    setLogoutLoading(true);
+    try { await adminForceLogout(user.userId); }
+    catch (e) { onError(e instanceof Error ? e.message : "Force logout failed"); }
+    finally { setLogoutLoading(false); }
   };
 
-  const stateLabel = user.state === "ACTIVE" ? t("adminStateActive", language)
-    : user.state === "BOOTSTRAPPING" ? t("adminStateBootstrapping", language)
+  const stateLabel     = user.state === "ACTIVE" ? t("adminStateActive", language)
+    : user.state === "BOOTSTRAPPING"              ? t("adminStateBootstrapping", language)
     : user.state;
   const portfolioLabel = user.portfolioLoaded ? t("adminPortfolioLoaded", language) : t("adminPortfolioMissing", language);
 
   return (
-    <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg p-4">
-      <div className="flex items-start justify-between gap-2 mb-2">
+    <div className="rounded-xl border p-4 space-y-3"
+      style={{
+        background: "var(--color-bg-subtle)",
+        borderColor: restriction === "suspended" ? "rgba(239,68,68,0.4)"
+          : restriction === "blocked"  ? "rgba(245,158,11,0.4)"
+          : restriction === "readonly" ? "rgba(59,130,246,0.3)"
+          : "var(--color-border)",
+      }}>
+
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-[var(--color-fg-default)]">{user.displayName}</span>
-            <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono">@{user.userId}</span>
+            <span className="font-bold text-sm" style={{ color: "var(--color-fg-default)" }}>{user.displayName}</span>
+            <span className="text-[10px] font-mono" style={{ color: "var(--color-fg-subtle)" }}>@{user.userId}</span>
           </div>
           <p className={`text-[10px] font-medium uppercase mt-0.5 ${stateColor}`}>
             {stateLabel} · {portfolioLabel}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <ProfileBadge
-            userId={user.userId}
-            current={user.modelProfile}
-            profiles={profiles}
-            onChanged={onProfileChanged}
-            onError={onError}
-          />
-          <HealthBadge health={user.agentHealth} />
-        </div>
+        <HealthBadge health={user.agentHealth} />
       </div>
 
-      <div className="text-[11px] text-[var(--color-fg-muted)] space-y-0.5 mb-3">
-        {user.hasTelegram ? (
-          <p>{t("adminTelegramYes", language)}{user.telegramChatId ? ` (${user.telegramChatId})` : ""}</p>
-        ) : (
-          <p>{t("adminTelegramNo", language)}</p>
-        )}
-        <p>{t("adminDeepDives", language)} {user.rateLimits.deep_dive.maxPerPeriod}/{t("perDay", language).replace("/ ", "")} · {t("adminFullReportsLabel", language)} {user.rateLimits.full_report.maxPerPeriod}/{t("perWeek", language).replace("/ ", "")}</p>
+      {/* Meta row */}
+      <div className="text-[11px] space-y-0.5" style={{ color: "var(--color-fg-muted)" }}>
+        {user.hasTelegram
+          ? <p>{t("adminTelegramYes", language)}{user.telegramChatId ? ` (${user.telegramChatId})` : ""}</p>
+          : <p>{t("adminTelegramNo", language)}</p>}
+        <p>
+          {t("adminDeepDives", language)} {user.rateLimits.deep_dive.maxPerPeriod}/{t("perDay", language).replace("/ ","")} ·{" "}
+          {t("adminFullReportsLabel", language)} {user.rateLimits.full_report.maxPerPeriod}/{t("perWeek", language).replace("/ ","")}
+        </p>
         <UserActivityBadge userId={user.userId} />
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {user.hasTelegram ? (
-          <button onClick={() => setShowTelegram(!showTelegram)}
-            className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[10px] font-medium text-[var(--color-fg-muted)]">
-            {t("adminEditTelegram", language)}
-          </button>
-        ) : (
-          <button onClick={() => setShowTelegram(!showTelegram)}
-            className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[10px] font-medium text-[var(--color-accent-blue)]">
-            {t("adminAddTelegram", language)}
-          </button>
-        )}
+      {/* Block controls */}
+      <BlockControls
+        userId={user.userId}
+        currentRestriction={restriction}
+        onChanged={onControlChanged}
+        onError={onError}
+      />
+
+      {/* Actions row */}
+      <div className="flex gap-1.5 flex-wrap pt-1 border-t" style={{ borderColor: "var(--color-border)" }}>
+        <ProfileBadge
+          userId={user.userId}
+          current={user.modelProfile}
+          profiles={profiles}
+          onChanged={onProfileChanged}
+          onError={onError}
+        />
+        <button onClick={() => setShowTelegram(!showTelegram)}
+          className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
+          style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
+          {user.hasTelegram ? t("adminEditTelegram", language) : t("adminAddTelegram", language)}
+        </button>
         <button onClick={() => setShowLimits(!showLimits)}
-          className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[10px] font-medium text-[var(--color-fg-muted)]">
+          className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
+          style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
           {t("adminEditLimits", language)}
         </button>
+        <button onClick={handleForceLogout} disabled={logoutLoading}
+          title="Invalidate all active sessions"
+          className="px-2.5 py-1 rounded-lg text-[10px] font-medium disabled:opacity-40"
+          style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "#f59e0b" }}>
+          {logoutLoading ? "…" : "⟳ Force logout"}
+        </button>
         <button onClick={() => setShowDelete(true)}
-          className="px-3 py-1.5 rounded-lg border border-[var(--color-accent-red)]/40 text-[10px] font-medium text-[var(--color-accent-red)]">
+          className="px-2.5 py-1 rounded-lg text-[10px] font-medium ml-auto"
+          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-accent-red)" }}>
           {t("delete", language)}
         </button>
       </div>
 
       {/* Edit Telegram */}
       {showTelegram && (
-        <div className="mt-3 pt-3 border-t border-[var(--color-border)] space-y-2">
-          <input type="text" placeholder={t("botToken", language)} value={botToken} onChange={(e) => setBotToken(e.target.value)}
-            className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
-          <input type="text" placeholder={t("chatId", language)} value={chatId} onChange={(e) => setChatId(e.target.value)}
-            className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]" />
-          <button onClick={() => { onAddTelegram(user.userId, botToken, chatId); setShowTelegram(false); setBotToken(""); }}
-            className="w-full py-1.5 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold">
-            {t("adminSaveTelegram", language)}
-          </button>
+        <div className="rounded-lg p-3 space-y-2" style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>{t("adminTelegramSection", language)}</p>
+          <input value={botToken} onChange={e => setBotToken(e.target.value)} placeholder="Bot token"
+            className="w-full text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
+          <input value={chatId} onChange={e => setChatId(e.target.value)} placeholder="Chat ID"
+            className="w-full text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
+          <div className="flex gap-2">
+            <button onClick={() => { onAddTelegram(user.userId, botToken, chatId); setShowTelegram(false); }}
+              className="flex-1 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: "var(--color-accent-blue)", color: "white" }}>
+              {t("adminSaveTelegram", language)}
+            </button>
+            <button onClick={() => setShowTelegram(false)}
+              className="px-3 py-1.5 rounded-lg text-xs"
+              style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>
+              {t("cancel", language)}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Edit Limits */}
+      {/* Rate Limits */}
       {showLimits && (
-        <div className="mt-3 pt-3 border-t border-[var(--color-border)]">
-          <RateLimitsEditor limits={user.rateLimits} onSave={handleSaveLimits} onCancel={() => setShowLimits(false)} />
+        <div className="rounded-lg p-3" style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-fg-muted)" }}>{t("adminRateLimitsSection", language)}</p>
+          <RateLimitsEditor
+            limits={user.rateLimits}
+            onSave={(l) => { onUpdateLimits(user.userId, l); setShowLimits(false); }}
+            onCancel={() => setShowLimits(false)}
+          />
         </div>
       )}
 
       {/* Delete confirm */}
       {showDelete && (
-        <div className="mt-3 pt-3 border-t border-[var(--color-border)] space-y-2">
-          <p className="text-[10px] text-[var(--color-accent-red)]">
-            {t("adminTypeToConfirm", language)} <strong>{user.userId}</strong> {t("adminToConfirmDeletion", language)}
+        <div className="rounded-lg p-3 space-y-2" style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.25)" }}>
+          <p className="text-xs font-semibold" style={{ color: "var(--color-accent-red)" }}>
+            {t("adminDeleteConfirmLabel", language)} <code>{user.userId}</code>
           </p>
-          <input type="text" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)}
+          <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)}
             placeholder={user.userId}
-            className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-accent-red)]/40 rounded-lg px-3 py-1.5 text-xs text-[var(--color-fg-default)] outline-none" />
-          <button onClick={handleDelete} disabled={deleteConfirm !== user.userId || deleting}
-            className="w-full py-1.5 rounded-lg bg-[var(--color-accent-red)] text-white text-xs font-semibold disabled:opacity-40">
-            {deleting ? t("adminDeleting", language) : t("adminConfirmDelete", language)}
-          </button>
+            className="w-full text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{ background: "var(--color-bg-muted)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-fg-default)" }} />
+          <div className="flex gap-2">
+            <button onClick={handleDelete} disabled={deleteConfirm !== user.userId || deleting}
+              className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)", color: "var(--color-accent-red)" }}>
+              {deleting ? t("deleting", language) : t("confirmDelete", language)}
+            </button>
+            <button onClick={() => { setShowDelete(false); setDeleteConfirm(""); }}
+              className="px-3 py-1.5 rounded-lg text-xs"
+              style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>
+              {t("cancel", language)}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -876,81 +1210,104 @@ export function Admin() {
   if (!loggedIn) return <AdminLogin onLogin={() => setLoggedIn(true)} />;
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg-base)]">
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen" style={{ background: "var(--color-bg-base)", color: "var(--color-fg-default)" }}>
+
+      {/* Sticky header */}
+      <div className="sticky top-0 z-30 border-b px-4 py-3 flex items-center justify-between"
+        style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
         <div className="flex items-center gap-2">
           <span className="text-lg">🦞</span>
-          <span className="font-bold text-sm text-[var(--color-fg-default)]">{t("adminTitle", language)}</span>
-          <span className="text-xs text-[var(--color-fg-subtle)]">{t("adminLoginSub", language)}</span>
+          <span className="font-bold text-sm">{t("adminTitle", language)}</span>
         </div>
-        <button onClick={() => { sessionStorage.removeItem("admin_key"); setLoggedIn(false); }}
-          className="text-[10px] text-[var(--color-fg-muted)] border border-[var(--color-border)] rounded px-2 py-1">
-          {t("logout", language)}
-        </button>
+        <div className="flex items-center gap-3">
+          {status && (
+            <span className={`text-[11px] font-medium ${status.gatewayRunning ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
+              {status.gatewayRunning ? "● Gateway running" : "● Gateway stopped"}
+            </span>
+          )}
+          <button onClick={() => { sessionStorage.removeItem("admin_key"); setLoggedIn(false); }}
+            className="text-[10px] px-2 py-1 rounded"
+            style={{ border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
+            {t("logout", language)}
+          </button>
+        </div>
       </div>
 
-      <div className="px-4 py-4 space-y-4">
-        {/* Status bar */}
+      <div className="px-4 py-4 max-w-2xl mx-auto space-y-4">
+
+        {/* Stat bar */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-center">
-            <p className="text-xs text-[var(--color-fg-subtle)]">{t("adminGateway", language)}</p>
-            <p className={`text-sm font-bold mt-0.5 ${status?.gatewayRunning ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
-              {status?.gatewayRunning ? t("adminRunning", language) : t("adminStopped", language)}
-            </p>
-          </div>
-          <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-center">
-            <p className="text-xs text-[var(--color-fg-subtle)]">{t("adminUsers", language)}</p>
-            <p className="text-sm font-bold text-[var(--color-fg-default)] mt-0.5">
-              {users.length} {t("adminTotal", language)}
-            </p>
-          </div>
-          <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-center">
-            <p className="text-xs text-[var(--color-fg-subtle)]">{t("adminActive", language)}</p>
-            <p className="text-sm font-bold text-[var(--color-accent-green)] mt-0.5">
-              {status?.activeAgents ?? 0}
-            </p>
-          </div>
+          {[
+            { label: t("adminUsers", language), value: `${users.length} ${t("adminTotal", language)}`, accent: false },
+            { label: t("adminActive", language), value: status?.activeAgents ?? "—", accent: true },
+            { label: t("adminGateway", language), value: status?.gatewayRunning ? t("adminRunning", language) : t("adminStopped", language), accent: !!status?.gatewayRunning },
+          ].map(s => (
+            <div key={s.label} className="rounded-lg px-4 py-3 text-center"
+              style={{ background: "var(--color-bg-subtle)", border: "1px solid var(--color-border)" }}>
+              <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>{s.label}</p>
+              <p className={`text-sm font-bold mt-0.5 ${s.accent ? "text-[var(--color-accent-green)]" : ""}`}
+                style={!s.accent ? { color: "var(--color-fg-default)" } : undefined}>
+                {String(s.value)}
+              </p>
+            </div>
+          ))}
         </div>
+
+        {/* System controls */}
+        <SystemControls onError={(m) => setError(m)} />
 
         {/* Error banner */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 text-xs text-[var(--color-accent-red)] flex items-center justify-between">
+          <div className="rounded-lg px-3 py-2 text-xs flex items-center justify-between"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-accent-red)" }}>
             <span>{error}</span>
             <button onClick={() => setError(null)} className="ml-2 opacity-60 hover:opacity-100">×</button>
           </div>
         )}
 
-        {/* Model Profiles */}
-        <ProfilesSection onError={setError} />
-
-        {/* Add user */}
+        {/* Add User */}
         <button onClick={() => setShowAdd(true)}
-          className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold">
+          className="w-full py-3 rounded-xl text-sm font-semibold"
+          style={{ background: "var(--color-accent-blue)", color: "white" }}>
           + {t("adminAddUser", language)}
         </button>
 
         {/* User cards */}
         {loading && users.length === 0 ? (
-          <div className="text-center py-12 text-[var(--color-fg-muted)] text-sm">{t("loading", language)}</div>
+          <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>{t("loading", language)}</div>
         ) : users.length === 0 ? (
-          <div className="text-center py-12 text-[var(--color-fg-muted)] text-sm">{t("adminNoUsers", language)}</div>
+          <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>{t("adminNoUsers", language)}</div>
         ) : (
           <div className="space-y-3">
-            {users.map((user) => (
+            {users.map(u => (
               <UserCard
-                key={user.userId}
-                user={user}
+                key={u.userId}
+                user={u}
                 profiles={profiles}
                 onDelete={handleDelete}
                 onUpdateLimits={handleUpdateLimits}
                 onAddTelegram={handleAddTelegram}
                 onProfileChanged={load}
+                onControlChanged={load}
                 onError={setError}
               />
             ))}
           </div>
         )}
+
+        {/* Model Profiles (collapsible, at bottom) */}
+        <details className="group rounded-xl border overflow-hidden"
+          style={{ borderColor: "var(--color-border)" }}>
+          <summary className="px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none flex items-center justify-between"
+            style={{ background: "var(--color-bg-subtle)", color: "var(--color-fg-muted)", listStyle: "none" }}>
+            <span>⚙️ {t("adminModelProfiles", language)}</span>
+            <span className="group-open:rotate-180 transition-transform">▾</span>
+          </summary>
+          <div className="p-4" style={{ background: "var(--color-bg-base)" }}>
+            <ProfilesSection onError={setError} />
+          </div>
+        </details>
+
       </div>
 
       {showAdd && <AddUserModal onClose={() => setShowAdd(false)} onAdded={load} />}
