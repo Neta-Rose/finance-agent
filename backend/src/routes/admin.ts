@@ -17,7 +17,7 @@ import {
   createProfile,
   updateProfile,
   deleteProfile,
-  getUserProfile,
+  getUserProfileStatus,
   setUserProfile,
 } from "../services/profileService.js";
 import type { RateLimits } from "../types/index.js";
@@ -102,7 +102,7 @@ router.get(
         } catch { /* no portfolio */ }
 
         const agentStatus = await getUserAgentStatus(userId);
-        const modelProfile = await getUserProfile(userId);
+        const profileStatus = await getUserProfileStatus(userId);
         const agentHealth = await getUserAgentHealth(userId);
 
         return {
@@ -116,7 +116,9 @@ router.get(
           createdAt,
           rateLimits,
           schedule,
-          modelProfile,
+          modelProfile: profileStatus.name,
+          profileBroken: profileStatus.broken,
+          profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
           agentHealth,
         };
       })
@@ -188,7 +190,14 @@ router.post(
       logger.warn(`Failed to add agent for ${userId}`, { err });
     }
 
-    // No extra restartGateway() here — addUserAgent() already restarts it internally
+    // Apply the default profile ("testing") to the agent's openclaw entry.
+    // addUserAgent() already restarted the gateway — setUserProfile restarts again
+    // which is acceptable on creation (rare path).
+    try {
+      await setUserProfile(userId, "testing");
+    } catch (err) {
+      logger.warn(`Failed to apply default model profile for ${userId}: ${err}`);
+    }
 
     res.status(201).json({ userId, created: true });
   })

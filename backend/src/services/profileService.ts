@@ -6,6 +6,7 @@ import {
   ProfilesRegistrySchema,
 } from "../schemas/profile.js";
 import type { ProfileDefinition, ProfilesRegistry } from "../schemas/profile.js";
+import { applyProfileToAgent, restartGateway } from "./agentService.js";
 
 const DATA_DIR = process.env["DATA_DIR"] ?? "../data";
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
@@ -119,6 +120,17 @@ export async function deleteProfile(name: string): Promise<void> {
 
 // ── Per-user config ───────────────────────────────────────────────────────────
 
+export interface UserProfileStatus {
+  name: string;
+  broken: boolean;
+  reason?: string;
+}
+
+/**
+ * Returns the raw profile name stored in config.json.
+ * Does NOT validate against the registry — callers that need that should use
+ * getUserProfileStatus().
+ */
 export async function getUserProfile(userId: string): Promise<string> {
   try {
     const raw = await fs.readFile(userConfigPath(userId), "utf-8");
@@ -129,6 +141,23 @@ export async function getUserProfile(userId: string): Promise<string> {
   }
 }
 
+/**
+ * Returns profile name plus a broken flag if the profile name does not exist
+ * in the registry (deleted, renamed, or config.json corrupted).
+ */
+export async function getUserProfileStatus(userId: string): Promise<UserProfileStatus> {
+  const name = await getUserProfile(userId);
+  const registry = await listProfiles();
+  if (!registry[name]) {
+    return {
+      name,
+      broken: true,
+      reason: `Profile "${name}" not found in registry — contact support`,
+    };
+  }
+  return { name, broken: false };
+}
+
 export async function setUserProfile(
   userId: string,
   profileName: string
@@ -136,12 +165,17 @@ export async function setUserProfile(
   const profile = await getProfile(profileName);
   if (!profile) throw new Error(`Profile not found: ${profileName}`);
 
-  // Write clean config — strips any legacy embedded profiles block
+  // Write clean config
   const config = { modelProfile: profileName };
   await fs.writeFile(
     userConfigPath(userId),
     JSON.stringify(config, null, 2),
     "utf-8"
   );
+
+  // Enforce: write the model into the agent's openclaw entry, then restart gateway
+  await applyProfileToAgent(userId, profile.orchestrator, profile.analysts);
+  await restartGateway();
+
   logger.info(`Set profile for ${userId}: ${profileName}`);
 }

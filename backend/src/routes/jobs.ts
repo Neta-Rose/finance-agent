@@ -1,11 +1,12 @@
 import { Router, type Response, type NextFunction } from "express";
 import { triggerLimiter } from "../middleware/rateLimit.js";
-import { createJob, listJobs, getJob } from "../services/jobService.js";
+import { createJob, listJobs, getJob, updateJob } from "../services/jobService.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { JobAction, RateLimits, Job } from "../types/index.js";
 import { DEFAULT_RATE_LIMITS } from "../types/index.js";
 import { guardPath } from "../middleware/userIsolation.js";
+import { setUserProfile, getUserProfileStatus } from "../services/profileService.js";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -218,6 +219,43 @@ router.post(
           return;
         }
         guardPath(ws, ws.strategyFile(ticker));
+      }
+
+      // ── Switch actions: apply immediately in the backend, never delegate to agent ──
+      const isSwitchAction = action === "switch_production" || action === "switch_testing";
+      if (isSwitchAction) {
+        const targetProfile = action === "switch_production" ? "production" : "testing";
+        const job = await createJob(ws, action as JobAction);
+        try {
+          await setUserProfile(ws.userId, targetProfile);
+          await updateJob(ws, job.id, {
+            status: "completed",
+            started_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            result: `Switched to ${targetProfile} profile`,
+          });
+        } catch (err) {
+          await updateJob(ws, job.id, {
+            status: "failed",
+            started_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            error: err instanceof Error ? err.message.slice(0, 490) : "Switch failed",
+          });
+          res.status(500).json({ error: "Failed to switch profile", reason: (err instanceof Error ? err.message : String(err)) });
+          return;
+        }
+        res.status(201).json({ jobId: job.id, job: await getJob(ws, job.id) });
+        return;
+      }
+
+      // ── For all other actions: validate that the user's profile is not broken ──
+      const profileStatus = await getUserProfileStatus(ws.userId);
+      if (profileStatus.broken) {
+        res.status(409).json({
+          error: "model_profile_broken",
+          reason: profileStatus.reason ?? `Profile "${profileStatus.name}" is invalid — contact support`,
+        });
+        return;
       }
 
       // Rate limit check

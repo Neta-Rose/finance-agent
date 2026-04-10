@@ -316,6 +316,44 @@ export async function updateUserTelegram(
   logger.info(`Updated Telegram for user: ${userId}`);
 }
 
+// ── Model enforcement ─────────────────────────────────────────────────────────
+
+/**
+ * Write per-agent model config into openclaw.json's agents.list entry.
+ * Called every time a profile is assigned or changed for a user.
+ * Does NOT restart the gateway — callers that need an immediate live effect
+ * should call restartGateway() themselves.
+ */
+export async function applyProfileToAgent(
+  userId: string,
+  orchestratorModel: string,
+  analystsModel: string
+): Promise<void> {
+  const config = await readConfig();
+  if (!config.agents?.list) return;
+
+  const entry = config.agents.list.find((a) => a.id === userId);
+  if (!entry) {
+    logger.warn(`applyProfileToAgent: no agent entry found for ${userId}`);
+    return;
+  }
+
+  // Type-widen so we can add non-interface fields openclaw accepts per-schema
+  const agentEntry = entry as unknown as Record<string, unknown>;
+  agentEntry["model"] = { primary: orchestratorModel };
+  agentEntry["subagents"] = {
+    ...(typeof agentEntry["subagents"] === "object" && agentEntry["subagents"] !== null
+      ? (agentEntry["subagents"] as Record<string, unknown>)
+      : {}),
+    model: { primary: analystsModel },
+  };
+
+  await writeConfig(config);
+  logger.info(
+    `Applied model profile to agent ${userId}: orchestrator=${orchestratorModel} analysts=${analystsModel}`
+  );
+}
+
 export async function restartGateway(): Promise<void> {
   try {
     execSync("openclaw gateway restart", { timeout: 15_000, stdio: "ignore" });
