@@ -22,6 +22,7 @@ import {
 } from "../services/profileService.js";
 import type { RateLimits } from "../types/index.js";
 import type { ProfileDefinition } from "../schemas/profile.js";
+import { eventStore } from "../services/eventStore.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "";
@@ -410,6 +411,48 @@ router.patch(
       return;
     }
     res.json({ updated: true, userId, profileName });
+  })
+);
+
+// ── Observability routes ──────────────────────────────────────────────────────
+
+// GET /api/admin/observability/summary — all users, today's aggregate totals
+router.get(
+  "/observability/summary",
+  handler(async (_req, res) => {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const users = await eventStore.getDailySummary(today);
+    res.json({ date: today, users });
+  })
+);
+
+// GET /api/admin/observability/users/:userId — 7-day history + last 20 requests
+router.get(
+  "/observability/users/:userId",
+  handler(async (req, res) => {
+    const userId = req.params.userId as string;
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    const [history, recent] = await Promise.all([
+      eventStore.getUserDailyHistory(userId, 7),
+      eventStore.getRecentActivity(userId, 20),
+    ]);
+    res.json({ userId, history, recent });
+  })
+);
+
+// GET /api/admin/observability/all — all users, last 7 days (for charts)
+router.get(
+  "/observability/all",
+  handler(async (_req, res) => {
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().slice(0, 10);
+    });
+    const summaries = await Promise.all(
+      days.map((date) => eventStore.getDailySummary(date))
+    );
+    res.json({ days: days.map((date, i) => ({ date, users: summaries[i] })) });
   })
 );
 
