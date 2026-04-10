@@ -1,6 +1,14 @@
 import fs from "fs/promises";
 import { execSync, exec as execAsync } from "child_process";
 import { logger } from "./logger.js";
+import {
+  generateProxyKey,
+  registerKey,
+  unregisterKey,
+  toProxyModel,
+  buildKeyMap,
+  PROXY_BASE_URL,
+} from "./llmProxy.js";
 
 const OPENCLAW_CONFIG = "/root/.openclaw/openclaw.json";
 const USERS_DIR = "/root/clawd/users";
@@ -236,6 +244,9 @@ export async function addUserAgent(
 
   await writeConfig(config);
 
+  // Create per-user proxy provider (idempotent — generates key only if missing)
+  await ensureProxyProvider(userId);
+
   // Restart gateway and verify
   await restartGateway();
 
@@ -277,6 +288,9 @@ export async function removeUserAgent(userId: string): Promise<void> {
   }
 
   await writeConfig(config);
+
+  // Revoke proxy provider + in-memory key map entry
+  await removeProxyProvider(userId);
 
   // Remove the heartbeat cron
   await removeUserCron(userId);
@@ -340,17 +354,147 @@ export async function applyProfileToAgent(
 
   // Type-widen so we can add non-interface fields openclaw accepts per-schema
   const agentEntry = entry as unknown as Record<string, unknown>;
-  agentEntry["model"] = { primary: orchestratorModel };
+  // Route openrouter/* models through the per-user proxy; other providers go direct.
+  agentEntry["model"] = { primary: toProxyModel(userId, orchestratorModel) };
   agentEntry["subagents"] = {
     ...(typeof agentEntry["subagents"] === "object" && agentEntry["subagents"] !== null
       ? (agentEntry["subagents"] as Record<string, unknown>)
       : {}),
-    model: { primary: analystsModel },
+    model: { primary: toProxyModel(userId, analystsModel) },
   };
 
   await writeConfig(config);
   logger.info(
     `Applied model profile to agent ${userId}: orchestrator=${orchestratorModel} analysts=${analystsModel}`
+  );
+}
+
+// ── Proxy provider management ─────────────────────────────────────────────────
+
+/**
+ * Idempotent: creates models.providers.clawd-{userId} in openclaw.json with a
+ * stable proxy API key.  Generates a new key only if one doesn't exist yet.
+ * Mutates config in place and registers the key in the in-memory map.
+ * Does NOT call writeConfig — caller owns the write.
+ */
+function applyProxyProviderToConfig(
+  config: OpenClawConfig,
+  userId: string
+): string {
+  const agentEntry = config.agents?.list?.find((a) => a.id === userId) as
+    | (AgentEntry & Record<string, unknown>)
+    | undefined;
+
+  let proxyKey: string;
+  if (agentEntry?.["proxyApiKey"]) {
+    proxyKey = agentEntry["proxyApiKey"] as string;
+  } else {
+    proxyKey = generateProxyKey(userId);
+    if (agentEntry) agentEntry["proxyApiKey"] = proxyKey;
+  }
+
+  // Ensure models.providers.clawd-{userId} exists
+  if (!config["models"]) (config as Record<string, unknown>)["models"] = {};
+  const models = (config as Record<string, unknown>)["models"] as Record<
+    string,
+    unknown
+  >;
+  if (!models["providers"]) models["providers"] = {};
+  const providers = models["providers"] as Record<string, unknown>;
+  providers[`clawd-${userId}`] = { baseUrl: PROXY_BASE_URL, apiKey: proxyKey };
+
+  registerKey(proxyKey, userId);
+  return proxyKey;
+}
+
+/**
+ * Idempotent: ensures a proxy provider entry exists for userId in openclaw.json
+ * and the in-memory key map. Safe to call on every agent creation or profile switch.
+ */
+export async function ensureProxyProvider(userId: string): Promise<string> {
+  const config = await readConfig();
+  const proxyKey = applyProxyProviderToConfig(config, userId);
+  await writeConfig(config);
+  logger.info(`Proxy provider ensured for ${userId}`);
+  return proxyKey;
+}
+
+/**
+ * Removes the proxy provider entry for userId and invalidates its key in the
+ * in-memory map. Called when an agent is deleted.
+ */
+export async function removeProxyProvider(userId: string): Promise<void> {
+  const config = await readConfig();
+
+  // Revoke in-memory key
+  const agentEntry = config.agents?.list?.find((a) => a.id === userId) as
+    | (AgentEntry & Record<string, unknown>)
+    | undefined;
+  const proxyKey = agentEntry?.["proxyApiKey"] as string | undefined;
+  if (proxyKey) unregisterKey(proxyKey);
+
+  // Remove provider entry from openclaw config
+  const providers = (
+    (config as Record<string, unknown>)["models"] as
+      | Record<string, unknown>
+      | undefined
+  )?.["providers"] as Record<string, unknown> | undefined;
+  if (providers) delete providers[`clawd-${userId}`];
+
+  await writeConfig(config);
+  logger.info(`Removed proxy provider for ${userId}`);
+}
+
+/**
+ * Run once on server startup: ensures every existing agent has a proxy provider
+ * entry and has its openrouter/* model strings transformed to route through the
+ * proxy. Rebuilds the in-memory key map from the final config state.
+ */
+export async function ensureAllProxyProviders(): Promise<void> {
+  const config = await readConfig();
+  const agents = config.agents?.list ?? [];
+  let dirty = false;
+
+  for (const agent of agents) {
+    const entry = agent as AgentEntry & Record<string, unknown>;
+
+    // 1. Ensure proxy key + provider entry
+    const prevKey = entry["proxyApiKey"] as string | undefined;
+    applyProxyProviderToConfig(config, agent.id);
+    if ((entry["proxyApiKey"] as string) !== prevKey) dirty = true;
+
+    // 2. Transform openrouter/* model strings to route through per-user proxy
+    const modelObj = entry["model"] as Record<string, unknown> | undefined;
+    if (
+      typeof modelObj?.["primary"] === "string" &&
+      (modelObj["primary"] as string).startsWith("openrouter/")
+    ) {
+      modelObj["primary"] = toProxyModel(agent.id, modelObj["primary"] as string);
+      dirty = true;
+    }
+
+    const subagents = entry["subagents"] as Record<string, unknown> | undefined;
+    const subModelObj = subagents?.["model"] as
+      | Record<string, unknown>
+      | undefined;
+    if (
+      typeof subModelObj?.["primary"] === "string" &&
+      (subModelObj["primary"] as string).startsWith("openrouter/")
+    ) {
+      subModelObj["primary"] = toProxyModel(
+        agent.id,
+        subModelObj["primary"] as string
+      );
+      dirty = true;
+    }
+  }
+
+  if (dirty) await writeConfig(config);
+
+  // Rebuild in-memory key map from final config state
+  buildKeyMap(agents as unknown as Array<Record<string, unknown>>);
+  logger.info(
+    `ensureAllProxyProviders: processed ${agents.length} agents, dirty=${dirty}`
   );
 }
 
