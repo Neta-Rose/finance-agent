@@ -7,6 +7,7 @@ import type { JobAction, RateLimits, Job } from "../types/index.js";
 import { DEFAULT_RATE_LIMITS } from "../types/index.js";
 import { guardPath } from "../middleware/userIsolation.js";
 import { setUserProfile, getUserProfileStatus } from "../services/profileService.js";
+import { getSystemControl, getUserControl } from "../services/controlService.js";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -219,6 +220,31 @@ router.post(
           return;
         }
         guardPath(ws, ws.strategyFile(ticker));
+      }
+
+      // ── System lock + user restriction check ─────────────────────────────
+      const [sysCtrl, userCtrl] = await Promise.all([
+        getSystemControl(),
+        getUserControl(ws.userId),
+      ]);
+
+      if (sysCtrl.locked) {
+        res.status(503).json({
+          error: "system_locked",
+          message: sysCtrl.lockReason || "System is temporarily locked. Contact admin.",
+        });
+        return;
+      }
+
+      if (userCtrl.restriction === "suspended" ||
+          userCtrl.restriction === "blocked" ||
+          userCtrl.restriction === "readonly") {
+        res.status(403).json({
+          error: "user_restricted",
+          restriction: userCtrl.restriction,
+          message: userCtrl.reason || "Your account is restricted. Contact admin.",
+        });
+        return;
       }
 
       // ── Switch actions: apply immediately in the backend, never delegate to agent ──
