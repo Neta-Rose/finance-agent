@@ -22,6 +22,7 @@ import {
 } from "../services/llmProxy.js";
 import { eventStore } from "../services/eventStore.js";
 import { logger } from "../services/logger.js";
+import { getSystemControl, getUserControl } from "../services/controlService.js";
 
 const OPENROUTER_KEY = process.env["OPENROUTER_API_KEY"] ?? "";
 const UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -53,6 +54,31 @@ router.post(
     const userId = resolveUserId(proxyKey);
     if (!userId) {
       res.status(401).json({ error: "Invalid proxy API key" });
+      return;
+    }
+
+    // ── Enforcement: system lock and user restriction ─────────────────────────
+    const [sysCtrl, userCtrl] = await Promise.all([
+      getSystemControl(),
+      getUserControl(userId),
+    ]);
+
+    if (sysCtrl.locked) {
+      res.status(503).json({
+        error: "system_locked",
+        message: sysCtrl.lockReason || "System is temporarily unavailable. Contact admin.",
+      });
+      return;
+    }
+
+    if (userCtrl.restriction === "suspended" ||
+        userCtrl.restriction === "blocked" ||
+        userCtrl.restriction === "readonly") {
+      res.status(403).json({
+        error: "user_restricted",
+        restriction: userCtrl.restriction,
+        message: userCtrl.reason || "Your account is restricted. Contact admin.",
+      });
       return;
     }
 
