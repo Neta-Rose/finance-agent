@@ -25,6 +25,7 @@ import telegramRoutes from "./routes/telegram.js";
 import adminRoutes from "./routes/admin.js";
 import searchRoutes from "./routes/search.js";
 import llmProxyRouter from "./routes/llmProxy.js";
+import controlRoutes from "./routes/control.js";
 
 export function createApp(): Express {
   const app = express();
@@ -66,6 +67,7 @@ export function createApp(): Express {
   app.use("/api", authMiddleware, userIsolationMiddleware);
 
   // Route mounts
+  app.use("/api/me", controlRoutes); // GET /api/me/control
   app.use("/api", portfolioRoutes); // GET /api/portfolio
   app.use("/api", verdictsRoutes); // GET /api/verdicts
   app.use("/api", jobsRoutes); // POST /api/jobs/trigger, GET /api/jobs
