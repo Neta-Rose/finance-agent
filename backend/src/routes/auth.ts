@@ -35,7 +35,7 @@ router.post(
     const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
     const authFile = path.join(USERS_DIR, userId, "auth.json");
 
-    let authData: { passwordHash: string };
+    let authData: { passwordHash: string; tokenVersion?: number };
     try {
       const raw = await fs.readFile(authFile, "utf-8");
       authData = JSON.parse(raw);
@@ -50,7 +50,9 @@ router.post(
       return;
     }
 
-    const token = generateToken(userId);
+    // Read tokenVersion from auth.json (default 0 if missing — backward compat)
+    const tokenVersion = authData.tokenVersion ?? 0;
+    const token = generateToken(userId, tokenVersion);
     res.json({ token, userId });
   }
 );
