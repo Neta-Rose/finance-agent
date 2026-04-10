@@ -991,7 +991,7 @@ function UserCard({
   const [botToken,      setBotToken]      = useState("");
   const [chatId,        setChatId]        = useState(user.telegramChatId ?? "");
 
-  const restriction = (user as UserSummary & { restriction?: "readonly" | "blocked" | "suspended" }).restriction ?? null;
+  const restriction = user.restriction;
 
   const stateColor =
     user.state === "ACTIVE"        ? "text-[var(--color-accent-green)]" :
@@ -1134,7 +1134,7 @@ function UserCard({
       {showDelete && (
         <div className="rounded-lg p-3 space-y-2" style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.25)" }}>
           <p className="text-xs font-semibold" style={{ color: "var(--color-accent-red)" }}>
-            {t("adminDeleteConfirmLabel", language)} <code>{user.userId}</code>
+            {t("adminTypeToConfirm", language)} <code>{user.userId}</code> {t("adminToConfirmDeletion", language)}
           </p>
           <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)}
             placeholder={user.userId}
@@ -1144,7 +1144,7 @@ function UserCard({
             <button onClick={handleDelete} disabled={deleteConfirm !== user.userId || deleting}
               className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
               style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)", color: "var(--color-accent-red)" }}>
-              {deleting ? t("deleting", language) : t("confirmDelete", language)}
+              {deleting ? t("adminDeleting", language) : t("adminConfirmDelete", language)}
             </button>
             <button onClick={() => { setShowDelete(false); setDeleteConfirm(""); }}
               className="px-3 py-1.5 rounded-lg text-xs"

@@ -51,6 +51,7 @@ export interface UserSummary {
   schedule: Schedule;
   modelProfile: string;
   agentHealth: AgentHealth;
+  restriction: "readonly" | "blocked" | "suspended" | null;
 }
 
 export interface AdminStatus {

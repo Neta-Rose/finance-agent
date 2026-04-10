@@ -112,9 +112,12 @@ router.get(
           portfolioLoaded = true;
         } catch { /* no portfolio */ }
 
-        const agentStatus = await getUserAgentStatus(userId);
-        const profileStatus = await getUserProfileStatus(userId);
-        const agentHealth = await getUserAgentHealth(userId);
+        const [agentStatus, profileStatus, agentHealth, userCtrl] = await Promise.all([
+          getUserAgentStatus(userId),
+          getUserProfileStatus(userId),
+          getUserAgentHealth(userId),
+          getUserControl(userId),
+        ]);
 
         return {
           userId,
@@ -131,6 +134,7 @@ router.get(
           profileBroken: profileStatus.broken,
           profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
           agentHealth,
+          restriction: userCtrl.restriction,
         };
       })
     );
