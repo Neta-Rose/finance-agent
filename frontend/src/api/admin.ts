@@ -175,3 +175,53 @@ export const adminGetUserObservability = async (
   adminFetch(
     `/api/admin/observability/users/${encodeURIComponent(userId)}`
   ) as Promise<UserObservability>;
+
+// ── Admin control API ─────────────────────────────────────────────────────────
+
+export interface SystemControlPatch {
+  locked?:      boolean;
+  lockReason?:  string;
+  lockedUntil?: string | null;
+  broadcast?:   { text: string; type: "info" | "warning" | "error"; dismissible?: boolean; expiresAt?: string | null } | null;
+}
+
+export interface UserControlPatch {
+  restriction:      "readonly" | "blocked" | "suspended";
+  reason?:          string;
+  restrictedUntil?: string | null;
+  banner?:          { text: string; type: "info" | "warning" | "error"; dismissible?: boolean; expiresAt?: string | null } | null;
+}
+
+export interface SystemControlState {
+  locked:      boolean;
+  lockReason:  string;
+  lockedAt:    string | null;
+  lockedUntil: string | null;
+  broadcast:   import("./control").Banner | null;
+}
+
+export const adminGetSystem = async (): Promise<SystemControlState> =>
+  adminFetch("/api/admin/system") as Promise<SystemControlState>;
+
+export const adminPatchSystem = async (patch: SystemControlPatch): Promise<void> => {
+  await adminFetch("/api/admin/system", { method: "PATCH", body: JSON.stringify(patch) });
+};
+
+export const adminSetUserControl = async (userId: string, patch: UserControlPatch): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/control`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+};
+
+export const adminClearUserControl = async (userId: string): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/control`, { method: "DELETE" });
+};
+
+export const adminForceLogout = async (userId: string): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/force-logout`, { method: "POST" });
+};
+
+export const adminKillJob = async (userId: string, jobId: string): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs/${encodeURIComponent(jobId)}/kill`, { method: "POST" });
+};
