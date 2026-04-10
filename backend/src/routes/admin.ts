@@ -23,6 +23,16 @@ import {
 import type { RateLimits } from "../types/index.js";
 import type { ProfileDefinition } from "../schemas/profile.js";
 import { eventStore } from "../services/eventStore.js";
+import {
+  getUserControl,
+  setUserControl,
+  clearUserControl,
+  getSystemControl,
+  setSystemControl,
+  incrementTokenVersion,
+} from "../services/controlService.js";
+import { updateJob } from "../services/jobService.js";
+import { buildWorkspace } from "../middleware/userIsolation.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "";
@@ -453,6 +463,110 @@ router.get(
       days.map((date) => eventStore.getDailySummary(date))
     );
     res.json({ days: days.map((date, i) => ({ date, users: summaries[i] })) });
+  })
+);
+
+// ── System control ────────────────────────────────────────────────────────────
+
+// GET /api/admin/system — read system-wide control state
+router.get(
+  "/system",
+  handler(async (_req, res) => {
+    const ctrl = await getSystemControl();
+    res.json(ctrl);
+  })
+);
+
+// PATCH /api/admin/system — lock/unlock, set broadcast
+router.patch(
+  "/system",
+  handler(async (req, res) => {
+    const body = req.body as {
+      locked?: boolean;
+      lockReason?: string;
+      lockedUntil?: string | null;
+      broadcast?: { text: string; type: string; dismissible?: boolean; expiresAt?: string | null } | null;
+    };
+    const patch: Record<string, unknown> = {};
+    if (body.locked !== undefined) {
+      patch["locked"]   = body.locked;
+      patch["lockedAt"] = body.locked ? new Date().toISOString() : null;
+    }
+    if (body.lockReason !== undefined) patch["lockReason"]  = body.lockReason;
+    if ("lockedUntil" in body)          patch["lockedUntil"] = body.lockedUntil ?? null;
+    if ("broadcast" in body)            patch["broadcast"]   = body.broadcast ?? null;
+    await setSystemControl(patch);
+    res.json({ updated: true, system: await getSystemControl() });
+  })
+);
+
+// ── Per-user control ──────────────────────────────────────────────────────────
+
+// PATCH /api/admin/users/:userId/control — set restriction
+router.patch(
+  "/users/:userId/control",
+  handler(async (req, res) => {
+    const userId = req.params.userId as string;
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    const body = req.body as {
+      restriction?: "readonly" | "blocked" | "suspended";
+      reason?: string;
+      restrictedUntil?: string | null;
+      banner?: { text: string; type: string; dismissible?: boolean; expiresAt?: string | null } | null;
+    };
+    if (!body.restriction) { res.status(400).json({ error: "restriction required" }); return; }
+    await setUserControl(userId, {
+      restriction:     body.restriction,
+      reason:          body.reason ?? "",
+      restrictedAt:    new Date().toISOString(),
+      restrictedUntil: body.restrictedUntil ?? null,
+      banner:          body.banner as Parameters<typeof setUserControl>[1]["banner"] ?? null,
+    });
+    res.json({ updated: true, userId, control: await getUserControl(userId) });
+  })
+);
+
+// DELETE /api/admin/users/:userId/control — remove all restrictions
+router.delete(
+  "/users/:userId/control",
+  handler(async (req, res) => {
+    const userId = req.params.userId as string;
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    await clearUserControl(userId);
+    res.json({ cleared: true, userId });
+  })
+);
+
+// POST /api/admin/users/:userId/force-logout — invalidate all active sessions
+router.post(
+  "/users/:userId/force-logout",
+  handler(async (req, res) => {
+    const userId = req.params.userId as string;
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    await incrementTokenVersion(userId);
+    res.json({ invalidated: true, userId });
+  })
+);
+
+// POST /api/admin/users/:userId/jobs/:jobId/kill — force-fail a running job
+router.post(
+  "/users/:userId/jobs/:jobId/kill",
+  handler(async (req, res) => {
+    const { userId, jobId } = req.params as { userId: string; jobId: string };
+    if (!userId || !jobId) { res.status(400).json({ error: "userId and jobId required" }); return; }
+    const USERS_DIR_RESOLVED = process.env["USERS_DIR"] ?? "../users";
+    const ws = buildWorkspace(userId, USERS_DIR_RESOLVED);
+    try {
+      await updateJob(ws, jobId, {
+        status:       "failed",
+        completed_at: new Date().toISOString(),
+        error:        "Killed by admin",
+      });
+      res.json({ killed: true, userId, jobId });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(404).json({ error: msg });
+    }
   })
 );
 
