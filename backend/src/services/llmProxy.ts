@@ -4,6 +4,7 @@
 import crypto from "crypto";
 import path from "path";
 import { promises as fs } from "fs";
+import { resolveConfiguredPath } from "./paths.js";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -15,8 +16,9 @@ export const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 // ── Proxy key generation ──────────────────────────────────────────────────────
 
 export function generateProxyKey(userId: string): string {
-  const secret = crypto.randomBytes(16).toString("hex");
-  return `clawd-sk-${userId}-${secret}`;
+  const secret = process.env["JWT_SECRET"] ?? "changeme";
+  const hmac = crypto.createHmac("sha256", secret).update(userId).digest("hex");
+  return `clawd-sk-${userId}-${hmac.slice(0, 32)}`;
 }
 
 // ── In-memory key map: proxyApiKey → userId ───────────────────────────────────
@@ -32,7 +34,15 @@ export function unregisterKey(proxyKey: string): void {
 }
 
 export function resolveUserId(proxyKey: string): string | null {
-  return keyMap.get(proxyKey) ?? null;
+  const mapped = keyMap.get(proxyKey);
+  if (mapped) return mapped;
+
+  const match = /^clawd-sk-([a-zA-Z0-9-]+)-([a-f0-9]{32})$/.exec(proxyKey);
+  if (!match) return null;
+
+  const userId = match[1];
+  if (!userId) return null;
+  return generateProxyKey(userId) === proxyKey ? userId : null;
 }
 
 export function buildKeyMap(
@@ -41,8 +51,7 @@ export function buildKeyMap(
   keyMap.clear();
   for (const agent of agents) {
     const id = agent["id"] as string | undefined;
-    const proxyKey = agent["proxyApiKey"] as string | undefined;
-    if (id && proxyKey) keyMap.set(proxyKey, id);
+    if (id) keyMap.set(generateProxyKey(id), id);
   }
 }
 
@@ -57,6 +66,11 @@ export function toProxyModel(userId: string, model: string): string {
 
 // ── Analyst fingerprinting ────────────────────────────────────────────────────
 
+interface ProxyMessage {
+  role?: string;
+  content?: unknown;
+}
+
 const ANALYST_PATTERNS: Array<[RegExp, string]> = [
   [/fundamentals analyst/i, "fundamentals"],
   [/technical analyst/i,    "technical"],
@@ -67,16 +81,50 @@ const ANALYST_PATTERNS: Array<[RegExp, string]> = [
   [/bear researcher/i,      "bear"],
 ];
 
-export function fingerprintAnalyst(systemPrompt: string): string {
+function contentToText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((item) => {
+      if (!item || typeof item !== "object") return "";
+      const text = (item as Record<string, unknown>)["text"];
+      return typeof text === "string" ? text : "";
+    })
+    .join("\n");
+}
+
+function matchAnalyst(text: string): string | null {
   for (const [pattern, analyst] of ANALYST_PATTERNS) {
-    if (pattern.test(systemPrompt)) return analyst;
+    if (pattern.test(text)) return analyst;
   }
+  return null;
+}
+
+export function fingerprintAnalyst(messages: ProxyMessage[]): string {
+  const latestUserText = [...messages]
+    .reverse()
+    .find((message) => message.role === "user");
+  const latestSystemText = [...messages]
+    .reverse()
+    .find((message) => message.role === "system");
+
+  const candidates = [
+    contentToText(latestUserText?.content),
+    contentToText(latestSystemText?.content),
+    messages.map((message) => contentToText(message.content)).join("\n"),
+  ];
+
+  for (const text of candidates) {
+    const analyst = matchAnalyst(text);
+    if (analyst) return analyst;
+  }
+
   return "orchestrator";
 }
 
 // ── Active job correlation ────────────────────────────────────────────────────
 
-const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
+const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 
 export interface ActiveJob {
   action: string;
@@ -84,7 +132,7 @@ export interface ActiveJob {
 }
 
 export async function getActiveJob(userId: string): Promise<ActiveJob | null> {
-  const jobsDir = path.resolve(USERS_DIR, userId, "data", "jobs");
+  const jobsDir = path.join(USERS_DIR, userId, "data", "jobs");
   try {
     const files = await fs.readdir(jobsDir);
     for (const file of files) {

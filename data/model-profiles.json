@@ -1,9 +1,9 @@
 {
   "testing": {
-    "orchestrator": "openrouter/deepseek/deepseek-v3",
-    "analysts": "openrouter/google/gemini-2.5-flash-lite",
-    "risk": "openrouter/google/gemini-2.5-flash-lite",
-    "researchers": "openrouter/deepseek/deepseek-v3"
+    "orchestrator": "openrouter/deepseek/deepseek-v3.2",
+    "analysts": "openrouter/google/gemini-2.5-flash",
+    "risk": "openrouter/google/gemini-2.5-flash",
+    "researchers": "openrouter/deepseek/deepseek-v3.2"
   },
   "production": {
     "orchestrator": "claude-opus-4-6",

@@ -143,6 +143,49 @@ const VALID_ACTIONS: JobAction[] = [
 
 const JOB_ID_REGEX = /^job_[0-9]{8}_[0-9]{6}_[a-f0-9]{6}$/;
 
+async function ensureDeepDiveTickerWorkspace(
+  ws: UserWorkspace,
+  ticker: string
+): Promise<void> {
+  const tickerDir = path.join(ws.tickersDir, ticker);
+  const strategyPath = ws.strategyFile(ticker);
+  const eventsPath = ws.eventsFile(ticker);
+  const reportsDir = path.join(ws.reportsDir, ticker);
+
+  await fs.mkdir(tickerDir, { recursive: true });
+  await fs.mkdir(reportsDir, { recursive: true });
+
+  try {
+    await fs.access(strategyPath);
+  } catch {
+    const strategyStub = {
+      ticker,
+      updatedAt: new Date().toISOString(),
+      version: 1,
+      verdict: "HOLD",
+      confidence: "low",
+      reasoning: "Pending exploratory deep dive analysis",
+      timeframe: "undefined",
+      positionSizeILS: 0,
+      positionWeightPct: 0,
+      entryConditions: [],
+      exitConditions: [],
+      catalysts: [],
+      bullCase: null,
+      bearCase: null,
+      lastDeepDiveAt: null,
+      deepDiveTriggeredBy: "manual_exploration",
+    };
+    await fs.writeFile(strategyPath, JSON.stringify(strategyStub, null, 2), "utf-8");
+  }
+
+  try {
+    await fs.access(eventsPath);
+  } catch {
+    await fs.writeFile(eventsPath, "", "utf-8");
+  }
+}
+
 async function checkRateLimit(
   ws: UserWorkspace,
   action: JobAction
@@ -219,6 +262,7 @@ router.post(
           });
           return;
         }
+        await ensureDeepDiveTickerWorkspace(ws, ticker);
         guardPath(ws, ws.strategyFile(ticker));
       }
 

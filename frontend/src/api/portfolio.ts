@@ -22,7 +22,7 @@ export const fetchPositionHistory = async (
 
 export const updatePosition = async (
  ticker: string,
- updates: { shares?: number; avgPriceILS?: number }
+ updates: { shares?: number; avgPriceILS?: number; account?: string }
 ): Promise<void> => {
  await apiClient.patch(`/portfolio/position/${ticker}`, updates);
 };
@@ -39,4 +39,16 @@ export interface AddPositionPayload {
 
 export const addPosition = async (payload: AddPositionPayload): Promise<void> => {
   await apiClient.post("/portfolio/position", payload);
+};
+
+export const deletePosition = async (ticker: string, account: string): Promise<void> => {
+  await apiClient.delete(`/portfolio/position/${ticker}`, { params: { account } });
+};
+
+export const addAccount = async (name: string): Promise<void> => {
+  await apiClient.post("/portfolio/accounts", { name });
+};
+
+export const deleteAccount = async (name: string): Promise<void> => {
+  await apiClient.delete(`/portfolio/accounts/${encodeURIComponent(name)}`);
 };

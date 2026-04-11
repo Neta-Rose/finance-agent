@@ -1,0 +1,3 @@
+{"type":"server-started","port":59327,"host":"0.0.0.0","url_host":"localhost","url":"http://localhost:59327","screen_dir":"/root/clawd/.superpowers/brainstorm/500251-1775738804/content","state_dir":"/root/clawd/.superpowers/brainstorm/500251-1775738804/state"}
+{"type":"screen-added","file":"/root/clawd/.superpowers/brainstorm/500251-1775738804/content/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}

@@ -8,6 +8,10 @@ import {
   restartGateway,
   getUserAgentStatus,
   getUserAgentHealth,
+  wakeAgent,
+  getSystemAgentStatus,
+  SYSTEM_AGENT_ID,
+  readConfig,
 } from "../services/agentService.js";
 import { createUserWorkspace, workspaceExists } from "../services/workspaceService.js";
 import { hashPassword } from "../middleware/auth.js";
@@ -19,6 +23,8 @@ import {
   deleteProfile,
   getUserProfileStatus,
   setUserProfile,
+  getSystemAgentProfileStatus,
+  setSystemAgentProfile,
 } from "../services/profileService.js";
 import type { RateLimits } from "../types/index.js";
 import type { ProfileDefinition } from "../schemas/profile.js";
@@ -31,8 +37,9 @@ import {
   setSystemControl,
   incrementTokenVersion,
 } from "../services/controlService.js";
-import { updateJob } from "../services/jobService.js";
+import { updateJob, createJob, listJobs, getJob } from "../services/jobService.js";
 import { buildWorkspace } from "../middleware/userIsolation.js";
+import type { JobAction, Job } from "../types/index.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "";
@@ -326,6 +333,7 @@ router.get(
   handler(async (_req, res) => {
     let gatewayRunning = false;
     let totalUsers = 0;
+    let activeAgents = 0;
 
     try {
       await fs.access("/root/.openclaw/openclaw.json");
@@ -337,7 +345,37 @@ router.get(
       totalUsers = dirents.filter((e) => e.isDirectory() && !e.name.startsWith('.')).length;
     } catch { /* ignore */ }
 
-    res.json({ gatewayRunning, totalUsers, activeAgents: totalUsers });
+    try {
+      const config = await readConfig();
+      activeAgents = config.agents?.list?.length ?? totalUsers;
+    } catch {
+      activeAgents = totalUsers;
+    }
+
+    res.json({ gatewayRunning, totalUsers, activeAgents });
+  })
+);
+
+router.get(
+  "/system-agent",
+  handler(async (_req, res) => {
+    const [agentStatus, profileStatus, agentHealth] = await Promise.all([
+      getSystemAgentStatus(),
+      getSystemAgentProfileStatus(),
+      getUserAgentHealth(SYSTEM_AGENT_ID),
+    ]);
+
+    res.json({
+      agentId: SYSTEM_AGENT_ID,
+      workspace: "/root/clawd",
+      configured: agentStatus.configured,
+      hasTelegram: agentStatus.hasTelegram,
+      telegramAccountId: agentStatus.telegramAccountId,
+      modelProfile: profileStatus.name,
+      profileBroken: profileStatus.broken,
+      profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
+      agentHealth,
+    });
   })
 );
 
@@ -425,6 +463,26 @@ router.patch(
       return;
     }
     res.json({ updated: true, userId, profileName });
+  })
+);
+
+router.patch(
+  "/system-agent/profile",
+  handler(async (req, res) => {
+    const { profileName } = req.body as { profileName?: string };
+    if (!profileName) {
+      res.status(400).json({ error: "profileName required" });
+      return;
+    }
+    try {
+      await setSystemAgentProfile(profileName);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to set profile";
+      const status = msg.includes("not found") ? 404 : 400;
+      res.status(status).json({ error: msg });
+      return;
+    }
+    res.json({ updated: true, agentId: SYSTEM_AGENT_ID, profileName });
   })
 );
 
@@ -558,19 +616,152 @@ router.post(
   handler(async (req, res) => {
     const { userId, jobId } = req.params as { userId: string; jobId: string };
     if (!userId || !jobId) { res.status(400).json({ error: "userId and jobId required" }); return; }
-    const USERS_DIR_RESOLVED = process.env["USERS_DIR"] ?? "../users";
-    const ws = buildWorkspace(userId, USERS_DIR_RESOLVED);
+    const ws = buildWorkspace(userId, USERS_DIR);
     try {
       await updateJob(ws, jobId, {
         status:       "failed",
         completed_at: new Date().toISOString(),
         error:        "Killed by admin",
       });
+      // Also remove trigger file if it exists (pending job killed before pickup)
+      try { await fs.unlink(path.join(ws.triggersDir, `${jobId}.json`)); } catch { /* ok */ }
       res.json({ killed: true, userId, jobId });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       res.status(404).json({ error: msg });
     }
+  })
+);
+
+// ── Admin job control ─────────────────────────────────────────────────────────
+
+const VALID_JOB_ACTIONS: JobAction[] = [
+  "daily_brief", "full_report", "deep_dive", "new_ideas", "switch_production", "switch_testing",
+];
+
+// GET /api/admin/users/:userId/jobs — list all jobs for a user
+router.get(
+  "/users/:userId/jobs",
+  handler(async (req, res) => {
+    const { userId } = req.params as { userId: string };
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    const ws = buildWorkspace(userId, USERS_DIR);
+    const jobs = await listJobs(ws, 100);
+    res.json({ jobs });
+  })
+);
+
+// POST /api/admin/users/:userId/jobs — admin creates a job (bypasses rate limits)
+router.post(
+  "/users/:userId/jobs",
+  handler(async (req, res) => {
+    const { userId } = req.params as { userId: string };
+    const { action, ticker } = req.body as { action?: string; ticker?: string };
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    if (!action || !VALID_JOB_ACTIONS.includes(action as JobAction)) {
+      res.status(400).json({ error: `Invalid action. Must be one of: ${VALID_JOB_ACTIONS.join(", ")}` });
+      return;
+    }
+    if (action === "deep_dive" && !ticker) {
+      res.status(400).json({ error: "deep_dive requires ticker" });
+      return;
+    }
+    const ws = buildWorkspace(userId, USERS_DIR);
+    const job = await createJob(ws, action as JobAction, ticker);
+    res.status(201).json({ job });
+  })
+);
+
+// PATCH /api/admin/users/:userId/jobs/:jobId — edit a pending job
+router.patch(
+  "/users/:userId/jobs/:jobId",
+  handler(async (req, res) => {
+    const { userId, jobId } = req.params as { userId: string; jobId: string };
+    if (!userId || !jobId) { res.status(400).json({ error: "userId and jobId required" }); return; }
+    const ws = buildWorkspace(userId, USERS_DIR);
+    const job = await getJob(ws, jobId);
+    if (job.status !== "pending") {
+      res.status(409).json({ error: "Only pending jobs can be edited" });
+      return;
+    }
+    const { action, ticker } = req.body as { action?: string; ticker?: string };
+    if (action && !VALID_JOB_ACTIONS.includes(action as JobAction)) {
+      res.status(400).json({ error: "Invalid action" });
+      return;
+    }
+    // Update job file
+    const updated: Job = {
+      ...job,
+      action: (action as JobAction | undefined) ?? job.action,
+      ticker: ticker !== undefined ? (ticker || null) : job.ticker,
+    };
+    await fs.writeFile(ws.jobFile(jobId), JSON.stringify(updated, null, 2), "utf-8");
+    // Update trigger file if it still exists
+    const triggerPath = path.join(ws.triggersDir, `${jobId}.json`);
+    try {
+      await fs.writeFile(triggerPath, JSON.stringify(updated, null, 2), "utf-8");
+    } catch { /* trigger already consumed — that's fine */ }
+    res.json({ job: updated });
+  })
+);
+
+// DELETE /api/admin/users/:userId/jobs/:jobId — cancel a job
+router.delete(
+  "/users/:userId/jobs/:jobId",
+  handler(async (req, res) => {
+    const { userId, jobId } = req.params as { userId: string; jobId: string };
+    if (!userId || !jobId) { res.status(400).json({ error: "userId and jobId required" }); return; }
+    const ws = buildWorkspace(userId, USERS_DIR);
+    // Remove trigger file (prevents pickup if still pending)
+    try { await fs.unlink(path.join(ws.triggersDir, `${jobId}.json`)); } catch { /* ok */ }
+    const job = await updateJob(ws, jobId, {
+      status: "failed",
+      completed_at: new Date().toISOString(),
+      error: "Cancelled by admin",
+    });
+    res.json({ cancelled: true, job });
+  })
+);
+
+// POST /api/admin/users/:userId/jobs/:jobId/continue — retry/nudge a job
+router.post(
+  "/users/:userId/jobs/:jobId/continue",
+  handler(async (req, res) => {
+    const { userId, jobId } = req.params as { userId: string; jobId: string };
+    if (!userId || !jobId) { res.status(400).json({ error: "userId and jobId required" }); return; }
+    const ws = buildWorkspace(userId, USERS_DIR);
+    const job = await getJob(ws, jobId);
+
+    if (job.status === "failed") {
+      // Reset to pending, recreate trigger file
+      const reset: Job = {
+        ...job,
+        status: "pending",
+        started_at: null,
+        completed_at: null,
+        result: null,
+        error: null,
+        triggered_at: new Date().toISOString(),
+      };
+      await fs.writeFile(ws.jobFile(jobId), JSON.stringify(reset, null, 2), "utf-8");
+      await fs.mkdir(ws.triggersDir, { recursive: true });
+      await fs.writeFile(path.join(ws.triggersDir, `${jobId}.json`), JSON.stringify(reset, null, 2), "utf-8");
+    }
+
+    // For pending, running, or just-reset-failed: wake the agent
+    wakeAgent(userId);
+    res.json({ continued: true, userId, jobId, previousStatus: job.status });
+  })
+);
+
+// POST /api/admin/users/:userId/wake — wake agent to process all pending triggers
+router.post(
+  "/users/:userId/wake",
+  handler(async (req, res) => {
+    const { userId } = req.params as { userId: string };
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    wakeAgent(userId);
+    res.json({ woken: true, userId });
   })
 );
 

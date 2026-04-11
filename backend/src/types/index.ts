@@ -29,6 +29,14 @@ export type AnalystType =
 
 export type JobStatus = "pending" | "running" | "completed" | "failed";
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export type JobAction =
   | "daily_brief"
   | "full_report"
@@ -75,7 +83,7 @@ export interface Job {
   triggered_at: string;
   started_at: string | null;
   completed_at: string | null;
-  result: string | null;
+  result: JsonValue;
   error: string | null;
 }
 

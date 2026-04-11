@@ -1,0 +1,72 @@
+<h2>Admin Control Panel — Proposed Features</h2>
+<p class="subtitle">Select all features you want in scope. Deselect anything out of scope.</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="user-block" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Block / Unblock User</h3>
+      <p>Prevent a specific user from triggering any jobs. Blocked users see a banner with a reason. Supports optional auto-expiry ("blocked until X").</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="system-lock" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>System-Wide Lock</h3>
+      <p>One toggle that blocks ALL users simultaneously. Useful for maintenance, deployments, or critical bugs. All job triggers return a system-locked error. Optional unlock time.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="user-message" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>User Message / Banner</h3>
+      <p>Show a persistent banner to one or more users in their dashboard (info / warning / error severity). User can dismiss it. Supports expiry time.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="broadcast" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>System Broadcast</h3>
+      <p>Push a message to ALL users simultaneously. Shown as a top banner on every page. Ideal for "known issue", "maintenance window", "upgrade complete" announcements.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="kill-job" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>Kill Active Job</h3>
+      <p>Forcibly mark a running job as failed from the admin panel. Useful when a job is stuck or runaway. Triggers watchdog-style update on the job file.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="read-only" onclick="toggleSelect(this)">
+    <div class="letter">6</div>
+    <div class="content">
+      <h3>Read-Only Mode (per user)</h3>
+      <p>User can browse dashboard and see verdicts/portfolio, but all job triggers are disabled with a "contact admin" message. Less severe than a full block.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="rate-override" onclick="toggleSelect(this)">
+    <div class="letter">7</div>
+    <div class="content">
+      <h3>Rate Limit Override / Zero Out</h3>
+      <p>Instantly set a user's remaining quota to 0 for a job type (e.g. deep_dive), effectively blocking just that action without a full account block.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="force-logout" onclick="toggleSelect(this)">
+    <div class="letter">8</div>
+    <div class="content">
+      <h3>Force Session Invalidation</h3>
+      <p>Invalidate a user's JWT by rotating their personal token secret. They're logged out immediately on next API call. Nuclear option for security incidents.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top: 24px;">Select all that apply, then tell me in the terminal if anything's missing or should be tweaked.</p>

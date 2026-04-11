@@ -60,6 +60,18 @@ export interface AdminStatus {
   activeAgents: number;
 }
 
+export interface SystemAgentSummary {
+  agentId: string;
+  workspace: string;
+  configured: boolean;
+  hasTelegram: boolean;
+  telegramAccountId?: string;
+  modelProfile: string;
+  profileBroken: boolean;
+  profileBrokenReason?: string;
+  agentHealth: AgentHealth;
+}
+
 export interface ProfileDefinition {
   orchestrator: string;
   analysts: string;
@@ -109,6 +121,9 @@ export const adminAddTelegram = async (userId: string, botToken: string, chatId:
 export const adminGetStatus = async (): Promise<AdminStatus> =>
   adminFetch("/api/admin/status");
 
+export const adminGetSystemAgent = async (): Promise<SystemAgentSummary> =>
+  adminFetch("/api/admin/system-agent");
+
 export const adminFetchProfiles = async (): Promise<{ profiles: ProfilesRegistry }> =>
   adminFetch("/api/admin/profiles");
 
@@ -132,6 +147,13 @@ export const adminDeleteProfile = async (name: string): Promise<void> => {
 
 export const adminSetUserProfile = async (userId: string, profileName: string): Promise<void> => {
   await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/profile`, {
+    method: "PATCH",
+    body: JSON.stringify({ profileName }),
+  });
+};
+
+export const adminSetSystemAgentProfile = async (profileName: string): Promise<void> => {
+  await adminFetch("/api/admin/system-agent/profile", {
     method: "PATCH",
     body: JSON.stringify({ profileName }),
   });
@@ -225,4 +247,51 @@ export const adminForceLogout = async (userId: string): Promise<void> => {
 
 export const adminKillJob = async (userId: string, jobId: string): Promise<void> => {
   await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs/${encodeURIComponent(jobId)}/kill`, { method: "POST" });
+};
+
+// ── Admin job control API ─────────────────────────────────────────────────────
+
+export interface AdminJob {
+  id: string;
+  action: string;
+  ticker: string | null;
+  status: "pending" | "running" | "completed" | "failed";
+  triggered_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  result: string | null;
+  error: string | null;
+}
+
+export const adminListJobs = async (userId: string): Promise<AdminJob[]> => {
+  const d = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs`) as { jobs: AdminJob[] };
+  return d.jobs;
+};
+
+export const adminCreateJob = async (userId: string, action: string, ticker?: string): Promise<AdminJob> => {
+  const d = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs`, {
+    method: "POST",
+    body: JSON.stringify({ action, ticker }),
+  }) as { job: AdminJob };
+  return d.job;
+};
+
+export const adminEditJob = async (userId: string, jobId: string, action?: string, ticker?: string): Promise<AdminJob> => {
+  const d = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs/${encodeURIComponent(jobId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ action, ticker }),
+  }) as { job: AdminJob };
+  return d.job;
+};
+
+export const adminCancelJob = async (userId: string, jobId: string): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs/${encodeURIComponent(jobId)}`, { method: "DELETE" });
+};
+
+export const adminContinueJob = async (userId: string, jobId: string): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs/${encodeURIComponent(jobId)}/continue`, { method: "POST" });
+};
+
+export const adminWakeUser = async (userId: string): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/wake`, { method: "POST" });
 };

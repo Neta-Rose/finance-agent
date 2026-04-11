@@ -6,8 +6,14 @@ import { PortfolioFileSchema } from "../schemas/portfolio.js";
 import { PortfolioStateSchema } from "../schemas/portfolio.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { PortfolioStateData } from "../types/index.js";
+import { resolveConfiguredPath } from "./paths.js";
 
-const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
+const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
+const CLAWD_ROOT = resolveConfiguredPath(undefined, "..");
+const USER_AGENT_TEMPLATE_DIR = resolveConfiguredPath(
+  process.env["USER_AGENT_TEMPLATE_DIR"],
+  "../agent-templates/finance-user"
+);
 
 export class WorkspaceNotFoundError extends Error {
   constructor(userId: string) {
@@ -112,11 +118,10 @@ export async function createUserWorkspace(
   }
 
   // Copy shared agent instruction files into user workspace
-  const CLAWD_ROOT = "/root/clawd";
   for (const file of ["SOUL.md", "AGENTS.md", "HEARTBEAT.md"]) {
     try {
       await fs.copyFile(
-        path.join(CLAWD_ROOT, file),
+        path.join(USER_AGENT_TEMPLATE_DIR, file),
         path.join(ws.root, file)
       );
     } catch (e) {

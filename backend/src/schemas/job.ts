@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(JsonValueSchema),
+  ])
+);
+
 export const JobSchema = z.object({
   id: z.string(),
   action: z.enum([
@@ -15,6 +26,6 @@ export const JobSchema = z.object({
   triggered_at: z.string().datetime(),
   started_at: z.string().datetime().nullable(),
   completed_at: z.string().datetime().nullable(),
-  result: z.string().max(1000).nullable(),
+  result: JsonValueSchema,
   error: z.string().max(500).nullable(),
 });

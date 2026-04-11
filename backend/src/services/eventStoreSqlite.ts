@@ -3,14 +3,15 @@ import Database from "better-sqlite3";
 import path from "path";
 import { logger } from "./logger.js";
 import type { IEventStore, LlmRequestEvent, UserDailySummary } from "./eventStore.js";
+import { resolveConfiguredPath } from "./paths.js";
 
-const DATA_DIR = process.env["DATA_DIR"] ?? "../data";
+const DATA_DIR = resolveConfiguredPath(process.env["DATA_DIR"], "../data");
 
 export class SqliteEventStore implements IEventStore {
   private db: Database.Database;
 
   constructor() {
-    const dbPath = path.resolve(DATA_DIR, "observability.db");
+    const dbPath = path.join(DATA_DIR, "observability.db");
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.migrate();

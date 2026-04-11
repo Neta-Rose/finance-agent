@@ -17,11 +17,12 @@ interface PositionDetailModalProps {
   position: PositionRow | null;
   verdict?: VerdictRow;
   onClose: () => void;
+  onDeletePosition?: (position: PositionRow) => Promise<void>;
 }
 
 type Timeframe = "1D" | "1W" | "1M" | "3M" | "1Y";
 
-export function PositionDetailModal({ position, verdict, onClose }: PositionDetailModalProps) {
+export function PositionDetailModal({ position, verdict, onClose, onDeletePosition }: PositionDetailModalProps) {
   const language = usePreferencesStore((s) => s.language);
   const [timeframe, setTimeframe] = useState<Timeframe>("1M");
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,9 @@ export function PositionDetailModal({ position, verdict, onClose }: PositionDeta
   const [editMode, setEditMode] = useState(false);
   const [editShares, setEditShares] = useState("");
   const [editAvgPrice, setEditAvgPrice] = useState("");
+  const [accountEdits, setAccountEdits] = useState<Record<string, { shares: string; avgPriceILS: string }>>({});
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const showToast = useToastStore((s) => s.show);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -40,6 +43,14 @@ export function PositionDetailModal({ position, verdict, onClose }: PositionDeta
     if (!position) return;
     setEditShares(String(position.shares));
     setEditAvgPrice(String(position.avgPriceILS));
+    setAccountEdits(
+      Object.fromEntries(
+        (position.accountBreakdown ?? []).map((entry) => [
+          entry.account,
+          { shares: String(entry.shares), avgPriceILS: String(entry.avgPriceILS) },
+        ])
+      )
+    );
   }, [position]);
 
   // Fetch price history when timeframe changes
@@ -145,10 +156,23 @@ export function PositionDetailModal({ position, verdict, onClose }: PositionDeta
     if (!position) return;
     setSaving(true);
     try {
-      await updatePosition(position.ticker, {
-        shares: Number(editShares),
-        avgPriceILS: Number(editAvgPrice),
-      });
+      if ((position.accountBreakdown?.length ?? 0) > 1) {
+        await Promise.all(
+          position.accountBreakdown.map((entry) =>
+            updatePosition(position.ticker, {
+              account: entry.account,
+              shares: Number(accountEdits[entry.account]?.shares ?? entry.shares),
+              avgPriceILS: Number(accountEdits[entry.account]?.avgPriceILS ?? entry.avgPriceILS),
+            })
+          )
+        );
+      } else {
+        await updatePosition(position.ticker, {
+          account: position.accounts?.[0],
+          shares: Number(editShares),
+          avgPriceILS: Number(editAvgPrice),
+        });
+      }
       showToast(t("saveChanges", language) + " ✓", "success");
       setEditMode(false);
     } catch {
@@ -161,6 +185,8 @@ export function PositionDetailModal({ position, verdict, onClose }: PositionDeta
   if (!position) return null;
 
   const plClass = position.plPct >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]";
+  const hasMultipleAccounts = (position.accountBreakdown?.length ?? 0) > 1;
+  const canDeleteSinglePosition = !!onDeletePosition && !hasMultipleAccounts && (position.accounts?.length ?? 0) === 1;
 
   return (
     <div
@@ -200,7 +226,7 @@ export function PositionDetailModal({ position, verdict, onClose }: PositionDeta
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3">
               <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("shares", language)}</p>
-              {editMode ? (
+              {editMode && !hasMultipleAccounts ? (
                 <input
                   type="number"
                   value={editShares}
@@ -214,7 +240,7 @@ export function PositionDetailModal({ position, verdict, onClose }: PositionDeta
             </div>
             <div className="bg-[var(--color-bg-muted)] rounded-lg p-3">
               <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("avgBuyPrice", language)}</p>
-              {editMode ? (
+              {editMode && !hasMultipleAccounts ? (
                 <input
                   type="number"
                   value={editAvgPrice}
@@ -251,15 +277,100 @@ export function PositionDetailModal({ position, verdict, onClose }: PositionDeta
             </div>
           </div>
 
+          {hasMultipleAccounts && (
+            <div className="bg-[var(--color-bg-muted)] rounded-lg p-3 space-y-3">
+              <div>
+                <p className="text-xs font-semibold text-[var(--color-fg-default)]">Account Breakdown</p>
+                <p className="text-[11px] text-[var(--color-fg-subtle)]">
+                  {editMode
+                    ? "This ticker exists in multiple accounts. Edit each account separately."
+                    : "This row is aggregated from multiple accounts."}
+                </p>
+              </div>
+              {position.accountBreakdown.map((entry) => (
+                <div key={entry.account} className="grid grid-cols-3 gap-2 items-end">
+                  <div>
+                    <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Account</p>
+                    <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.account}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("shares", language)}</p>
+                    {editMode ? (
+                      <input
+                        type="number"
+                        value={accountEdits[entry.account]?.shares ?? String(entry.shares)}
+                        onChange={(e) =>
+                          setAccountEdits((current) => ({
+                            ...current,
+                            [entry.account]: {
+                              shares: e.target.value,
+                              avgPriceILS: current[entry.account]?.avgPriceILS ?? String(entry.avgPriceILS),
+                            },
+                          }))
+                        }
+                        className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border)] rounded px-2 py-1 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
+                        min="0"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-[var(--color-fg-default)]">{entry.shares.toLocaleString()}</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("avgBuyPrice", language)}</p>
+                    {editMode ? (
+                      <input
+                        type="number"
+                        value={accountEdits[entry.account]?.avgPriceILS ?? String(entry.avgPriceILS)}
+                        onChange={(e) =>
+                          setAccountEdits((current) => ({
+                            ...current,
+                            [entry.account]: {
+                              shares: current[entry.account]?.shares ?? String(entry.shares),
+                              avgPriceILS: e.target.value,
+                            },
+                          }))
+                        }
+                        className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border)] rounded px-2 py-1 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
+                        min="0.01"
+                        step="0.01"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-[var(--color-fg-default)]">{formatILS(entry.avgPriceILS)}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Edit Save Button */}
           {editMode && (
-            <button
-              onClick={handleSaveEdit}
-              disabled={saving}
-              className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50"
-            >
-              {saving ? t("saving", language) : t("saveChanges", language)}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50"
+              >
+                {saving ? t("saving", language) : t("saveChanges", language)}
+              </button>
+              {canDeleteSinglePosition && (
+                <button
+                  onClick={async () => {
+                    if (!onDeletePosition || !position) return;
+                    setDeleting(true);
+                    try {
+                      await onDeletePosition(position);
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                  disabled={deleting}
+                  className="w-full py-3 rounded-lg border border-[var(--color-accent-red)]/40 text-[var(--color-accent-red)] text-sm font-semibold disabled:opacity-50"
+                >
+                  {deleting ? "Removing..." : "Remove Position"}
+                </button>
+              )}
+            </div>
           )}
 
           {/* Price Chart */}

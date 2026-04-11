@@ -36,6 +36,11 @@ interface PositionRow {
   exchange: string;
   shares: number;
   accounts: string[];
+  accountBreakdown: Array<{
+    account: string;
+    shares: number;
+    avgPriceILS: number;
+  }>;
   avgPriceILS: number;
   livePriceILS: number;
   currentILS: number;
@@ -96,9 +101,14 @@ router.get(
       {
         exchange: string;
         totalShares: number;
-        avgPriceILS: number;
+        weightedAvgPriceIlsSum: number;
         costILS: number;
         accounts: string[];
+        accountBreakdown: Array<{
+          account: string;
+          shares: number;
+          avgPriceILS: number;
+        }>;
         livePriceILS: number;
         priceStale: boolean;
       }
@@ -110,22 +120,35 @@ router.get(
 
       const avgILS =
         pos.exchange === "TASE"
-          ? pos.unitAvgBuyPrice
+          ? pos.unitCurrency === "ILA"
+            ? pos.unitAvgBuyPrice / 100
+            : pos.unitAvgBuyPrice
           : pos.unitAvgBuyPrice * usdIlsRate;
       const costILS = avgILS * pos.shares;
 
       const existing = tickerMap.get(pos.ticker);
       if (existing) {
         existing.totalShares += pos.shares;
+        existing.weightedAvgPriceIlsSum += avgILS * pos.shares;
         existing.costILS += costILS;
         existing.accounts.push(pos.account);
+        existing.accountBreakdown.push({
+          account: pos.account,
+          shares: pos.shares,
+          avgPriceILS: Math.round(avgILS * 100) / 100,
+        });
       } else {
         tickerMap.set(pos.ticker, {
           exchange: pos.exchange,
           totalShares: pos.shares,
-          avgPriceILS: avgILS,
+          weightedAvgPriceIlsSum: avgILS * pos.shares,
           costILS,
           accounts: [pos.account],
+          accountBreakdown: [{
+            account: pos.account,
+            shares: pos.shares,
+            avgPriceILS: Math.round(avgILS * 100) / 100,
+          }],
           livePriceILS: liveILS,
           priceStale: price?.stale ?? true,
         });
@@ -149,7 +172,8 @@ router.get(
         exchange: data.exchange,
         shares: data.totalShares,
         accounts: data.accounts,
-        avgPriceILS: Math.round(data.avgPriceILS * 100) / 100,
+        accountBreakdown: data.accountBreakdown,
+        avgPriceILS: Math.round((data.weightedAvgPriceIlsSum / data.totalShares) * 100) / 100,
         livePriceILS: Math.round(data.livePriceILS * 100) / 100,
         currentILS: Math.round(currentILS * 100) / 100,
         costILS: Math.round(data.costILS * 100) / 100,
@@ -184,13 +208,14 @@ router.get(
   })
 );
 
-// PATCH /portfolio/position/:ticker - Update a position's shares or avg price
-router.patch(
-  "/position/:ticker",
-  handler(async (req: AuthenticatedRequest, res: Response) => {
+const updatePositionHandler = handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const tickerParam = req.params.ticker as string;
-    const { shares, avgPriceILS } = req.body as { shares?: number; avgPriceILS?: number };
+    const { shares, avgPriceILS, account } = req.body as {
+      shares?: number;
+      avgPriceILS?: number;
+      account?: string;
+    };
 
     if (!tickerParam) {
       res.status(400).json({ error: "ticker required" });
@@ -207,36 +232,62 @@ router.patch(
 
     const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
 
-    // Find the position across all accounts
-    let found = false;
-    for (const [_accountName, positions] of Object.entries(portfolio.accounts)) {
-      const pos = positions.find((p) => p.ticker === tickerParam.toUpperCase());
-      if (pos) {
-        if (shares !== undefined) pos.shares = shares;
-        if (avgPriceILS !== undefined) {
-          // Convert from ILS back to the original currency if needed
-          if (pos.exchange === "TASE") {
-            pos.unitAvgBuyPrice = avgPriceILS;
-          } else {
-            // For non-ILA exchanges, store in USD equivalent
-            const usdIlsRate = await getUsdIlsRate();
-            pos.unitAvgBuyPrice = avgPriceILS / usdIlsRate;
-          }
-        }
-        found = true;
-        break;
-      }
+    const normalizedTicker = tickerParam.toUpperCase();
+    const matches: Array<{ accountName: string; index: number }> = [];
+    for (const [accountName, positions] of Object.entries(portfolio.accounts)) {
+      const index = positions.findIndex((p) => p.ticker === normalizedTicker);
+      if (index !== -1) matches.push({ accountName, index });
     }
 
-    if (!found) {
+    if (matches.length === 0) {
       res.status(404).json({ error: "position not found" });
       return;
     }
 
+    if (!account && matches.length > 1) {
+      res.status(409).json({
+        error: "multiple_positions_found",
+        ticker: normalizedTicker,
+        accounts: matches.map((match) => match.accountName),
+      });
+      return;
+    }
+
+    const targetMatch = account
+      ? matches.find((match) => match.accountName === account)
+      : matches[0];
+
+    if (!targetMatch) {
+      res.status(404).json({ error: "position not found for account" });
+      return;
+    }
+
+    const pos = portfolio.accounts[targetMatch.accountName]?.[targetMatch.index];
+    if (!pos) {
+      res.status(404).json({ error: "position not found" });
+      return;
+    }
+
+    if (shares !== undefined) pos.shares = shares;
+    if (avgPriceILS !== undefined) {
+      if (pos.exchange === "TASE") {
+        pos.unitAvgBuyPrice = pos.unitCurrency === "ILA"
+          ? avgPriceILS * 100
+          : avgPriceILS;
+      } else {
+        const usdIlsRate = await getUsdIlsRate();
+        pos.unitAvgBuyPrice = avgPriceILS / usdIlsRate;
+      }
+    }
+
     await fs.writeFile(ws.portfolioFile, JSON.stringify(portfolio, null, 2), "utf-8");
     res.json({ success: true });
-  })
-);
+  });
+
+// PATCH /portfolio/position/:ticker - Update a position's shares or avg price
+// Keep both route shapes live for compatibility with older clients.
+router.patch("/position/:ticker", updatePositionHandler);
+router.patch("/portfolio/position/:ticker", updatePositionHandler);
 
 // POST /portfolio/position — add a new position
 router.post(
@@ -294,6 +345,119 @@ router.post(
     portfolio.accounts[account].push(newPos);
     await fs.writeFile(ws.portfolioFile, JSON.stringify(portfolio, null, 2), "utf-8");
     res.status(201).json({ success: true });
+  })
+);
+
+// DELETE /portfolio/position/:ticker?account=name — remove a position from a specific account
+router.delete(
+  "/portfolio/position/:ticker",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const ticker = String(req.params.ticker ?? "").toUpperCase();
+    const account = String(req.query.account ?? "");
+
+    if (!ticker) {
+      res.status(400).json({ error: "ticker required" });
+      return;
+    }
+    if (!account) {
+      res.status(400).json({ error: "account required" });
+      return;
+    }
+
+    let raw: string;
+    try {
+      raw = await fs.readFile(ws.portfolioFile, "utf-8");
+    } catch {
+      res.status(404).json({ error: "portfolio not found" });
+      return;
+    }
+
+    const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
+    const positions = portfolio.accounts[account];
+    if (!positions) {
+      res.status(404).json({ error: "account_not_found" });
+      return;
+    }
+
+    const nextPositions = positions.filter((position) => position.ticker !== ticker);
+    if (nextPositions.length === positions.length) {
+      res.status(404).json({ error: "position not found" });
+      return;
+    }
+
+    portfolio.accounts[account] = nextPositions;
+    await fs.writeFile(ws.portfolioFile, JSON.stringify(portfolio, null, 2), "utf-8");
+    res.json({ success: true });
+  })
+);
+
+// POST /portfolio/accounts — add an empty account
+router.post(
+  "/portfolio/accounts",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const name = String((req.body as { name?: string }).name ?? "").trim();
+
+    if (!/^[a-zA-Z0-9 _-]{1,30}$/.test(name)) {
+      res.status(400).json({ error: "invalid_account_name" });
+      return;
+    }
+
+    let raw: string;
+    try {
+      raw = await fs.readFile(ws.portfolioFile, "utf-8");
+    } catch {
+      res.status(404).json({ error: "portfolio not found" });
+      return;
+    }
+
+    const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
+    if (portfolio.accounts[name]) {
+      res.status(409).json({ error: "account_exists" });
+      return;
+    }
+
+    portfolio.accounts[name] = [];
+    await fs.writeFile(ws.portfolioFile, JSON.stringify(portfolio, null, 2), "utf-8");
+    res.status(201).json({ success: true, account: name });
+  })
+);
+
+// DELETE /portfolio/accounts/:name — remove an empty account only
+router.delete(
+  "/portfolio/accounts/:name",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const name = String(req.params.name ?? "");
+
+    if (!name) {
+      res.status(400).json({ error: "account name required" });
+      return;
+    }
+
+    let raw: string;
+    try {
+      raw = await fs.readFile(ws.portfolioFile, "utf-8");
+    } catch {
+      res.status(404).json({ error: "portfolio not found" });
+      return;
+    }
+
+    const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
+    const account = portfolio.accounts[name];
+    if (!account) {
+      res.status(404).json({ error: "account_not_found" });
+      return;
+    }
+    if (account.length > 0) {
+      res.status(409).json({ error: "account_not_empty" });
+      return;
+    }
+
+    delete portfolio.accounts[name];
+    await fs.writeFile(ws.portfolioFile, JSON.stringify(portfolio, null, 2), "utf-8");
+    res.json({ success: true });
   })
 );
 

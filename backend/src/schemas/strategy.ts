@@ -1,14 +1,22 @@
 import { z } from "zod";
 
+function isDateTimeString(value: string): boolean {
+  return !Number.isNaN(Date.parse(value));
+}
+
+const FlexibleDateTimeString = z.string().refine(isDateTimeString, {
+  message: "Invalid datetime",
+});
+
 export const StrategyCatalystSchema = z.object({
   description: z.string().max(300),
-  expiresAt: z.string().datetime().nullable(),
+  expiresAt: FlexibleDateTimeString.nullable(),
   triggered: z.boolean(),
 });
 
 export const StrategySchema = z.object({
   ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
-  updatedAt: z.string().datetime(),
+  updatedAt: FlexibleDateTimeString,
   version: z.number().int().min(1),
   verdict: z.enum(["BUY", "ADD", "HOLD", "REDUCE", "SELL", "CLOSE"]),
   confidence: z.enum(["high", "medium", "low"]),
@@ -31,7 +39,7 @@ export const StrategySchema = z.object({
     .default([]),
   bullCase: z.string().max(600).nullable(),
   bearCase: z.string().max(600).nullable(),
-  lastDeepDiveAt: z.string().datetime().nullable(),
+  lastDeepDiveAt: FlexibleDateTimeString.nullable(),
   deepDiveTriggeredBy: z.string().nullable(),
 });
 

@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import { readFileSync } from "fs";
 import { execSync, exec as execAsync } from "child_process";
 import { logger } from "./logger.js";
 import {
@@ -12,6 +13,11 @@ import {
 
 const OPENCLAW_CONFIG = "/root/.openclaw/openclaw.json";
 const USERS_DIR = "/root/clawd/users";
+const CLAWD_ROOT = "/root/clawd";
+export const SYSTEM_AGENT_ID = "main";
+const SYSTEM_AGENT_WORKSPACE = CLAWD_ROOT;
+const SYSTEM_AGENT_DIR = `/root/.openclaw/agents/${SYSTEM_AGENT_ID}/agent`;
+const SYSTEM_TELEGRAM_ACCOUNT_ID = "main";
 
 interface AgentEntry {
   id: string;
@@ -35,6 +41,17 @@ interface CronEntry {
   name?: string;
   agentId?: string;
   agent?: string;
+  delivery?: { mode?: string; bestEffort?: boolean };
+  payload?: { timeoutSeconds?: number };
+  state?: {
+    nextRunAtMs?: number;
+    lastRunAtMs?: number;
+    lastRunStatus?: string;
+    lastStatus?: string;
+    consecutiveErrors?: number;
+    lastError?: string;
+    lastErrorReason?: string;
+  };
 }
 
 interface OpenClawConfig {
@@ -54,6 +71,10 @@ interface OpenClawConfig {
     };
   };
   [key: string]: unknown;
+}
+
+function isUserWorkspace(workspace: string | undefined): boolean {
+  return typeof workspace === "string" && workspace.startsWith(`${USERS_DIR}/`);
 }
 
 // Strip // comments so JSON.parse can handle JSON5-style comments
@@ -95,8 +116,15 @@ function listCrons(): CronEntry[] {
       return parsed.jobs ?? [];
     }
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+  } catch (err) {
+    try {
+      const raw = readFileSync(CRON_JOBS_PATH, "utf-8");
+      const parsed = JSON.parse(raw) as { jobs?: CronEntry[] };
+      return parsed.jobs ?? [];
+    } catch {
+      logger.warn(`Could not list crons via CLI or file: ${String(err)}`);
+      return [];
+    }
   }
 }
 
@@ -113,17 +141,146 @@ export async function ensureUserCron(userId: string): Promise<void> {
     `For each: read it, update jobs/[job_id].json status→running, delete the trigger, ` +
     `execute the action (full_report/daily_brief/deep_dive/new_ideas/switch_production/switch_testing). ` +
     `After all triggers processed (or if none found), proceed with HEARTBEAT.md scheduled tasks. ` +
+    `If no triggers are pending and no scheduled task is due, reply exactly HEARTBEAT_OK and stop. ` +
+    `Do not explain your reasoning in idle heartbeats. ` +
     `Your workspace is ${USERS_DIR}/${userId}.`;
   try {
     execSync(
       `openclaw cron add --agent "${userId}" --every 30m --thinking low ` +
-        `--name "${name}" --message ${JSON.stringify(msg)} --session isolated`,
+        `--name "${name}" --message ${JSON.stringify(msg)} --session isolated ` +
+        `--no-deliver --best-effort-deliver --timeout-seconds 1800`,
       { timeout: 15_000, stdio: "pipe" }
     );
     logger.info(`Created heartbeat cron for: ${userId}`);
   } catch (err) {
     logger.warn(`Failed to create cron for ${userId}: ${err}`);
   }
+}
+
+export async function ensureAllUserCrons(): Promise<void> {
+  const config = await readConfig();
+  const agents = (config.agents?.list ?? []).filter((agent) =>
+    isUserWorkspace(agent.workspace)
+  );
+  for (const agent of agents) {
+    await ensureUserCron(agent.id);
+  }
+  logger.info(`Ensured heartbeat crons for ${agents.length} agent(s)`);
+}
+
+export async function wakeAgentsWithPendingTriggers(): Promise<void> {
+  const config = await readConfig();
+  const agents = (config.agents?.list ?? []).filter((agent) =>
+    isUserWorkspace(agent.workspace)
+  );
+
+  for (const agent of agents) {
+    const triggersDir = `${USERS_DIR}/${agent.id}/data/triggers`;
+    const jobsDir = `${USERS_DIR}/${agent.id}/data/jobs`;
+    try {
+      const files = await fs.readdir(triggersDir);
+      let hasPendingTriggers = false;
+
+      for (const file of files) {
+        if (!file.endsWith(".json")) continue;
+
+        const triggerPath = `${triggersDir}/${file}`;
+        const jobPath = `${jobsDir}/${file}`;
+
+        try {
+          const raw = await fs.readFile(jobPath, "utf-8");
+          const job = JSON.parse(raw) as { status?: string };
+          if (job.status === "pending" || job.status === "running") {
+            hasPendingTriggers = true;
+            continue;
+          }
+
+          await fs.unlink(triggerPath);
+          logger.info(`Removed stale trigger for ${agent.id}: ${file}`);
+        } catch {
+          hasPendingTriggers = true;
+        }
+      }
+
+      if (hasPendingTriggers) {
+        logger.info(`Found pending triggers for ${agent.id}, waking agent`);
+        wakeAgent(agent.id);
+      }
+    } catch {
+      // ignore missing or unreadable trigger directories
+    }
+  }
+}
+
+export async function ensureSystemAgent(): Promise<void> {
+  const config = await readConfig();
+  if (!config.agents) config.agents = {};
+  if (!config.agents.list) config.agents.list = [];
+
+  let dirty = false;
+  const existingIndex = config.agents.list.findIndex(
+    (agent) => agent.id === SYSTEM_AGENT_ID
+  );
+  const existing = existingIndex >= 0 ? config.agents.list[existingIndex] : undefined;
+  if (!existing) {
+    config.agents.list.unshift({
+      id: SYSTEM_AGENT_ID,
+      workspace: SYSTEM_AGENT_WORKSPACE,
+      agentDir: SYSTEM_AGENT_DIR,
+    });
+    dirty = true;
+    logger.info("Added root system agent to openclaw config");
+  } else {
+    if (existing.workspace !== SYSTEM_AGENT_WORKSPACE) {
+      existing.workspace = SYSTEM_AGENT_WORKSPACE;
+      dirty = true;
+    }
+    if (existing.agentDir !== SYSTEM_AGENT_DIR) {
+      existing.agentDir = SYSTEM_AGENT_DIR;
+      dirty = true;
+    }
+    if (existingIndex > 0) {
+      config.agents.list.splice(existingIndex, 1);
+      config.agents.list.unshift(existing);
+      dirty = true;
+      logger.info("Moved root system agent to primary position");
+    }
+  }
+
+  const telegram = config.channels?.telegram;
+  if (telegram?.botToken) {
+    if (!telegram.bindings) telegram.bindings = [];
+    const desiredBinding: TelegramBinding = {
+      agentId: SYSTEM_AGENT_ID,
+      match: { channel: "telegram", accountId: SYSTEM_TELEGRAM_ACCOUNT_ID },
+    };
+    const otherBindings = telegram.bindings.filter(
+      (binding) =>
+        !(
+          binding.match?.channel === "telegram" &&
+          binding.match?.accountId === SYSTEM_TELEGRAM_ACCOUNT_ID
+        )
+    );
+    if (
+      telegram.bindings.length !== otherBindings.length + 1 ||
+      !telegram.bindings.some(
+        (binding) =>
+          binding.agentId === desiredBinding.agentId &&
+          binding.match?.channel === desiredBinding.match.channel &&
+          binding.match?.accountId === desiredBinding.match.accountId
+      )
+    ) {
+      telegram.bindings = [...otherBindings, desiredBinding];
+      dirty = true;
+      logger.info("Bound primary Telegram bot to root system agent");
+    }
+  }
+
+  if (dirty) {
+    await writeConfig(config);
+  }
+
+  await ensureProxyProvider(SYSTEM_AGENT_ID);
 }
 
 function getCronId(userId: string): string | null {
@@ -147,6 +304,38 @@ export async function removeUserCron(userId: string): Promise<void> {
 }
 
 /**
+ * Heal all existing heartbeat crons that were created without --no-deliver.
+ * Called once on startup. Idempotent — safe to run on every restart.
+ */
+export function healAllCrons(): void {
+  try {
+    const crons = listCrons();
+    let healed = 0;
+    for (const cron of crons) {
+      if (!cron.name?.endsWith("-heartbeat")) continue;
+      const needsHeal =
+        cron.delivery?.mode !== "none" ||
+        !cron.delivery?.bestEffort ||
+        (cron.payload?.timeoutSeconds ?? 0) < 1800;
+      if (!needsHeal) continue;
+      try {
+        execSync(
+          `openclaw cron edit "${cron.id}" --no-deliver --best-effort-deliver --timeout-seconds 1800`,
+          { timeout: 10_000, stdio: "pipe" }
+        );
+        logger.info(`Healed heartbeat cron ${cron.id} (${cron.name})`);
+        healed++;
+      } catch (err) {
+        logger.warn(`Failed to heal cron ${cron.id}: ${err}`);
+      }
+    }
+    if (healed > 0) logger.info(`Healed ${healed} heartbeat cron(s) on startup`);
+  } catch (err) {
+    logger.warn(`healAllCrons failed: ${err}`);
+  }
+}
+
+/**
  * Fire-and-forget: runs the user's heartbeat cron immediately.
  * Does NOT block — the trigger file already persists on disk so
  * the 30-min fallback cron will catch it if this wake is ignored.
@@ -154,33 +343,38 @@ export async function removeUserCron(userId: string): Promise<void> {
 export function wakeAgent(userId: string): void {
   // Resolve cron ID asynchronously so we don't block the response
   execAsync("openclaw cron list --json", { timeout: 10_000 }, (listErr, stdout) => {
-    if (listErr) {
-      logger.warn(`Could not list crons to wake agent ${userId}: ${listErr.message}`);
+    let crons: CronEntry[] = [];
+
+    if (!listErr) {
+      try {
+        const parsed = JSON.parse(stdout) as { jobs?: CronEntry[] } | CronEntry[];
+        crons =
+          !Array.isArray(parsed) && "jobs" in parsed
+            ? (parsed.jobs ?? [])
+            : Array.isArray(parsed) ? parsed : [];
+      } catch (parseErr) {
+        logger.warn(`Could not parse cron list for ${userId}: ${String(parseErr)}`);
+      }
+    }
+
+    if (crons.length === 0) {
+      crons = listCrons();
+    }
+
+    const cron = crons.find((c) => c.name === cronName(userId));
+    if (!cron) {
+      logger.warn(`No cron found to wake agent: ${userId}`);
       return;
     }
-    try {
-      const parsed = JSON.parse(stdout) as { jobs?: CronEntry[] } | CronEntry[];
-      const crons: CronEntry[] =
-        !Array.isArray(parsed) && "jobs" in parsed
-          ? (parsed.jobs ?? [])
-          : Array.isArray(parsed) ? parsed : [];
 
-      const cron = crons.find((c) => c.name === cronName(userId));
-      if (!cron) {
-        logger.warn(`No cron found to wake agent: ${userId}`);
-        return;
+    // cron run takes ID as positional argument
+    execAsync(`openclaw cron run ${cron.id}`, { timeout: 10_000 }, (runErr) => {
+      if (runErr) {
+        logger.warn(`Could not wake agent ${userId}: ${runErr.message}`);
+      } else {
+        logger.info(`Woke agent: ${userId}`);
       }
-      // cron run takes ID as positional argument
-      execAsync(`openclaw cron run ${cron.id}`, { timeout: 10_000 }, (runErr) => {
-        if (runErr) {
-          logger.warn(`Could not wake agent ${userId}: ${runErr.message}`);
-        } else {
-          logger.info(`Woke agent: ${userId}`);
-        }
-      });
-    } catch (parseErr) {
-      logger.warn(`Could not parse cron list for ${userId}: ${parseErr}`);
-    }
+    });
   });
 }
 
@@ -381,17 +575,7 @@ function applyProxyProviderToConfig(
   config: OpenClawConfig,
   userId: string
 ): string {
-  const agentEntry = config.agents?.list?.find((a) => a.id === userId) as
-    | (AgentEntry & Record<string, unknown>)
-    | undefined;
-
-  let proxyKey: string;
-  if (agentEntry?.["proxyApiKey"]) {
-    proxyKey = agentEntry["proxyApiKey"] as string;
-  } else {
-    proxyKey = generateProxyKey(userId);
-    if (agentEntry) agentEntry["proxyApiKey"] = proxyKey;
-  }
+  const proxyKey = generateProxyKey(userId);
 
   // Ensure models.providers.clawd-{userId} exists
   if (!config["models"]) (config as Record<string, unknown>)["models"] = {};
@@ -401,7 +585,7 @@ function applyProxyProviderToConfig(
   >;
   if (!models["providers"]) models["providers"] = {};
   const providers = models["providers"] as Record<string, unknown>;
-  providers[`clawd-${userId}`] = { baseUrl: PROXY_BASE_URL, apiKey: proxyKey };
+  providers[`clawd-${userId}`] = { api: "openai-completions", baseUrl: PROXY_BASE_URL, apiKey: proxyKey, models: [{ id: "*", name: "All models" }] };
 
   registerKey(proxyKey, userId);
   return proxyKey;
@@ -427,11 +611,7 @@ export async function removeProxyProvider(userId: string): Promise<void> {
   const config = await readConfig();
 
   // Revoke in-memory key
-  const agentEntry = config.agents?.list?.find((a) => a.id === userId) as
-    | (AgentEntry & Record<string, unknown>)
-    | undefined;
-  const proxyKey = agentEntry?.["proxyApiKey"] as string | undefined;
-  if (proxyKey) unregisterKey(proxyKey);
+  unregisterKey(generateProxyKey(userId));
 
   // Remove provider entry from openclaw config
   const providers = (
@@ -458,10 +638,21 @@ export async function ensureAllProxyProviders(): Promise<void> {
   for (const agent of agents) {
     const entry = agent as AgentEntry & Record<string, unknown>;
 
-    // 1. Ensure proxy key + provider entry
-    const prevKey = entry["proxyApiKey"] as string | undefined;
+    // 1. Ensure proxy key + provider entry; strip legacy proxyApiKey from agent entry
+    if ("proxyApiKey" in entry) {
+      delete entry["proxyApiKey"];
+      dirty = true;
+    }
+
+    // Check if provider entry needs to be (re)written
+    const existingProviders = ((config as Record<string, unknown>)["models"] as Record<string, unknown> | undefined)?.["providers"] as Record<string, unknown> | undefined;
+    const existingProvider = existingProviders?.[`clawd-${agent.id}`] as Record<string, unknown> | undefined;
+    const existingModels = existingProvider?.["models"] as unknown[] | undefined;
+    if (!existingProvider || !existingModels || typeof existingModels[0] !== "object" || existingProvider["api"] !== "openai-completions") {
+      dirty = true;
+    }
+
     applyProxyProviderToConfig(config, agent.id);
-    if ((entry["proxyApiKey"] as string) !== prevKey) dirty = true;
 
     // 2. Transform openrouter/* model strings to route through per-user proxy
     const modelObj = entry["model"] as Record<string, unknown> | undefined;
@@ -543,6 +734,31 @@ export async function getUserAgentStatus(userId: string): Promise<{
     };
   } catch {
     return { configured: false, hasTelegram: false, telegramChatId: undefined };
+  }
+}
+
+export async function getSystemAgentStatus(): Promise<{
+  configured: boolean;
+  hasTelegram: boolean;
+  telegramAccountId: string | undefined;
+}> {
+  try {
+    const config = await readConfig();
+    const agent = config.agents?.list?.find((entry) => entry.id === SYSTEM_AGENT_ID);
+    const hasTelegram = !!config.channels?.telegram?.botToken &&
+      !!config.channels?.telegram?.bindings?.some(
+        (binding) =>
+          binding.agentId === SYSTEM_AGENT_ID &&
+          binding.match?.channel === "telegram" &&
+          binding.match?.accountId === SYSTEM_TELEGRAM_ACCOUNT_ID
+      );
+    return {
+      configured: !!agent,
+      hasTelegram,
+      telegramAccountId: hasTelegram ? SYSTEM_TELEGRAM_ACCOUNT_ID : undefined,
+    };
+  } catch {
+    return { configured: false, hasTelegram: false, telegramAccountId: undefined };
   }
 }
 

@@ -2,13 +2,20 @@ import { promises as fs } from "fs";
 import path from "path";
 import { logger } from "./logger.js";
 import { buildWorkspace } from "../middleware/userIsolation.js";
+import { resolveConfiguredPath } from "./paths.js";
 
-const STALE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
+// Running jobs: killed if no completion signal within this window.
+// full_report can span many positions — 60 min is generous but safe.
+const RUNNING_STALE_MS = 60 * 60 * 1000;   // 60 minutes
+
+// Pending jobs: agent cron fires every 30 min; allow 2 full cron cycles + buffer.
+// This only applies to jobs the agent never picked up at all (no started_at).
+const PENDING_STALE_MS = 90 * 60 * 1000;   // 90 minutes
+
 const SCAN_INTERVAL_MS = 5 * 60 * 1000;    // every 5 minutes
 
 function resolveUsersDir(): string {
-  // Match the same resolution logic as userIsolation middleware
-  return path.resolve(process.env["USERS_DIR"] ?? "../users");
+  return resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 }
 
 async function listUserIds(usersDir: string): Promise<string[]> {
@@ -44,29 +51,38 @@ async function scanUser(userId: string, usersDir: string): Promise<void> {
       const status = parsed["status"] as string | undefined;
       if (status !== "running" && status !== "pending") continue;
 
-      // Reference time: prefer started_at, fall back to triggered_at
-      const refTime =
-        (parsed["started_at"] as string | null | undefined) ??
-        (parsed["triggered_at"] as string | null | undefined);
+      const startedAt = parsed["started_at"] as string | null | undefined;
+      const triggeredAt = parsed["triggered_at"] as string | null | undefined;
+      const isRunning = status === "running" && !!startedAt;
+
+      // Reference time and threshold depend on whether the agent picked it up:
+      // - Running (agent set started_at): use started_at + generous running window
+      // - Pending (never picked up): use triggered_at + two cron-cycle grace period
+      const refTime = isRunning ? startedAt! : triggeredAt;
       if (!refTime) continue;
 
       const ageMs = now - new Date(refTime).getTime();
-      if (ageMs < STALE_THRESHOLD_MS) continue;
+      const threshold = isRunning ? RUNNING_STALE_MS : PENDING_STALE_MS;
+      if (ageMs < threshold) continue;
 
       const ageMin = Math.round(ageMs / 60000);
       const jobId =
         (parsed["id"] as string | undefined) ?? file.replace(".json", "");
 
+      const reason = isRunning
+        ? `Timed out after ${ageMin} min — agent started but did not complete (watchdog)`
+        : `Abandoned after ${ageMin} min — agent never picked up this job (watchdog)`;
+
       const updated: Record<string, unknown> = {
         ...parsed,
         status: "failed",
         completed_at: new Date().toISOString(),
-        error: `Timed out after ${ageMin} min — no completion signal (watchdog)`,
+        error: reason,
       };
 
       await fs.writeFile(filePath, JSON.stringify(updated, null, 2), "utf-8");
       logger.warn(
-        `Watchdog: failed job ${jobId} (user=${userId} action=${String(parsed["action"])} age=${ageMin}m)`
+        `Watchdog: failed job ${jobId} (user=${userId} action=${String(parsed["action"])} age=${ageMin}m status=${status})`
       );
     } catch (err) {
       logger.error(
@@ -101,7 +117,7 @@ export function startWatchdog(): void {
   }, SCAN_INTERVAL_MS);
 
   logger.info(
-    `Job watchdog started — stale_threshold=${STALE_THRESHOLD_MS / 60000}min scan_interval=${SCAN_INTERVAL_MS / 60000}min`
+    `Job watchdog started — running_threshold=${RUNNING_STALE_MS / 60000}min pending_threshold=${PENDING_STALE_MS / 60000}min scan_interval=${SCAN_INTERVAL_MS / 60000}min`
   );
 }
 

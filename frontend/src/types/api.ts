@@ -26,6 +26,11 @@ export interface PositionRow {
  exchange: Exchange;
  shares: number;
  accounts: string[];
+ accountBreakdown: Array<{
+  account: string;
+  shares: number;
+  avgPriceILS: number;
+ }>;
  avgPriceILS: number;
  livePriceILS: number;
  currentILS: number;
@@ -107,6 +112,14 @@ export interface JobProgress {
  totalSteps: number;
 }
 
+export type JsonValue =
+ | string
+ | number
+ | boolean
+ | null
+ | JsonValue[]
+ | { [key: string]: JsonValue };
+
 export interface Job {
  id: string;
  action: JobAction;
@@ -115,7 +128,7 @@ export interface Job {
  triggered_at: string;
  started_at: string | null;
  completed_at: string | null;
- result: string | null;
+ result: JsonValue;
  error: string | null;
  progress?: JobProgress | null;
 }

@@ -3,9 +3,12 @@ import path from "path";
 import { logger } from "./logger.js";
 import { PortfolioStateSchema } from "../schemas/portfolio.js";
 import type { PortfolioState, PortfolioStateData } from "../types/index.js";
+import { resolveConfiguredPath } from "./paths.js";
+
+const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 
 function stateFilePath(userId: string): string {
-  return path.resolve(process.env["DATA_DIR"] ?? "../data", "users", userId, "data", "state.json");
+  return path.join(USERS_DIR, userId, "data", "state.json");
 }
 
 export class StateTransitionError extends Error {
@@ -101,12 +104,7 @@ export interface ConditionCheckResult {
 export async function checkDailyConditions(
   userId: string
 ): Promise<ConditionCheckResult> {
-  const dataDir = path.resolve(
-    process.env["DATA_DIR"] ?? "../data",
-    "users",
-    userId,
-    "data"
-  );
+  const dataDir = path.join(USERS_DIR, userId, "data");
 
   const tickersDir = path.join(dataDir, "tickers");
   const expiredCatalysts: ConditionCheckResult["expiredCatalysts"] = [];

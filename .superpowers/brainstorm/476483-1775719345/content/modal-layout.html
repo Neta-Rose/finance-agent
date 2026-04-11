@@ -1,0 +1,205 @@
+<h2>Add Position Modal — Layout Options</h2>
+<p class="subtitle">Pick the layout that feels right. The ticker search dropdown looks the same in all three.</p>
+
+<style>
+  .mock-modal {
+    background: #1a1d23;
+    border: 1px solid #2e3340;
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: system-ui, sans-serif;
+    color: #e2e8f0;
+    font-size: 12px;
+    max-width: 340px;
+    margin: 0 auto;
+  }
+  .mock-modal-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #2e3340;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mock-modal-header span { color: #94a3b8; font-size: 16px; cursor: pointer; }
+  .mock-modal-body { padding: 14px 16px; }
+  .mock-field { margin-bottom: 12px; }
+  .mock-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 4px; }
+  .mock-input {
+    width: 100%; box-sizing: border-box;
+    background: #252932; border: 1px solid #2e3340; border-radius: 8px;
+    padding: 8px 10px; color: #e2e8f0; font-size: 12px;
+  }
+  .mock-input.focused { border-color: #3b82f6; }
+  .mock-dropdown {
+    background: #252932; border: 1px solid #2e3340; border-radius: 8px;
+    margin-top: 2px; overflow: hidden;
+  }
+  .mock-dropdown-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-bottom: 1px solid #1e2330;
+    cursor: pointer;
+  }
+  .mock-dropdown-row:hover { background: #2e3340; }
+  .mock-dropdown-row:last-child { border-bottom: none; }
+  .flag { font-size: 14px; }
+  .sym { font-weight: 700; font-size: 12px; color: #e2e8f0; min-width: 50px; }
+  .co { color: #94a3b8; font-size: 11px; flex: 1; }
+  .exch { font-size: 10px; color: #64748b; }
+  .price-tag { font-size: 11px; font-weight: 600; color: #34d399; min-width: 60px; text-align: right; }
+  .mock-row-2 { display: flex; gap: 10px; }
+  .mock-row-2 > * { flex: 1; }
+  .mock-footer {
+    padding: 10px 16px; border-top: 1px solid #2e3340;
+    display: flex; gap: 8px;
+  }
+  .btn-primary {
+    flex: 1; background: #3b82f6; color: white;
+    border: none; border-radius: 8px; padding: 8px; font-size: 12px; font-weight: 600;
+  }
+  .btn-secondary {
+    background: #252932; color: #94a3b8;
+    border: 1px solid #2e3340; border-radius: 8px; padding: 8px 12px; font-size: 12px;
+  }
+  .clash-banner {
+    background: #f59e0b18; border: 1px solid #f59e0b44;
+    border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;
+    font-size: 11px; color: #fbbf24;
+  }
+  .clash-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .clash-btn {
+    background: #2e3340; border: 1px solid #3e4555; border-radius: 6px;
+    color: #cbd5e1; font-size: 10px; padding: 4px 8px;
+  }
+  .mock-section-label {
+    font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .deep-dive-note {
+    background: #3b82f618; border: 1px solid #3b82f644; border-radius: 8px;
+    padding: 8px 10px; font-size: 10px; color: #93c5fd; display: flex; gap: 6px; align-items: flex-start;
+  }
+  .selected-ticker-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: #252932; border: 1px solid #3b82f6; border-radius: 8px; padding: 8px 10px;
+  }
+  .selected-ticker-pill .sym { font-size: 14px; }
+  .selected-ticker-pill .price-tag { font-size: 12px; }
+</style>
+
+<div class="cards">
+
+  <!-- Option A: Single-page scrollable modal -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 12px; background: #111318;">
+      <div class="mock-modal">
+        <div class="mock-modal-header">Add Position <span>×</span></div>
+        <div class="mock-modal-body">
+          <div class="mock-field">
+            <div class="mock-label">Search Ticker</div>
+            <div class="mock-input focused">APPL|</div>
+            <div class="mock-dropdown">
+              <div class="mock-dropdown-row" style="background:#2e3340">
+                <span class="flag">🇺🇸</span><span class="sym">AAPL</span>
+                <span class="co">Apple Inc.</span>
+                <span class="exch">NASDAQ</span>
+                <span class="price-tag">$182.50</span>
+              </div>
+              <div class="mock-dropdown-row">
+                <span class="flag">🇺🇸</span><span class="sym">AAPB</span>
+                <span class="co">GraniteShares</span>
+                <span class="exch">NYSE</span>
+                <span class="price-tag">$12.10</span>
+              </div>
+              <div class="mock-dropdown-row">
+                <span class="flag">🇮🇱</span><span class="sym">AATC</span>
+                <span class="co">Advanced Tech</span>
+                <span class="exch">TASE</span>
+                <span class="price-tag">₪42.80</span>
+              </div>
+            </div>
+          </div>
+          <div class="mock-row-2">
+            <div class="mock-field"><div class="mock-label">Account</div><div class="mock-input">Main ▾</div></div>
+            <div class="mock-field"><div class="mock-label">Shares</div><div class="mock-input">100</div></div>
+          </div>
+          <div class="mock-field"><div class="mock-label">Avg Buy Price (USD)</div><div class="mock-input">145.00</div></div>
+        </div>
+        <div class="mock-footer"><button class="btn-secondary">Cancel</button><button class="btn-primary">Add Position</button></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Single scrollable form</h3>
+      <p>Search + form fields all in one view. Dropdown overlays the fields below it. Compact, one-step.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Two-step (pick ticker → fill details) -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 12px; background: #111318;">
+      <div class="mock-modal">
+        <div class="mock-modal-header">Add Position — Step 2/2 <span>×</span></div>
+        <div class="mock-modal-body">
+          <div class="selected-ticker-pill" style="margin-bottom:12px">
+            <span class="flag">🇺🇸</span>
+            <div style="flex:1">
+              <div class="sym">AAPL</div>
+              <div class="co">Apple Inc. · NASDAQ</div>
+            </div>
+            <span class="price-tag">$182.50</span>
+            <span style="color:#64748b;cursor:pointer;font-size:10px">Change</span>
+          </div>
+          <div class="clash-banner">
+            ⚠️ AAPL is already in your portfolio (Main account, 50 shares)
+            <div class="clash-actions">
+              <button class="clash-btn">Add anyway</button>
+              <button class="clash-btn">Edit existing</button>
+              <button class="clash-btn">Cancel</button>
+            </div>
+          </div>
+          <div class="mock-row-2">
+            <div class="mock-field"><div class="mock-label">Account</div><div class="mock-input">Main ▾</div></div>
+            <div class="mock-field"><div class="mock-label">Shares</div><div class="mock-input">100</div></div>
+          </div>
+          <div class="mock-field"><div class="mock-label">Avg Buy Price (USD)</div><div class="mock-input">145.00</div></div>
+          <div class="deep-dive-note">🔬 No analysis exists for AAPL — a deep dive will be queued automatically when you save.</div>
+        </div>
+        <div class="mock-footer"><button class="btn-secondary">Back</button><button class="btn-primary">Add Position</button></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Two-step wizard</h3>
+      <p>Step 1: search &amp; pick ticker. Step 2: fill details. Clash warning and deep-dive notice appear in step 2.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Single form, ticker locks in place -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 12px; background: #111318;">
+      <div class="mock-modal">
+        <div class="mock-modal-header">Add Position <span>×</span></div>
+        <div class="mock-modal-body">
+          <div class="selected-ticker-pill" style="margin-bottom:10px">
+            <span class="flag">🇺🇸</span>
+            <div style="flex:1"><div class="sym">AAPL</div><div class="co">Apple Inc. · NASDAQ</div></div>
+            <span class="price-tag">$182.50</span>
+            <span style="color:#3b82f6;cursor:pointer;font-size:10px">Change</span>
+          </div>
+          <div class="mock-row-2">
+            <div class="mock-field"><div class="mock-label">Account</div><div class="mock-input">Main ▾</div></div>
+            <div class="mock-field"><div class="mock-label">Shares</div><div class="mock-input">100</div></div>
+          </div>
+          <div class="mock-field"><div class="mock-label">Avg Buy Price (USD)</div><div class="mock-input">145.00</div></div>
+          <div class="deep-dive-note" style="margin-top:4px">🔬 No prior analysis — deep dive will be queued on save.</div>
+        </div>
+        <div class="mock-footer"><button class="btn-secondary">Cancel</button><button class="btn-primary">Add Position</button></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Search collapses to pill</h3>
+      <p>Once a ticker is selected it locks into a compact pill. Form fields appear below. "Change" re-opens search. Single page, no steps.</p>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,102 @@
+<h2>Reorganized Admin Panel</h2>
+<p class="subtitle">New information hierarchy — system controls first, config last. Click a layout to vote.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#0f172a">
+      <!-- Layout A mockup -->
+      <div style="font-size:10px;font-family:monospace;color:#94a3b8;line-height:1.9">
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:6px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#e2e8f0;font-weight:700">🦞 OpenClaw Admin</span>
+          <span style="color:#64748b">logout</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:6px">
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:5px;text-align:center"><div style="color:#64748b;font-size:9px">Gateway</div><div style="color:#4ade80">Running</div></div>
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:5px;text-align:center"><div style="color:#64748b;font-size:9px">Users</div><div style="color:#e2e8f0">3 total</div></div>
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:5px;text-align:center"><div style="color:#64748b;font-size:9px">Active</div><div style="color:#4ade80">2</div></div>
+          <div style="background:#7f1d1d;border:1px solid #dc2626;border-radius:4px;padding:5px;text-align:center"><div style="color:#fca5a5;font-size:9px">System</div><div style="color:#f87171">LOCKED</div></div>
+        </div>
+        <!-- System Controls -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:8px;margin-bottom:6px">
+          <div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">⚡ System Controls</div>
+          <div style="display:flex;gap:6px">
+            <div style="flex:1;background:#7f1d1d;border:1px solid #dc2626;border-radius:4px;padding:5px;font-size:9px;text-align:center;color:#f87171">🔒 Lock All Users</div>
+            <div style="flex:1;background:#1c1917;border:1px solid #334155;border-radius:4px;padding:5px;font-size:9px;text-align:center;color:#94a3b8">📢 Broadcast Message</div>
+          </div>
+        </div>
+        <!-- Users -->
+        <div style="background:#10b981;color:white;border-radius:4px;padding:5px;text-align:center;font-size:9px;font-weight:700;margin-bottom:6px">+ Add User</div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:8px;margin-bottom:4px">
+          <div style="display:flex;justify-content:space-between"><span style="color:#e2e8f0;font-weight:600">soof</span><span style="background:#fef9c3;color:#854d0e;border-radius:3px;padding:1px 6px;font-size:9px">readonly</span></div>
+          <div style="color:#64748b;font-size:9px;margin-top:3px">Today: 12 req · $0.0034 · Last: technical 14:22 · success</div>
+          <div style="display:flex;gap:4px;margin-top:5px">
+            <div style="background:#1c1917;border:1px solid #334155;border-radius:3px;padding:2px 6px;font-size:8px;color:#94a3b8">Telegram</div>
+            <div style="background:#1c1917;border:1px solid #334155;border-radius:3px;padding:2px 6px;font-size:8px;color:#94a3b8">Limits</div>
+            <div style="background:#1c1917;border:1px solid #dc2626;border-radius:3px;padding:2px 6px;font-size:8px;color:#f87171">Block ▾</div>
+          </div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:8px;margin-bottom:4px">
+          <div style="display:flex;justify-content:space-between"><span style="color:#e2e8f0;font-weight:600">noam</span><span style="color:#64748b;font-size:9px">active</span></div>
+          <div style="color:#64748b;font-size:9px;margin-top:3px">No LLM activity yet</div>
+        </div>
+        <!-- Profiles at bottom -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:8px;margin-top:4px">
+          <div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">⚙️ Model Profiles</div>
+          <div style="display:flex;gap:4px">
+            <div style="background:#1c1917;border:1px solid #334155;border-radius:3px;padding:3px 8px;font-size:9px;color:#94a3b8">testing</div>
+            <div style="background:#1c1917;border:1px solid #334155;border-radius:3px;padding:3px 8px;font-size:9px;color:#94a3b8">production</div>
+            <div style="background:#1c1917;border:1px dashed #334155;border-radius:3px;padding:3px 8px;font-size:9px;color:#64748b">+ new</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Layout A — Vertical sections</h3>
+      <p>System Controls → Users → Profiles. All in one scroll. Profiles collapsed at bottom. System lock prominently in the stat bar.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#0f172a">
+      <div style="font-size:10px;font-family:monospace;color:#94a3b8;line-height:1.9">
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:6px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#e2e8f0;font-weight:700">🦞 OpenClaw Admin</span>
+          <span style="color:#64748b">logout</span>
+        </div>
+        <!-- Tabs -->
+        <div style="display:flex;gap:0;margin-bottom:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;overflow:hidden">
+          <div style="flex:1;padding:5px;text-align:center;font-size:9px;background:#3b82f6;color:white;font-weight:700">Users</div>
+          <div style="flex:1;padding:5px;text-align:center;font-size:9px;color:#64748b">System</div>
+          <div style="flex:1;padding:5px;text-align:center;font-size:9px;color:#64748b">Profiles</div>
+        </div>
+        <!-- Users tab content -->
+        <div style="background:#10b981;color:white;border-radius:4px;padding:5px;text-align:center;font-size:9px;font-weight:700;margin-bottom:6px">+ Add User</div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:8px;margin-bottom:4px">
+          <div style="display:flex;justify-content:space-between"><span style="color:#e2e8f0;font-weight:600">soof</span><span style="background:#fef9c3;color:#854d0e;border-radius:3px;padding:1px 6px;font-size:9px">readonly</span></div>
+          <div style="color:#64748b;font-size:9px;margin-top:3px">Today: 12 req · $0.0034 · Last: technical 14:22</div>
+          <div style="display:flex;gap:4px;margin-top:5px">
+            <div style="background:#1c1917;border:1px solid #334155;border-radius:3px;padding:2px 6px;font-size:8px;color:#94a3b8">Telegram</div>
+            <div style="background:#1c1917;border:1px solid #334155;border-radius:3px;padding:2px 6px;font-size:8px;color:#94a3b8">Limits</div>
+            <div style="background:#1c1917;border:1px solid #dc2626;border-radius:3px;padding:2px 6px;font-size:8px;color:#f87171">Block ▾</div>
+          </div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:8px">
+          <div style="display:flex;justify-content:space-between"><span style="color:#e2e8f0;font-weight:600">noam</span><span style="color:#64748b;font-size:9px">active</span></div>
+          <div style="color:#64748b;font-size:9px;margin-top:3px">No LLM activity yet</div>
+        </div>
+        <!-- System tab hint -->
+        <div style="margin-top:8px;padding:6px;background:#1e293b;border:1px dashed #334155;border-radius:4px;text-align:center;font-size:9px;color:#64748b">
+          System tab: lock all, broadcast message
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Layout B — Tabbed</h3>
+      <p>Three tabs: Users / System / Profiles. Cleanest per-section focus. System lock is one tab away — slightly less visible but less cluttered.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px">Select your preferred layout and tell me in the terminal. I'll then show the block dialog and user-facing states.</p>

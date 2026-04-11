@@ -4,6 +4,7 @@ import express, {
   type Response,
   type NextFunction,
 } from "express";
+import { createProxyMiddleware } from "http-proxy-middleware";
 import helmet from "helmet";
 import cors from "cors";
 import path from "path";
@@ -29,6 +30,7 @@ import controlRoutes from "./routes/control.js";
 
 export function createApp(): Express {
   const app = express();
+  app.set("trust proxy", process.env["TRUST_PROXY"] ?? 1);
 
   app.use(helmet({
     hsts: false,
@@ -76,6 +78,24 @@ export function createApp(): Express {
   app.use("/api", strategyRoutes); // GET /api/strategies/*
   app.use("/api", telegramRoutes); // POST /api/telegram/webhook — no auth
   app.use("/api", searchRoutes); // GET /api/search/ticker — no user workspace needed
+
+  // ── Datasette observability proxy (admin-key protected) ──────────────────
+  app.use(
+    "/api/admin/datasette",
+    (req: Request, res: Response, next: NextFunction) => {
+      const key = req.headers["x-admin-key"] as string | undefined;
+      if (!key || key !== process.env["ADMIN_KEY"]) {
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+      next();
+    },
+    createProxyMiddleware({
+      target: "http://127.0.0.1:8083",
+      changeOrigin: true,
+      pathRewrite: { "^/api/admin/datasette": "" },
+    })
+  );
 
   // ── Serve React frontend (SPA fallback) ──────────────────────────────────
   const frontendDist = process.env.FRONTEND_DIST ?? path.resolve(process.cwd(), "../frontend/dist");

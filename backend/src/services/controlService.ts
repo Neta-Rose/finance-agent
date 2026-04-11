@@ -2,6 +2,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { logger } from "./logger.js";
+import { resolveConfiguredPath } from "./paths.js";
 import {
   UserControlSchema,
   SystemControlSchema,
@@ -9,15 +10,15 @@ import {
   type SystemControl,
 } from "../schemas/control.js";
 
-const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
-const DATA_DIR  = process.env["DATA_DIR"]  ?? "../data";
+const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
+const DATA_DIR  = resolveConfiguredPath(process.env["DATA_DIR"], "../data");
 
 function userControlPath(userId: string): string {
-  return path.resolve(USERS_DIR, userId, "control.json");
+  return path.join(USERS_DIR, userId, "control.json");
 }
 
 function systemControlPath(): string {
-  return path.resolve(DATA_DIR, "system-control.json");
+  return path.join(DATA_DIR, "system-control.json");
 }
 
 // ── User control ──────────────────────────────────────────────────────────────
@@ -93,7 +94,7 @@ export async function setSystemControl(control: Partial<SystemControl>): Promise
 // ── Token version (for force-logout) ─────────────────────────────────────────
 
 function authPath(userId: string): string {
-  return path.resolve(USERS_DIR, userId, "auth.json");
+  return path.join(USERS_DIR, userId, "auth.json");
 }
 
 export async function getTokenVersion(userId: string): Promise<number> {

@@ -1,0 +1,94 @@
+<h2>Architecture v2 — Proxy as Universal Enforcement Point</h2>
+<p class="subtitle">The proxy now intercepts ALL agent activity — dashboard AND Telegram AND cron.</p>
+
+<div class="section">
+  <h3>Why the proxy is the perfect choke point</h3>
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="text-align:center;padding:12px;background:#1e1b4b;border:1px solid #6366f1;border-radius:8px">
+        <div style="font-size:18px;margin-bottom:6px">🖥️</div>
+        <div style="font-weight:600;color:#a5b4fc;margin-bottom:4px">Dashboard</div>
+        <div style="font-size:11px;color:#c7d2fe">User clicks "Trigger Job"<br>→ POST /api/jobs/trigger</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:#1e1b4b;border:1px solid #6366f1;border-radius:8px">
+        <div style="font-size:18px;margin-bottom:6px">📱</div>
+        <div style="font-weight:600;color:#a5b4fc;margin-bottom:4px">Telegram</div>
+        <div style="font-size:11px;color:#c7d2fe">User sends message<br>→ OpenClaw starts session</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:#1e1b4b;border:1px solid #6366f1;border-radius:8px">
+        <div style="font-size:18px;margin-bottom:6px">⏰</div>
+        <div style="font-weight:600;color:#a5b4fc;margin-bottom:4px">Scheduled Cron</div>
+        <div style="font-size:11px;color:#c7d2fe">8am daily brief<br>→ OpenClaw starts session</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin:16px 0 8px;color:var(--fg-muted);font-size:12px">All three paths converge here ↓</div>
+    <div style="text-align:center;padding:14px;background:#14532d;border:2px solid #16a34a;border-radius:8px;margin-bottom:8px">
+      <div style="font-weight:700;color:#4ade80;font-size:14px">POST /llm/v1/chat/completions</div>
+      <div style="font-size:11px;color:#86efac;margin-top:4px">Every LLM call from every agent passes through here.<br>This is where we enforce blocks — before ANY token reaches OpenRouter.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="padding:10px;background:#0c4a6e;border:1px solid #0284c7;border-radius:6px;font-size:11px;color:#7dd3fc">
+        <strong style="color:#38bdf8">✓ User not blocked</strong><br>
+        Forward to OpenRouter → agent gets response → job completes
+      </div>
+      <div style="padding:10px;background:#450a0a;border:1px solid #dc2626;border-radius:6px;font-size:11px;color:#fca5a5">
+        <strong style="color:#f87171">✗ User is blocked/suspended</strong><br>
+        Return 403 {"error":"Account suspended. Contact admin."}<br>
+        Agent fails gracefully — job marked failed by watchdog
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Enforcement layers (defense in depth)</h3>
+  <div style="font-size:12px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:140px 1fr 80px;background:var(--bg-muted);padding:8px 12px;font-size:11px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.05em">
+      <span>Layer</span><span>What it blocks</span><span>Covers</span>
+    </div>
+    <div style="display:grid;grid-template-columns:140px 1fr 80px;padding:10px 12px;border-top:1px solid var(--border);align-items:center">
+      <span style="font-weight:600;color:#a5b4fc">LLM Proxy</span>
+      <span>All LLM calls — the agent can't do anything without a model response</span>
+      <span style="color:#4ade80;font-size:11px">Dashboard + Telegram + Cron</span>
+    </div>
+    <div style="display:grid;grid-template-columns:140px 1fr 80px;padding:10px 12px;border-top:1px solid var(--border);align-items:center">
+      <span style="font-weight:600;color:#a5b4fc">jobs.ts route</span>
+      <span>Dashboard "trigger job" buttons — blocked before a trigger file is even written</span>
+      <span style="color:#4ade80;font-size:11px">Dashboard only</span>
+    </div>
+    <div style="display:grid;grid-template-columns:140px 1fr 80px;padding:10px 12px;border-top:1px solid var(--border);align-items:center">
+      <span style="font-weight:600;color:#a5b4fc">userControlMiddleware</span>
+      <span>GET /api/me/control — tells frontend what state to render (suspension page, banner)</span>
+      <span style="color:#4ade80;font-size:11px">Dashboard UX</span>
+    </div>
+    <div style="display:grid;grid-template-columns:140px 1fr 80px;padding:10px 12px;border-top:1px solid var(--border);align-items:center">
+      <span style="font-weight:600;color:#a5b4fc">authMiddleware</span>
+      <span>tokenVersion check — force-logout invalidates all active sessions immediately</span>
+      <span style="color:#4ade80;font-size:11px">All API calls</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>What "blocked" means at the proxy level</h3>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:11px">
+    <div style="padding:10px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:6px">
+      <div style="font-weight:700;color:#4ade80;margin-bottom:4px">none</div>
+      <div style="color:var(--fg-muted)">Proxy forwards normally to OpenRouter</div>
+    </div>
+    <div style="padding:10px;background:var(--bg-subtle);border:1px solid #0284c7;border-radius:6px">
+      <div style="font-weight:700;color:#38bdf8;margin-bottom:4px">readonly</div>
+      <div style="color:var(--fg-muted)">Proxy blocks → 403. Dashboard shows info banner. No new jobs from any source.</div>
+    </div>
+    <div style="padding:10px;background:var(--bg-subtle);border:1px solid #d97706;border-radius:6px">
+      <div style="font-weight:700;color:#fbbf24;margin-bottom:4px">blocked</div>
+      <div style="color:var(--fg-muted)">Proxy blocks → 403. Dashboard shows warning. Telegram triggers die silently.</div>
+    </div>
+    <div style="padding:10px;background:var(--bg-subtle);border:1px solid #dc2626;border-radius:6px">
+      <div style="font-weight:700;color:#f87171;margin-bottom:4px">suspended</div>
+      <div style="color:var(--fg-muted)">Proxy blocks → 403. Login works but lands on suspension page. No dashboard.</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">This also means Telegram is fully covered — no special handling needed. The agent runs, hits the proxy, gets 403, job fails. Tell me if this architecture looks right in the terminal.</p>

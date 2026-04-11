@@ -1,0 +1,247 @@
+<h2>Add Position — The Flow</h2>
+<p class="subtitle">Two states: while typing (left) → after selecting (right). This is one modal, not two pages.</p>
+
+<style>
+  * { box-sizing: border-box; }
+  .flow-wrap { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+  .flow-col { flex: 1; min-width: 280px; max-width: 320px; }
+  .flow-label {
+    text-align: center; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #64748b; margin-bottom: 8px; font-weight: 600;
+  }
+  .flow-arrow {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; color: #3b82f6; padding-top: 60px;
+  }
+
+  .mock-modal {
+    background: #1a1d23; border: 1px solid #2e3340; border-radius: 12px;
+    overflow: hidden; font-family: system-ui, sans-serif; color: #e2e8f0; font-size: 12px;
+  }
+  .modal-header {
+    padding: 12px 16px; border-bottom: 1px solid #2e3340;
+    font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-header .x { color: #64748b; font-size: 16px; line-height: 1; }
+  .modal-body { padding: 14px 16px; }
+  .modal-footer {
+    padding: 10px 16px; border-top: 1px solid #2e3340; display: flex; gap: 8px;
+  }
+
+  .field { margin-bottom: 11px; }
+  .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 4px; }
+
+  /* Search input */
+  .search-input {
+    width: 100%; background: #252932; border: 1.5px solid #3b82f6;
+    border-radius: 8px; padding: 8px 10px; color: #e2e8f0; font-size: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .search-input .cursor { border-right: 2px solid #3b82f6; height: 12px; animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .search-icon { color: #64748b; font-size: 12px; }
+
+  /* Dropdown */
+  .dropdown {
+    background: #1e2230; border: 1px solid #2e3340; border-radius: 8px;
+    margin-top: 3px; overflow: hidden; box-shadow: 0 8px 24px #00000066;
+  }
+  .dd-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border-bottom: 1px solid #252932; cursor: pointer; transition: background 0.1s;
+  }
+  .dd-row:last-child { border-bottom: none; }
+  .dd-row.active { background: #2e3855; }
+  .dd-row:not(.active):hover { background: #252932; }
+
+  .exch-badge {
+    display: flex; align-items: center; gap: 3px; font-size: 10px; color: #64748b;
+    white-space: nowrap;
+  }
+  .exch-flag { font-size: 13px; line-height: 1; }
+  .sym-name { flex: 1; }
+  .sym { font-weight: 700; font-size: 12px; color: #f1f5f9; }
+  .co { color: #94a3b8; font-size: 10px; margin-top: 1px; }
+  .price { font-size: 11px; font-weight: 600; color: #34d399; white-space: nowrap; }
+
+  /* Pill (selected state) */
+  .ticker-pill {
+    display: flex; align-items: center; gap: 10px;
+    background: #1e2a3a; border: 1.5px solid #3b82f6;
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+  }
+  .pill-flag { font-size: 22px; }
+  .pill-info { flex: 1; }
+  .pill-sym { font-size: 16px; font-weight: 800; color: #f1f5f9; line-height: 1.2; }
+  .pill-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .pill-price { font-size: 13px; font-weight: 700; color: #34d399; }
+  .pill-exch { font-size: 10px; color: #94a3b8; display: flex; align-items: center; gap: 3px; }
+  .change-btn {
+    font-size: 10px; color: #60a5fa; background: #1e3a5f; border: 1px solid #2a4d7a;
+    border-radius: 6px; padding: 4px 8px; cursor: pointer; white-space: nowrap;
+  }
+
+  /* Clash warning */
+  .clash {
+    background: #f59e0b14; border: 1px solid #f59e0b44;
+    border-radius: 8px; padding: 9px 11px; margin-bottom: 11px; font-size: 11px; color: #fbbf24;
+  }
+  .clash-title { font-weight: 600; margin-bottom: 5px; }
+  .clash-sub { color: #d4a017; font-size: 10px; margin-bottom: 7px; }
+  .clash-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .clash-btn {
+    background: #2a2318; border: 1px solid #f59e0b44; border-radius: 6px;
+    color: #fbbf24; font-size: 10px; padding: 4px 9px; cursor: pointer;
+  }
+  .clash-btn.secondary { color: #94a3b8; border-color: #2e3340; background: #252932; }
+
+  /* Form row */
+  .form-row { display: flex; gap: 8px; }
+  .form-row > * { flex: 1; }
+  .inp {
+    width: 100%; background: #252932; border: 1px solid #2e3340;
+    border-radius: 8px; padding: 8px 10px; color: #e2e8f0; font-size: 12px;
+  }
+  .inp.select-inp { color: #e2e8f0; }
+
+  /* Deep dive note */
+  .dd-note {
+    background: #1e3a2a; border: 1px solid #22543d;
+    border-radius: 8px; padding: 8px 10px; font-size: 10px; color: #6ee7b7;
+    display: flex; gap: 7px; align-items: flex-start; margin-top: 2px;
+  }
+
+  .btn-primary {
+    flex: 1; background: #3b82f6; color: white; border: none;
+    border-radius: 8px; padding: 8px; font-size: 12px; font-weight: 600;
+  }
+  .btn-cancel {
+    background: #252932; color: #94a3b8; border: 1px solid #2e3340;
+    border-radius: 8px; padding: 8px 14px; font-size: 12px;
+  }
+
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; background: #3b82f6; color: white;
+    border-radius: 50%; font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+</style>
+
+<div class="flow-wrap">
+
+  <!-- STATE 1: Typing -->
+  <div class="flow-col">
+    <div class="flow-label"><span class="step-num">1</span>&nbsp; User types "AA"</div>
+    <div class="mock-modal">
+      <div class="modal-header">Add Position <span class="x">×</span></div>
+      <div class="modal-body">
+        <div class="field">
+          <div class="lbl">Search stock</div>
+          <div class="search-input">
+            <span class="search-icon">🔍</span>
+            <span>AA<span class="cursor"></span></span>
+          </div>
+          <div class="dropdown">
+            <div class="dd-row active">
+              <div class="sym-name">
+                <div class="sym">AAPL</div>
+                <div class="co">Apple Inc.</div>
+              </div>
+              <div class="exch-badge"><span class="exch-flag">🇺🇸</span> NASDAQ</div>
+              <div class="price">$182.50</div>
+            </div>
+            <div class="dd-row">
+              <div class="sym-name">
+                <div class="sym">AA</div>
+                <div class="co">Alcoa Corp.</div>
+              </div>
+              <div class="exch-badge"><span class="exch-flag">🇺🇸</span> NYSE</div>
+              <div class="price">$34.20</div>
+            </div>
+            <div class="dd-row">
+              <div class="sym-name">
+                <div class="sym">AALI</div>
+                <div class="co">Amdocs Ltd.</div>
+              </div>
+              <div class="exch-badge"><span class="exch-flag">🇮🇱</span> TASE</div>
+              <div class="price">₪96.40</div>
+            </div>
+            <div class="dd-row">
+              <div class="sym-name">
+                <div class="sym">AAL</div>
+                <div class="co">American Airlines</div>
+              </div>
+              <div class="exch-badge"><span class="exch-flag">🇺🇸</span> NASDAQ</div>
+              <div class="price">$14.80</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div class="flow-arrow">→</div>
+
+  <!-- STATE 2: AAPL selected, clash + no deep dive shown -->
+  <div class="flow-col">
+    <div class="flow-label"><span class="step-num">2</span>&nbsp; User clicks AAPL</div>
+    <div class="mock-modal">
+      <div class="modal-header">Add Position <span class="x">×</span></div>
+      <div class="modal-body">
+        <!-- Locked pill -->
+        <div class="ticker-pill">
+          <span class="pill-flag">🇺🇸</span>
+          <div class="pill-info">
+            <div class="pill-sym">AAPL</div>
+            <div class="pill-meta">
+              <span class="pill-price">$182.50</span>
+              <span class="pill-exch"><span style="font-size:12px">🇺🇸</span> NASDAQ</span>
+            </div>
+          </div>
+          <button class="change-btn">Change ↩</button>
+        </div>
+
+        <!-- Clash warning -->
+        <div class="clash">
+          <div class="clash-title">⚠️ Already in your portfolio</div>
+          <div class="clash-sub">Main account · 50 shares · avg ₪680</div>
+          <div class="clash-btns">
+            <button class="clash-btn">Add to different account</button>
+            <button class="clash-btn">Edit existing</button>
+            <button class="clash-btn secondary">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Form fields -->
+        <div class="form-row">
+          <div class="field">
+            <div class="lbl">Account</div>
+            <select class="inp select-inp"><option>Main</option></select>
+          </div>
+          <div class="field">
+            <div class="lbl">Shares</div>
+            <input class="inp" placeholder="0" />
+          </div>
+        </div>
+        <div class="field">
+          <div class="lbl">Avg Buy Price (USD)</div>
+          <input class="inp" placeholder="0.00" />
+        </div>
+
+        <!-- No deep dive note -->
+        <div class="dd-note">
+          <span>🔬</span>
+          <span>No analysis found for AAPL — a deep dive will be queued automatically when you save.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel">Cancel</button>
+        <button class="btn-primary">Add Position</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:20px;text-align:center">Click either panel if you want to select it, or just reply in the terminal with any feedback.</p>

@@ -3,10 +3,11 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { promises as fs } from "fs";
 import path from "path";
+import { resolveConfiguredPath } from "../services/paths.js";
 
 const JWT_SECRET  = process.env["JWT_SECRET"] ?? "changeme";
 const TOKEN_EXPIRY = "7d";
-const USERS_DIR   = process.env["USERS_DIR"] ?? "../users";
+const USERS_DIR   = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;

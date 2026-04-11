@@ -26,9 +26,10 @@ interface AddPositionModalProps {
   open: boolean;
   onClose: () => void;
   onEditExisting: (ticker: string) => void;
+  preferredAccount?: string | null;
 }
 
-export function AddPositionModal({ open, onClose, onEditExisting }: AddPositionModalProps) {
+export function AddPositionModal({ open, onClose, onEditExisting, preferredAccount }: AddPositionModalProps) {
   const queryClient = useQueryClient();
   const showToast = useToastStore((s) => s.show);
 
@@ -80,10 +81,13 @@ export function AddPositionModal({ open, onClose, onEditExisting }: AddPositionM
   // Default account on selection
   useEffect(() => {
     if (selected && accounts.length > 0) {
-      const firstClean = cleanAccounts[0] ?? accounts[0] ?? "";
+      const preferred = preferredAccount && accounts.includes(preferredAccount)
+        ? preferredAccount
+        : null;
+      const firstClean = preferred ?? cleanAccounts[0] ?? accounts[0] ?? "";
       setAccount(firstClean);
     }
-  }, [selected, accounts, cleanAccounts]);
+  }, [selected, accounts, cleanAccounts, preferredAccount]);
 
   const handleClose = () => {
     setSelected(null);

@@ -7,18 +7,28 @@ import {
   adminUpdateLimits,
   adminAddTelegram,
   adminGetStatus,
+  adminGetSystemAgent,
   adminFetchProfiles,
   adminCreateProfile,
   adminUpdateProfile,
   adminDeleteProfile,
   adminSetUserProfile,
+  adminSetSystemAgentProfile,
   adminGetUserObservability,
   adminSetUserControl,
   adminClearUserControl,
   adminForceLogout,
   adminGetSystem,
   adminPatchSystem,
+  adminListJobs,
+  adminCreateJob,
+  adminEditJob,
+  adminCancelJob,
+  adminContinueJob,
+  adminWakeUser,
+  adminKillJob,
   type UserSummary,
+  type SystemAgentSummary,
   type RateLimits,
   type AdminStatus,
   type ProfileDefinition,
@@ -27,6 +37,7 @@ import {
   type LlmRequestEvent,
   type UserControlPatch,
   type SystemControlPatch,
+  type AdminJob,
 } from "../api/admin";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t } from "../store/i18n";
@@ -961,6 +972,316 @@ function BlockControls({
   );
 }
 
+// ── Job status helpers ────────────────────────────────────────────────────────
+const JOB_ACTIONS = ["daily_brief", "full_report", "deep_dive", "new_ideas", "switch_production", "switch_testing"] as const;
+
+const ACTION_LABELS: Record<string, string> = {
+  daily_brief: "Daily Brief",
+  full_report: "Full Report",
+  deep_dive: "Deep Dive",
+  new_ideas: "New Ideas",
+  switch_production: "→ Production",
+  switch_testing: "→ Testing",
+};
+
+function jobStatusColor(status: AdminJob["status"]): { bg: string; color: string; border: string } {
+  if (status === "running")   return { bg: "rgba(245,158,11,0.10)", color: "#f59e0b", border: "rgba(245,158,11,0.35)" };
+  if (status === "pending")   return { bg: "rgba(59,130,246,0.08)", color: "#3b82f6", border: "rgba(59,130,246,0.3)" };
+  if (status === "completed") return { bg: "rgba(16,185,129,0.08)", color: "#10b981", border: "rgba(16,185,129,0.25)" };
+  return { bg: "rgba(239,68,68,0.07)", color: "var(--color-accent-red)", border: "rgba(239,68,68,0.25)" };
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ── UserJobsPanel ─────────────────────────────────────────────────────────────
+function UserJobsPanel({ userId, onError }: { userId: string; onError: (m: string) => void }) {
+  const [open, setOpen]             = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [jobs, setJobs]             = useState<AdminJob[]>([]);
+  const [editJobId, setEditJobId]   = useState<string | null>(null);
+  const [editAction, setEditAction] = useState<string>("");
+  const [editTicker, setEditTicker] = useState<string>("");
+  const [showAdd, setShowAdd]       = useState(false);
+  const [addAction, setAddAction]   = useState<string>("daily_brief");
+  const [addTicker, setAddTicker]   = useState<string>("");
+
+  const refresh = useCallback(async () => {
+    try {
+      setJobs(await adminListJobs(userId));
+    } catch { /* ignore */ }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!open) return;
+    void refresh();
+    const iv = setInterval(() => { void refresh(); }, 8000);
+    return () => clearInterval(iv);
+  }, [open, refresh]);
+
+  const act = async (fn: () => Promise<void>, optimistic?: () => void) => {
+    setLoading(true);
+    try {
+      optimistic?.();
+      await fn();
+      await refresh();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKill     = (jobId: string) => act(() => adminKillJob(userId, jobId));
+  const handleCancel   = (jobId: string) => act(() => adminCancelJob(userId, jobId));
+  const handleContinue = (jobId: string) => act(() => adminContinueJob(userId, jobId));
+  const handleWake     = ()               => act(() => adminWakeUser(userId));
+
+  const handleEditSave = (jobId: string) =>
+    act(async () => {
+      await adminEditJob(userId, jobId, editAction || undefined, editTicker || undefined);
+      setEditJobId(null);
+    });
+
+  const handleAdd = () =>
+    act(async () => {
+      if (addAction === "deep_dive" && !addTicker.trim()) { onError("deep_dive requires a ticker"); return; }
+      await adminCreateJob(userId, addAction, addTicker.trim() || undefined);
+      setShowAdd(false); setAddTicker(""); setAddAction("daily_brief");
+    });
+
+  const pending   = jobs.filter(j => j.status === "pending");
+  const running   = jobs.filter(j => j.status === "running");
+  const failed    = jobs.filter(j => j.status === "failed").slice(0, 5);
+  const completed = jobs.filter(j => j.status === "completed").slice(0, 3);
+
+  const activeCount = pending.length + running.length;
+
+  return (
+    <div className="border-t pt-2" style={{ borderColor: "var(--color-border)" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between text-[11px] py-1 px-0.5"
+        style={{ color: "var(--color-fg-muted)" }}
+      >
+        <span className="font-semibold uppercase tracking-wide">
+          ⚙ Jobs
+          {activeCount > 0 && (
+            <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ background: running.length > 0 ? "rgba(245,158,11,0.2)" : "rgba(59,130,246,0.15)",
+                       color: running.length > 0 ? "#f59e0b" : "#3b82f6" }}>
+              {activeCount}
+            </span>
+          )}
+        </span>
+        <span className="text-[10px]">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2">
+
+          {/* Running jobs */}
+          {running.map(job => {
+            const c = jobStatusColor("running");
+            return (
+              <div key={job.id} className="rounded-lg p-2.5 space-y-1.5"
+                style={{ background: c.bg, border: `1px solid ${c.border}` }}>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-semibold" style={{ color: c.color }}>
+                      ● {ACTION_LABELS[job.action] ?? job.action}
+                      {job.ticker && <span className="ml-1 opacity-70">({job.ticker})</span>}
+                    </span>
+                    <span className="ml-2 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                      {timeAgo(job.triggered_at)}
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button disabled={loading} onClick={() => handleContinue(job.id)}
+                      className="text-[10px] px-2 py-0.5 rounded font-medium"
+                      style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                      Nudge
+                    </button>
+                    <button disabled={loading} onClick={() => handleKill(job.id)}
+                      className="text-[10px] px-2 py-0.5 rounded font-medium"
+                      style={{ background: "rgba(239,68,68,0.1)", color: "var(--color-accent-red)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                      Kill
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Pending jobs */}
+          {pending.map(job => {
+            const c = jobStatusColor("pending");
+            const isEditing = editJobId === job.id;
+            return (
+              <div key={job.id} className="rounded-lg p-2.5 space-y-1.5"
+                style={{ background: c.bg, border: `1px solid ${c.border}` }}>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-semibold" style={{ color: c.color }}>
+                      ○ {ACTION_LABELS[job.action] ?? job.action}
+                      {job.ticker && <span className="ml-1 opacity-70">({job.ticker})</span>}
+                    </span>
+                    <span className="ml-2 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                      {timeAgo(job.triggered_at)}
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button disabled={loading} onClick={() => { setEditJobId(isEditing ? null : job.id); setEditAction(job.action); setEditTicker(job.ticker ?? ""); }}
+                      className="text-[10px] px-2 py-0.5 rounded font-medium"
+                      style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)", border: "1px solid var(--color-border)" }}>
+                      {isEditing ? "Close" : "Edit"}
+                    </button>
+                    <button disabled={loading} onClick={() => handleContinue(job.id)}
+                      className="text-[10px] px-2 py-0.5 rounded font-medium"
+                      style={{ background: "rgba(16,185,129,0.10)", color: "#10b981", border: "1px solid rgba(16,185,129,0.25)" }}>
+                      Wake
+                    </button>
+                    <button disabled={loading} onClick={() => handleCancel(job.id)}
+                      className="text-[10px] px-2 py-0.5 rounded font-medium"
+                      style={{ background: "rgba(239,68,68,0.08)", color: "var(--color-accent-red)", border: "1px solid rgba(239,68,68,0.25)" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                {isEditing && (
+                  <div className="space-y-1.5 pt-1 border-t" style={{ borderColor: "rgba(59,130,246,0.2)" }}>
+                    <div className="flex gap-1.5">
+                      <select value={editAction} onChange={e => setEditAction(e.target.value)}
+                        className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+                        style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}>
+                        {JOB_ACTIONS.map(a => <option key={a} value={a}>{ACTION_LABELS[a]}</option>)}
+                      </select>
+                      {(editAction === "deep_dive") && (
+                        <input value={editTicker} onChange={e => setEditTicker(e.target.value.toUpperCase())}
+                          placeholder="TICKER"
+                          className="w-20 text-[11px] rounded px-2 py-1 outline-none uppercase"
+                          style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button disabled={loading} onClick={() => handleEditSave(job.id)}
+                        className="flex-1 py-1 text-[10px] rounded font-semibold"
+                        style={{ background: "var(--color-accent-blue)", color: "white" }}>
+                        Save
+                      </button>
+                      <button onClick={() => setEditJobId(null)}
+                        className="px-3 py-1 text-[10px] rounded"
+                        style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Empty active state */}
+          {running.length === 0 && pending.length === 0 && (
+            <p className="text-[10px] text-center py-1" style={{ color: "var(--color-fg-subtle)" }}>No active jobs</p>
+          )}
+
+          {/* Failed jobs */}
+          {failed.length > 0 && (
+            <details className="group">
+              <summary className="text-[10px] cursor-pointer select-none" style={{ color: "var(--color-fg-subtle)" }}>
+                {failed.length} recent failure{failed.length > 1 ? "s" : ""} ▾
+              </summary>
+              <div className="mt-1 space-y-1">
+                {failed.map(job => (
+                  <div key={job.id} className="rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2"
+                    style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-medium" style={{ color: "var(--color-accent-red)" }}>
+                        {ACTION_LABELS[job.action] ?? job.action}{job.ticker ? ` (${job.ticker})` : ""}
+                      </span>
+                      {job.error && (
+                        <p className="text-[9px] truncate" style={{ color: "var(--color-fg-subtle)" }}>{job.error}</p>
+                      )}
+                    </div>
+                    <button disabled={loading} onClick={() => handleContinue(job.id)}
+                      className="shrink-0 text-[10px] px-2 py-0.5 rounded font-medium"
+                      style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.25)" }}>
+                      Retry
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* Completed preview */}
+          {completed.length > 0 && failed.length === 0 && (
+            <div className="space-y-0.5">
+              {completed.slice(0, 2).map(job => (
+                <div key={job.id} className="text-[10px] flex items-center justify-between px-1"
+                  style={{ color: "var(--color-fg-subtle)" }}>
+                  <span>✓ {ACTION_LABELS[job.action] ?? job.action}{job.ticker ? ` (${job.ticker})` : ""}</span>
+                  <span>{timeAgo(job.triggered_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Actions bar */}
+          <div className="flex gap-1.5 pt-1">
+            <button onClick={() => { setShowAdd(o => !o); }} disabled={loading}
+              className="text-[10px] px-2.5 py-1 rounded-lg font-medium flex-1"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
+              {showAdd ? "Cancel" : "+ Add Job"}
+            </button>
+            <button onClick={handleWake} disabled={loading}
+              className="text-[10px] px-2.5 py-1 rounded-lg font-medium"
+              style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b" }}>
+              ⚡ Wake All
+            </button>
+          </div>
+
+          {/* Add job form */}
+          {showAdd && (
+            <div className="rounded-lg p-2.5 space-y-2"
+              style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
+                New Job for {userId}
+              </p>
+              <div className="flex gap-1.5">
+                <select value={addAction} onChange={e => setAddAction(e.target.value)}
+                  className="flex-1 text-[11px] rounded-lg px-2 py-1.5 outline-none"
+                  style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}>
+                  {JOB_ACTIONS.map(a => <option key={a} value={a}>{ACTION_LABELS[a]}</option>)}
+                </select>
+                {addAction === "deep_dive" && (
+                  <input value={addTicker} onChange={e => setAddTicker(e.target.value.toUpperCase())}
+                    placeholder="TICKER"
+                    className="w-24 text-[11px] rounded-lg px-2 py-1.5 outline-none uppercase"
+                    style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
+                )}
+              </div>
+              <button disabled={loading} onClick={handleAdd}
+                className="w-full py-1.5 rounded-lg text-[11px] font-semibold"
+                style={{ background: "var(--color-accent-blue)", color: "white" }}>
+                {loading ? "Queuing…" : `Queue ${ACTION_LABELS[addAction] ?? addAction}`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- User Card ----
 function UserCard({
   user,
@@ -1061,6 +1382,9 @@ function UserCard({
         onError={onError}
       />
 
+      {/* Jobs panel */}
+      <UserJobsPanel userId={user.userId} onError={onError} />
+
       {/* Actions row */}
       <div className="flex gap-1.5 flex-wrap pt-1 border-t" style={{ borderColor: "var(--color-border)" }}>
         <ProfileBadge
@@ -1158,12 +1482,102 @@ function UserCard({
   );
 }
 
+function SystemAgentCard({
+  agent,
+  profiles,
+  onProfileChanged,
+  onError,
+}: {
+  agent: SystemAgentSummary;
+  profiles: ProfilesRegistry;
+  onProfileChanged: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const handleSwitch = async (profileName: string) => {
+    setOpen(false);
+    try {
+      await adminSetSystemAgentProfile(profileName);
+      onProfileChanged();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to switch system agent profile");
+    }
+  };
+
+  return (
+    <div
+      className="rounded-xl border p-4 space-y-3"
+      style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-sm" style={{ color: "var(--color-fg-default)" }}>
+              Root System Agent
+            </span>
+            <span className="text-[10px] font-mono" style={{ color: "var(--color-fg-subtle)" }}>
+              @{agent.agentId}
+            </span>
+          </div>
+          <p className="text-[10px] font-medium uppercase mt-0.5 text-[var(--color-accent-blue)]">
+            Default PM / developer agent
+          </p>
+        </div>
+        <HealthBadge health={agent.agentHealth} />
+      </div>
+
+      <div className="text-[11px] space-y-0.5" style={{ color: "var(--color-fg-muted)" }}>
+        <p>Workspace: {agent.workspace}</p>
+        <p>{agent.configured ? "Configured in OpenClaw" : "Missing from OpenClaw config"}</p>
+        <p>
+          {agent.hasTelegram
+            ? `Telegram bot bound to account ${agent.telegramAccountId ?? "main"}`
+            : "Telegram bot is not bound to the system agent"}
+        </p>
+        {agent.profileBroken && agent.profileBrokenReason && (
+          <p style={{ color: "var(--color-accent-red)" }}>{agent.profileBrokenReason}</p>
+        )}
+      </div>
+
+      <div className="flex gap-1.5 flex-wrap pt-1 border-t" style={{ borderColor: "var(--color-border)" }}>
+        <div className="relative inline-block">
+          <button
+            onClick={() => setOpen((value) => !value)}
+            className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/20 text-blue-400"
+          >
+            {agent.modelProfile} ▾
+          </button>
+          {open && (
+            <div className="absolute left-0 top-6 z-20 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 min-w-[140px]">
+              {Object.keys(profiles).map((name) => (
+                <button
+                  key={name}
+                  onClick={() => handleSwitch(name)}
+                  className={`w-full text-left text-xs px-3 py-1.5 hover:bg-[var(--color-bg-muted)] ${
+                    name === agent.modelProfile
+                      ? "font-bold text-[var(--color-accent-blue)]"
+                      : "text-[var(--color-fg-default)]"
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---- Main Admin Page ----
 export function Admin() {
   const language = usePreferencesStore((s) => s.language);
   const isLoggedIn = !!sessionStorage.getItem("admin_key");
   const [loggedIn, setLoggedIn] = useState(isLoggedIn);
   const [status, setStatus] = useState<AdminStatus | null>(null);
+  const [systemAgent, setSystemAgent] = useState<SystemAgentSummary | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [profiles, setProfiles] = useState<ProfilesRegistry>({});
   const [showAdd, setShowAdd] = useState(false);
@@ -1173,12 +1587,14 @@ export function Admin() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, { users: u }, { profiles: p }] = await Promise.all([
+      const [s, system, { users: u }, { profiles: p }] = await Promise.all([
         adminGetStatus(),
+        adminGetSystemAgent(),
         adminFetchUsers(),
         adminFetchProfiles(),
       ]);
       setStatus(s);
+      setSystemAgent(system);
       setUsers(u);
       setProfiles(p);
     } catch {
@@ -1255,6 +1671,15 @@ export function Admin() {
 
         {/* System controls */}
         <SystemControls onError={(m) => setError(m)} />
+
+        {systemAgent && (
+          <SystemAgentCard
+            agent={systemAgent}
+            profiles={profiles}
+            onProfileChanged={load}
+            onError={setError}
+          />
+        )}
 
         {/* Error banner */}
         {error && (

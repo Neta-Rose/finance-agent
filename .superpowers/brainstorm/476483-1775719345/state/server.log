@@ -1,0 +1,5 @@
+{"type":"server-started","port":59139,"host":"0.0.0.0","url_host":"localhost","url":"http://localhost:59139","screen_dir":"/root/clawd/.superpowers/brainstorm/476483-1775719345/content","state_dir":"/root/clawd/.superpowers/brainstorm/476483-1775719345/state"}
+{"type":"screen-added","file":"/root/clawd/.superpowers/brainstorm/476483-1775719345/content/modal-layout.html"}
+{"type":"screen-added","file":"/root/clawd/.superpowers/brainstorm/476483-1775719345/content/modal-flow.html"}
+{"type":"screen-added","file":"/root/clawd/.superpowers/brainstorm/476483-1775719345/content/waiting-1.html"}
+{"type":"server-stopped","reason":"idle timeout"}

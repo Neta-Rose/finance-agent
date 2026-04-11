@@ -1,0 +1,94 @@
+<h2>Architecture — Admin Controls</h2>
+<p class="subtitle">How all the pieces connect. Review and tell me if anything looks wrong.</p>
+
+<div class="section">
+  <h3>Storage: Two control files</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+    <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:16px">
+      <div class="label">Per-user</div>
+      <code style="font-size:11px;display:block;margin:8px 0">users/{userId}/control.json</code>
+      <ul style="font-size:12px;margin:0;padding-left:16px;line-height:1.8">
+        <li><strong>restriction</strong>: null | "readonly" | "blocked" | "suspended"</li>
+        <li><strong>reason</strong>: admin message shown to user</li>
+        <li><strong>restrictedAt</strong>: ISO timestamp</li>
+        <li><strong>restrictedUntil</strong>: ISO or null (indefinite)</li>
+        <li><strong>banner</strong>: { text, type, dismissible, expiresAt }</li>
+        <li><strong>tokenVersion</strong>: incremented on force-logout</li>
+        <li><strong>activeJobKills</strong>: list of job IDs to force-fail</li>
+      </ul>
+    </div>
+    <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:16px">
+      <div class="label">System-wide</div>
+      <code style="font-size:11px;display:block;margin:8px 0">data/system-control.json</code>
+      <ul style="font-size:12px;margin:0;padding-left:16px;line-height:1.8">
+        <li><strong>locked</strong>: boolean</li>
+        <li><strong>lockReason</strong>: shown to all users</li>
+        <li><strong>lockedAt</strong> / <strong>lockedUntil</strong></li>
+        <li><strong>broadcast</strong>: { text, type, dismissible, expiresAt }</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Server-side enforcement (security-first)</h3>
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:12px;line-height:2">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="background:#3b82f6;color:white;border-radius:4px;padding:2px 8px;font-size:11px">Request</span>
+      <span>→</span>
+      <span style="background:#8b5cf6;color:white;border-radius:4px;padding:2px 8px;font-size:11px">authMiddleware</span>
+      <span style="font-size:11px;color:var(--fg-muted)">validates JWT + checks tokenVersion</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:80px"></span>
+      <span>→</span>
+      <span style="background:#8b5cf6;color:white;border-radius:4px;padding:2px 8px;font-size:11px">systemLockMiddleware</span>
+      <span style="font-size:11px;color:var(--fg-muted)">blocks all if system locked (except admin routes)</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:80px"></span>
+      <span>→</span>
+      <span style="background:#8b5cf6;color:white;border-radius:4px;padding:2px 8px;font-size:11px">userControlMiddleware</span>
+      <span style="font-size:11px;color:var(--fg-muted)">reads control.json, attaches restriction to res.locals</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:80px"></span>
+      <span>→</span>
+      <span style="background:#059669;color:white;border-radius:4px;padding:2px 8px;font-size:11px">GET /api/me/control</span>
+      <span style="font-size:11px;color:var(--fg-muted)">frontend polls this to know current state — ALWAYS responds</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="width:80px"></span>
+      <span>→</span>
+      <span style="background:#dc2626;color:white;border-radius:4px;padding:2px 8px;font-size:11px">POST /api/jobs/trigger</span>
+      <span style="font-size:11px;color:var(--fg-muted)">blocked/readonly/suspended → 403 with code</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Security guarantees</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+    <div style="background:#052e16;border:1px solid #16a34a40;border-radius:8px;padding:12px">
+      <div class="label" style="color:#4ade80">Enforced server-side</div>
+      <ul style="font-size:11px;margin:8px 0 0;padding-left:14px;line-height:1.9;color:#86efac">
+        <li>All blocks checked per-request, not just login</li>
+        <li>tokenVersion in JWT payload — can't be forged</li>
+        <li>System lock bypasses user workspace entirely</li>
+        <li>Admin endpoints still use X-Admin-Key only (no JWT)</li>
+        <li>control.json only writable by backend, never client</li>
+        <li>Auto-expiry evaluated server-side on read</li>
+      </ul>
+    </div>
+    <div style="background:#450a0a;border:1px solid #dc262640;border-radius:8px;padding:12px">
+      <div class="label" style="color:#f87171">What this doesn't do</div>
+      <ul style="font-size:11px;margin:8px 0 0;padding-left:14px;line-height:1.9;color:#fca5a5">
+        <li>Doesn't block the user's Telegram access<br><span style="font-size:10px;opacity:0.7">(separate OpenClaw channel — out of scope)</span></li>
+        <li>Doesn't revoke existing OpenClaw LLM proxy keys<br><span style="font-size:10px;opacity:0.7">(proxy key revocation is handled via unregisterKey)</span></li>
+        <li>Rate limit override zeroes the window count, not forever<br><span style="font-size:10px;opacity:0.7">(resets when their rate limit window rolls over)</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">Look good? Tell me in the terminal if anything needs adjusting, then I'll show the UI mockups.</p>

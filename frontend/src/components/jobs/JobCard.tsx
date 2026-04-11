@@ -40,6 +40,17 @@ function actionLabel(action: string): string {
   return action.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function formatJobResult(result: Job["result"]): string | null {
+  if (result == null) return null;
+  if (typeof result === "string") return result;
+
+  try {
+    return JSON.stringify(result);
+  } catch {
+    return "[structured result]";
+  }
+}
+
 export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
   const language = usePreferencesStore((s) => s.language);
   const [job, setJob] = useState<Job>(initialJob);
@@ -81,6 +92,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
   const borderColor = statusColor(job.status);
   const prog = job.progress;
   const pct = prog?.pct ?? 0;
+  const resultText = formatJobResult(job.result);
 
   return (
     <div
@@ -178,12 +190,12 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
               <span>{t("jobQueued2", language)} {new Date(job.triggered_at).toLocaleTimeString()}</span>
             )}
           </div>
-          {job.status === "completed" && job.result && (
+          {job.status === "completed" && resultText && (
             <p className="text-xs text-[var(--color-fg-muted)]">
-              {job.result.slice(0, 200)}{job.result.length > 200 ? "…" : ""}
+              {resultText.slice(0, 200)}{resultText.length > 200 ? "…" : ""}
             </p>
           )}
-          {job.status === "completed" && !job.result && (
+          {job.status === "completed" && !resultText && (
             <p className="text-xs text-[var(--color-fg-subtle)]">{t("jobCompletedOk", language)}</p>
           )}
           {job.status === "failed" && job.error && (

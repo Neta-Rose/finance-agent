@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import path from "path";
 import { promises as fs } from "fs";
+import { resolveConfiguredPath } from "../services/paths.js";
 
 export class WorkspaceViolationError extends Error {
   constructor(
@@ -83,7 +84,7 @@ export async function userIsolationMiddleware(
     return;
   }
 
-  const usersDir = path.resolve(process.env["USERS_DIR"] ?? "../users");
+  const usersDir = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
   const workspaceRoot = path.join(usersDir, userId);
 
   try {
