@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import crypto from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import {
@@ -49,7 +50,12 @@ const router = Router();
 // Check admin key
 function adminAuth(req: Request, res: Response, next: NextFunction): void {
   const key = req.headers["x-admin-key"];
-  if (!ADMIN_KEY || key !== ADMIN_KEY) {
+  if (
+    !ADMIN_KEY ||
+    typeof key !== "string" ||
+    key.length !== ADMIN_KEY.length ||
+    !crypto.timingSafeEqual(Buffer.from(key), Buffer.from(ADMIN_KEY))
+  ) {
     res.status(401).json({ error: "unauthorized" });
     return;
   }

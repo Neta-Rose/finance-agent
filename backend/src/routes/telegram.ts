@@ -5,9 +5,15 @@ import { logger } from "../services/logger.js";
 const router = express.Router();
 
 router.post("/telegram/webhook", async (req, res) => {
-  // Verify secret
+  // Verify secret — require TELEGRAM_SECRET to be configured
+  const expectedSecret = process.env.TELEGRAM_SECRET;
+  if (!expectedSecret) {
+    logger.warn("Telegram webhook called but TELEGRAM_SECRET is not configured — rejecting");
+    res.status(200).json({ ok: true });
+    return;
+  }
   const secret = req.headers["x-telegram-bot-api-secret-token"];
-  if (process.env.TELEGRAM_SECRET && secret !== process.env.TELEGRAM_SECRET) {
+  if (secret !== expectedSecret) {
     res.status(200).json({ ok: true }); // Return 200 anyway — Telegram requirement
     return;
   }

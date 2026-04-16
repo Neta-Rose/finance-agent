@@ -34,9 +34,35 @@ export function createApp(): Express {
 
   app.use(helmet({
     hsts: false,
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
   }));
-  app.use(cors());
+  const allowedOrigins = process.env["CORS_ORIGIN"]
+    ? process.env["CORS_ORIGIN"].split(",").map((o) => o.trim())
+    : [];
+  app.use(
+    cors(
+      allowedOrigins.length > 0
+        ? {
+            origin: allowedOrigins,
+            credentials: true,
+          }
+        : {
+            // No CORS_ORIGIN set — allow same-origin only (no Access-Control-Allow-Origin header)
+            origin: false,
+          }
+    )
+  );
   app.use(express.json({ limit: "2mb" }));
 
   // Health — no auth

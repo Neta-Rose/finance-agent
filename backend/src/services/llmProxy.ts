@@ -17,6 +17,12 @@ export const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 
 export function generateProxyKey(userId: string): string {
   const secret = process.env["JWT_SECRET"] ?? "changeme";
+  if (secret === "changeme" && process.env["NODE_ENV"] === "production") {
+    throw new Error(
+      "FATAL: JWT_SECRET is set to the insecure default \"changeme\". " +
+      "Set a strong, random JWT_SECRET environment variable before running in production."
+    );
+  }
   const hmac = crypto.createHmac("sha256", secret).update(userId).digest("hex");
   return `clawd-sk-${userId}-${hmac.slice(0, 32)}`;
 }

@@ -6,6 +6,13 @@ import path from "path";
 import { resolveConfiguredPath } from "../services/paths.js";
 
 const JWT_SECRET  = process.env["JWT_SECRET"] ?? "changeme";
+
+if (JWT_SECRET === "changeme" && process.env["NODE_ENV"] === "production") {
+  throw new Error(
+    "FATAL: JWT_SECRET is set to the insecure default \"changeme\". " +
+    "Set a strong, random JWT_SECRET environment variable before running in production."
+  );
+}
 const TOKEN_EXPIRY = "7d";
 const USERS_DIR   = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 
