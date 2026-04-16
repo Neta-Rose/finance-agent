@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { promises as fs } from "fs";
 import path from "path";
+import crypto from "crypto";
 import { authLimiter } from "../middleware/rateLimit.js";
 import {
   generateToken,
@@ -23,6 +24,11 @@ router.post(
 
     if (!userId || !password) {
       res.status(400).json({ error: "userId and password required" });
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9]{4,32}$/.test(userId)) {
+      res.status(400).json({ error: "invalid credentials" });
       return;
     }
 
@@ -64,7 +70,12 @@ router.post("/logout", async (_req, res) => {
 router.post("/register", async (req, res) => {
   const expectedKey = process.env["ADMIN_KEY"];
   const adminKey = req.headers["x-admin-key"];
-  if (!expectedKey || adminKey !== expectedKey) {
+  if (
+    !expectedKey ||
+    typeof adminKey !== "string" ||
+    adminKey.length !== expectedKey.length ||
+    !crypto.timingSafeEqual(Buffer.from(adminKey), Buffer.from(expectedKey))
+  ) {
     res.status(403).json({ error: "admin access only" });
     return;
   }
@@ -109,7 +120,12 @@ router.post("/register", async (req, res) => {
 router.post("/change-password", async (req, res) => {
   const expectedKey = process.env["ADMIN_KEY"];
   const adminKey = req.headers["x-admin-key"];
-  if (!expectedKey || adminKey !== expectedKey) {
+  if (
+    !expectedKey ||
+    typeof adminKey !== "string" ||
+    adminKey.length !== expectedKey.length ||
+    !crypto.timingSafeEqual(Buffer.from(adminKey), Buffer.from(expectedKey))
+  ) {
     res.status(403).json({ error: "admin access only" });
     return;
   }
@@ -121,6 +137,10 @@ router.post("/change-password", async (req, res) => {
 
   if (!userId || !newPassword) {
     res.status(400).json({ error: "userId and newPassword required" });
+    return;
+  }
+  if (!/^[a-zA-Z0-9]{4,32}$/.test(userId)) {
+    res.status(400).json({ error: "invalid userId format" });
     return;
   }
   if (newPassword.length < 8) {
