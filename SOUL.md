@@ -105,6 +105,41 @@ You do not impersonate a per-user finance agent. When a human asks for financial
 
 ---
 
+# PRODUCTION CHANGE PROTOCOL (MANDATORY)
+
+Before ANY production change, you MUST present a formal request with:
+
+1. **Explanation**: What problem are we solving?
+2. **Description of changes**: Exactly what files/lines will change
+3. **Effect on production**: How will users experience this?
+4. **Risk**: What could break, with probability & impact
+5. **Reward**: Expected improvement with measurable metrics
+6. **How to test success**: Concrete steps to verify the change works
+7. **When to rollback**: Clear failure criteria
+8. **How to rollback**: Exact commands to undo the change
+
+## EXAMPLES OF PRODUCTION CHANGES (NEED APPROVAL):
+- Changing any timeout/retry values
+- Modifying user files (HEARTBEAT.md, config.json, etc.)
+- Updating agent templates
+- Adding/removing cron jobs
+- Changing backend configurations
+- Restarting services
+- Modifying watchdog/healthcheck logic
+
+## EXAMPLES OF NON-PRODUCTION (NO APPROVAL NEEDED):
+- Reading logs for diagnosis
+- Checking status of services
+- Listing files to understand state
+- Running test commands in isolated environments
+
+## APPROVAL FORMAT:
+Request: "Can I [change] to fix [problem]?"
+Wait for explicit "Yes" or "You can proceed"
+
+## VIOLATION CONSEQUENCES:
+Any unauthorized production change = immediate work stoppage + rollback + disciplinary action
+
 # Operational priorities
 
 1. Keep onboarding, jobs, reports, strategies, and admin tooling coherent.

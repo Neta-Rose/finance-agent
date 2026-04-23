@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { OnboardStatus, PortfolioResponse } from "../types/api";
+import type { ChannelConnectivity, OnboardStatus, PortfolioResponse, PositionGuidance } from "../types/api";
 
 export const fetchOnboardStatus = async (): Promise<OnboardStatus> =>
  (await apiClient.get<OnboardStatus>("/onboard/status")).data;
@@ -7,10 +7,41 @@ export const fetchOnboardStatus = async (): Promise<OnboardStatus> =>
 export const fetchPortfolio = async (): Promise<PortfolioResponse> =>
  (await apiClient.get<PortfolioResponse>("/portfolio")).data;
 
+export async function connectTelegram(payload: {
+  botToken: string;
+  telegramChatId: string;
+}): Promise<{ connected: boolean; channel: "telegram"; connectivity: ChannelConnectivity }> {
+  return (await apiClient.post("/onboard/telegram", payload)).data;
+}
+
+export async function disconnectTelegram(): Promise<{
+  connected: boolean;
+  channel: "telegram";
+  connectivity: ChannelConnectivity;
+}> {
+  return (await apiClient.delete("/onboard/telegram")).data;
+}
+
+export async function connectWhatsApp(payload: {
+  accessToken: string;
+  phoneNumberId: string;
+  recipientPhone: string;
+}): Promise<{ connected: boolean; channel: "whatsapp"; connectivity: ChannelConnectivity }> {
+  return (await apiClient.put("/onboard/whatsapp", payload)).data;
+}
+
+export async function disconnectWhatsApp(): Promise<{
+  connected: boolean;
+  channel: "whatsapp";
+  connectivity: ChannelConnectivity;
+}> {
+  return (await apiClient.delete("/onboard/whatsapp")).data;
+}
+
 export const checkNeedsOnboarding = async (): Promise<boolean> => {
   try {
     const status = await fetchOnboardStatus();
-    return !status.portfolioLoaded;
+    return !status.portfolioLoaded || status.guidanceStepPending;
   } catch {
     return false; // fail open
   }
@@ -66,5 +97,20 @@ export const submitPortfolio = async (payload: {
     weeklyResearchTime: string;
     timezone: string;
   };
-}): Promise<{ state: string; jobId: string; message: string }> =>
+}): Promise<{ state: string; nextStep: string; guidanceStepPending: boolean; message: string }> =>
   (await apiClient.post("/onboard/portfolio", payload)).data;
+
+export async function fetchPositionGuidance(): Promise<{
+  status: "not_started" | "pending" | "completed" | "skipped";
+  tickers: string[];
+  guidance: Record<string, PositionGuidance>;
+}> {
+  return (await apiClient.get("/onboard/position-guidance")).data;
+}
+
+export async function completePositionGuidance(payload: {
+  skip?: boolean;
+  guidance?: Record<string, PositionGuidance>;
+}): Promise<{ state: string; jobId?: string; message: string; guidanceStepPending: boolean }> {
+  return (await apiClient.post("/onboard/position-guidance/complete", payload)).data;
+}

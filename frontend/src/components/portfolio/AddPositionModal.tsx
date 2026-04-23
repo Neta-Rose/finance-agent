@@ -184,7 +184,7 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
             {/* Ticker search */}
             <div>
               <label className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
-                Search Stock
+                Search Asset
               </label>
               <TickerSearch
                 value={selected}

@@ -4,7 +4,6 @@ import express, {
   type Response,
   type NextFunction,
 } from "express";
-import { createProxyMiddleware } from "http-proxy-middleware";
 import helmet from "helmet";
 import cors from "cors";
 import path from "path";
@@ -27,6 +26,8 @@ import adminRoutes from "./routes/admin.js";
 import searchRoutes from "./routes/search.js";
 import llmProxyRouter from "./routes/llmProxy.js";
 import controlRoutes from "./routes/control.js";
+import notificationsRoutes from "./routes/notifications.js";
+import supportRoutes from "./routes/support.js";
 
 export function createApp(): Express {
   const app = express();
@@ -64,6 +65,7 @@ export function createApp(): Express {
   // Onboarding routes — init doesn't need JWT, portfolio/status do
   // Mounted here so it can have its own auth handling per-route
   app.use("/api/onboard", onboardingRoutes);
+  app.use("/api", telegramRoutes); // POST /api/telegram/webhook — public webhook path
 
   // Protected routes — JWT + user isolation for everything else
   app.use("/api", authMiddleware, userIsolationMiddleware);
@@ -74,28 +76,11 @@ export function createApp(): Express {
   app.use("/api", verdictsRoutes); // GET /api/verdicts
   app.use("/api", jobsRoutes); // POST /api/jobs/trigger, GET /api/jobs
   app.use("/api", reportsRoutes); // GET /api/reports/*
+  app.use("/api", notificationsRoutes); // GET/POST /api/notifications*
+  app.use("/api", supportRoutes); // POST /api/support/messages
   app.use("/api", conditionRoutes); // GET /api/conditions/*
   app.use("/api", strategyRoutes); // GET /api/strategies/*
-  app.use("/api", telegramRoutes); // POST /api/telegram/webhook — no auth
   app.use("/api", searchRoutes); // GET /api/search/ticker — no user workspace needed
-
-  // ── Datasette observability proxy (admin-key protected) ──────────────────
-  app.use(
-    "/api/admin/datasette",
-    (req: Request, res: Response, next: NextFunction) => {
-      const key = req.headers["x-admin-key"] as string | undefined;
-      if (!key || key !== process.env["ADMIN_KEY"]) {
-        res.status(401).json({ error: "unauthorized" });
-        return;
-      }
-      next();
-    },
-    createProxyMiddleware({
-      target: "http://127.0.0.1:8083",
-      changeOrigin: true,
-      pathRewrite: { "^/api/admin/datasette": "" },
-    })
-  );
 
   // ── Serve React frontend (SPA fallback) ──────────────────────────────────
   const frontendDist = process.env.FRONTEND_DIST ?? path.resolve(process.cwd(), "../frontend/dist");

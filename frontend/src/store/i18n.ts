@@ -9,10 +9,17 @@ export type TranslationKey =
   // Common actions
   | "save" | "cancel" | "edit" | "retry" | "run" | "loading" | "saving"
   | "back" | "next" | "skip" | "confirm" | "delete" | "rename"
+  | "sending" | "sendMessage" | "contactAdmin" | "contactAdminTitle" | "contactAdminSubtitle"
+  | "contactAdminSubject" | "contactAdminMessage" | "contactAdminSubjectPlaceholder"
+  | "contactAdminMessagePlaceholder" | "contactAdminContext" | "contactAdminSent" | "contactAdminFailed"
   // Settings page
   | "settings" | "account" | "displayName" | "security" | "changePassword"
   | "schedule" | "dailyBrief" | "weeklyResearch" | "timezone"
-  | "telegram" | "statusConnected" | "statusNotConnected" | "connect" | "disconnect"
+  | "telegram" | "whatsapp" | "webChannel" | "notifications"
+  | "statusConnected" | "statusNotConnected" | "connect" | "disconnect"
+  | "connectedTo" | "notConnected" | "manageConnection" | "setupGuide"
+  | "telegramGuideStep1" | "telegramGuideStep2" | "telegramGuideStep3"
+  | "whatsAppGuideStep1" | "whatsAppGuideStep2" | "whatsAppGuideStep3"
   | "rateLimits" | "fullReport" | "dailyBriefLimit" | "deepDiveLimit" | "newIdeasLimit"
   | "setByAdmin" | "logout" | "theme" | "language" | "dark" | "bright" | "middle"
   | "english" | "hebrew" | "appearance"
@@ -20,8 +27,14 @@ export type TranslationKey =
   | "errorCurrentPasswordRequired" | "errorPasswordTooShort" | "errorPasswordMismatch"
   | "passwordChangedSuccess" | "errorIncorrectPassword" | "errorChangePassword"
   | "scheduleUpdated" | "errorUpdateSchedule"
-  | "botToken" | "chatId" | "telegramConnected" | "errorConnectTelegram" | "errorBothFields"
-  | "errorInvalidBotToken" | "errorInvalidChatId"
+  | "botToken" | "chatId" | "telegramConnected" | "whatsappConnected" | "channelDisconnected"
+  | "errorConnectTelegram" | "errorConnectWhatsApp" | "errorBothFields"
+  | "errorInvalidBotToken" | "errorInvalidChatId" | "errorInvalidPhoneNumberId"
+  | "errorInvalidRecipientPhone" | "errorInvalidAccessToken"
+  | "accessToken" | "phoneNumberId" | "recipientPhone"
+  | "primaryChannel" | "notificationChannels" | "notifyMeAbout"
+  | "dailyBriefsLabel" | "reportRunsLabel" | "marketNewsLabel"
+  | "notificationsUpdated" | "errorUpdateNotifications" | "noAlerts"
   | "perWeek" | "perDay"
   // Days of week
   | "daySunday" | "dayMonday" | "dayTuesday" | "dayWednesday"
@@ -37,15 +50,17 @@ export type TranslationKey =
   | "totalValue" | "totalPL" | "positions" | "usdIls" | "updatedAt"
   // Strategies
   | "strategies" | "errorLoadStrategies" | "emptyStrategies" | "noStrategyMatches"
-  | "searchTicker" | "filterAll" | "expiredCatalyst"
+  | "searchTicker" | "filterAll" | "expiredCatalyst" | "strategyTabPortfolio" | "strategyTabNonPortfolio"
+  | "searchNoResults" | "searchUnexpectedError" | "searchUnexpectedErrorHelp"
   | "colConfidence" | "colTimeframe" | "colSize" | "colWeightPct" | "colReasoning" | "colUpdated"
   // Controls
   | "controls" | "activeJobs" | "recentJobs" | "noJobs" | "enterTicker" | "tickerRequired"
   | "jobDailyTitle" | "jobDailyDesc" | "jobFullTitle" | "jobFullDesc"
   | "jobDeepDiveTitle" | "jobDeepDiveDesc" | "jobNewIdeasTitle" | "jobNewIdeasDesc"
+  | "jobWeeklyTitle" | "jobWeeklyDesc" | "jobWeeklyBlockedReason" | "jobNewIdeasBlockedReason"
   | "jobQueued" | "jobFailed" | "jobCompleted" | "jobCompletedNotif" | "jobFailedNotif"
   // Reports
-  | "reports" | "emptyReports" | "newerBtn" | "olderBtn" | "reportLoadError" | "pageOf"
+  | "feed" | "reports" | "emptyReports" | "newerBtn" | "olderBtn" | "reportLoadError" | "pageOf"
   // Strategy Modal
   | "reasoning" | "bullCase" | "bearCase" | "entryConditions" | "exitConditions" | "catalysts"
   | "noExpiry" | "triggered" | "comingSoon" | "failedLoadStrategy" | "runDeepDive"
@@ -87,6 +102,13 @@ export type TranslationKey =
   | "onboardAvgPriceError" | "onboardAddPositionError"
   | "onboardStep5Title" | "onboardStep5Sub" | "onboardLaunch" | "onboardLaunching"
   | "onboardSetupFailed"
+  | "onboardStep6Title" | "onboardStep6Sub" | "onboardStep6Hint"
+  | "onboardGuidanceOptional" | "onboardGuidanceThesis" | "onboardGuidanceThesisPlaceholder"
+  | "onboardGuidanceHorizon" | "onboardGuidanceHorizonUnspecified" | "onboardGuidanceHorizonDays"
+  | "onboardGuidanceHorizonWeeks" | "onboardGuidanceHorizonMonths" | "onboardGuidanceHorizonYears"
+  | "onboardGuidanceAdd" | "onboardGuidanceAddPlaceholder"
+  | "onboardGuidanceReduce" | "onboardGuidanceReducePlaceholder"
+  | "onboardGuidanceNotes" | "onboardGuidanceNotesPlaceholder"
   | "onboardReviewAccount" | "onboardReviewSchedule" | "onboardReviewTelegram"
   | "onboardReviewPortfolio" | "onboardTelegramYes" | "onboardTelegramNo"
   // Admin
@@ -101,7 +123,7 @@ export type TranslationKey =
   | "adminFailedLoadProfiles" | "adminFailedUpdateProfile" | "adminFailedCreateProfile"
   | "adminFailedDeleteProfile" | "adminFailedSwitchProfile" | "adminConfirmDeleteProfile"
   | "adminStatusOk" | "adminStatusError"
-  | "adminStateActive" | "adminStateBootstrapping" | "adminPortfolioLoaded" | "adminPortfolioMissing"
+  | "adminStateActive" | "adminStateBootstrapping" | "adminStateIncomplete" | "adminPortfolioLoaded" | "adminPortfolioMissing"
   | "adminFailedLoadUsers" | "adminFailedDeleteUser" | "adminUserDeleted"
   | "adminGateway" | "adminUsers" | "adminActive" | "adminRunning" | "adminStopped"
   | "adminNoUsers" | "adminTotal" | "adminSignIn"
@@ -124,8 +146,8 @@ export const translations: Translations = {
     // Navigation
     settingsTab: "Settings",
     portfolioTab: "Portfolio",
-    alertsTab: "Alerts",
-    reportsTab: "Reports",
+    alertsTab: "Feed",
+    reportsTab: "Feed",
     strategiesTab: "Strategies",
     controlsTab: "Controls",
     // Login
@@ -150,6 +172,18 @@ export const translations: Translations = {
     confirm: "Confirm",
     delete: "Delete",
     rename: "Rename",
+    sending: "Sending...",
+    sendMessage: "Send message",
+    contactAdmin: "Contact Admin",
+    contactAdminTitle: "Contact admin",
+    contactAdminSubtitle: "Send a quick message to support. Include what happened and what you expected.",
+    contactAdminSubject: "Subject",
+    contactAdminMessage: "Message",
+    contactAdminSubjectPlaceholder: "Short summary",
+    contactAdminMessagePlaceholder: "Describe the issue, request, or question...",
+    contactAdminContext: "Page context",
+    contactAdminSent: "Your message was sent to support",
+    contactAdminFailed: "Failed to send message to support",
     // Settings
     settings: "Settings",
     account: "Account",
@@ -161,10 +195,23 @@ export const translations: Translations = {
     weeklyResearch: "Weekly Research",
     timezone: "Timezone",
     telegram: "Telegram",
+    whatsapp: "WhatsApp",
+    webChannel: "Web",
+    notifications: "Notifications",
     statusConnected: "Status: Connected",
     statusNotConnected: "Status: Not connected",
     connect: "Connect",
     disconnect: "Disconnect",
+    connectedTo: "Connected to",
+    notConnected: "Not connected",
+    manageConnection: "Manage connection",
+    setupGuide: "Setup guide",
+    telegramGuideStep1: "Create a bot with @BotFather and copy the bot token.",
+    telegramGuideStep2: "Send any message to your bot so Telegram creates the chat.",
+    telegramGuideStep3: "Open @userinfobot and copy your numeric chat ID.",
+    whatsAppGuideStep1: "In Meta for Developers, create a WhatsApp app and open WhatsApp > API Setup.",
+    whatsAppGuideStep2: "Copy a permanent access token and the Phone Number ID for your business number.",
+    whatsAppGuideStep3: "Enter your WhatsApp recipient phone in international format, for example +14155550123.",
     rateLimits: "Rate Limits",
     fullReport: "Full Report",
     dailyBriefLimit: "Daily Brief",
@@ -193,11 +240,29 @@ export const translations: Translations = {
     errorUpdateSchedule: "Failed to update schedule",
     botToken: "Bot Token",
     chatId: "Chat ID",
+    accessToken: "Access Token",
+    phoneNumberId: "Phone Number ID",
+    recipientPhone: "Recipient Phone",
     telegramConnected: "Telegram connected!",
+    whatsappConnected: "WhatsApp connected!",
+    channelDisconnected: "Channel disconnected",
     errorConnectTelegram: "Failed to connect Telegram",
+    errorConnectWhatsApp: "Failed to connect WhatsApp",
     errorBothFields: "Both fields required",
     errorInvalidBotToken: "Invalid bot token format",
     errorInvalidChatId: "Invalid chat ID",
+    errorInvalidPhoneNumberId: "Invalid phone number ID",
+    errorInvalidRecipientPhone: "Invalid recipient phone number",
+    errorInvalidAccessToken: "Access token looks invalid",
+    primaryChannel: "Primary channel",
+    notificationChannels: "Channels",
+    notifyMeAbout: "What should notify me",
+    dailyBriefsLabel: "Daily briefs",
+    reportRunsLabel: "Report runs",
+    marketNewsLabel: "Market news",
+    notificationsUpdated: "Notifications updated",
+    errorUpdateNotifications: "Failed to update notifications",
+    noAlerts: "No alerts",
     perWeek: "/ week",
     perDay: "/ day",
     // Days
@@ -247,8 +312,13 @@ export const translations: Translations = {
     emptyStrategies: "No strategies yet — run a full report",
     noStrategyMatches: "No strategies match your filter",
     searchTicker: "Search ticker...",
+    searchNoResults: "No results for",
+    searchUnexpectedError: "Something unexpected happened.",
+    searchUnexpectedErrorHelp: "Try again and if problem persists - contact help with help button.",
     filterAll: "All",
     expiredCatalyst: "Expired catalyst",
+    strategyTabPortfolio: "Portfolio",
+    strategyTabNonPortfolio: "Non-portfolio",
     colConfidence: "Confidence",
     colTimeframe: "Timeframe",
     colSize: "Size ₪",
@@ -266,16 +336,21 @@ export const translations: Translations = {
     jobDailyDesc: "Run today's portfolio brief",
     jobFullTitle: "Full Report",
     jobFullDesc: "Analyze all positions",
+    jobWeeklyTitle: "Weekly report",
+    jobWeeklyDesc: "Full portfolio review with richer weekly context",
+    jobWeeklyBlockedReason: "This is visible for roadmap clarity, but weekly report is currently blocked while the full portfolio review is being rebuilt.",
     jobDeepDiveTitle: "Deep Dive",
     jobDeepDiveDesc: "Full analysis on one ticker",
     jobNewIdeasTitle: "New Ideas",
-    jobNewIdeasDesc: "Weekly research scan",
+    jobNewIdeasDesc: "Idea discovery and research pipeline",
+    jobNewIdeasBlockedReason: "New ideas stays visible, but it is currently blocked until the research flow is production-ready.",
     jobQueued: "queued — you'll be notified when done",
     jobFailed: "Failed to trigger",
     jobCompleted: "completed",
     jobCompletedNotif: "completed ✓",
     jobFailedNotif: "failed — check logs",
     // Reports
+    feed: "Feed",
     reports: "Reports",
     emptyReports: "No reports yet",
     newerBtn: "← Newer",
@@ -318,9 +393,9 @@ export const translations: Translations = {
     jobDone: "Done:",
     jobCompletedOk: "Completed successfully.",
     // Alerts
-    alerts: "Alerts",
+    alerts: "Feed",
     errorLoadAlerts: "Failed to load alerts",
-    emptyAlerts: "All clear — no alerts right now",
+    emptyAlerts: "No feed items yet",
     alertsNeedAttention: "need attention",
     alertCritical: "Sell / Close",
     alertWarning: "Reduce",
@@ -391,6 +466,24 @@ export const translations: Translations = {
     onboardLaunch: "Launch →",
     onboardLaunching: "Launching...",
     onboardSetupFailed: "Setup failed. Please check your details and try again.",
+    onboardStep6Title: "Position Guidance",
+    onboardStep6Sub: "Optional: add your own thinking before the first analysis pass.",
+    onboardStep6Hint: "You can skip this step, annotate a few important positions, or fill everything. Clawd will use this as structured context for the first strategy pass.",
+    onboardGuidanceOptional: "Optional per-position context",
+    onboardGuidanceThesis: "Why do you own it?",
+    onboardGuidanceThesisPlaceholder: "Brief thesis or what you think matters here.",
+    onboardGuidanceHorizon: "Intended horizon",
+    onboardGuidanceHorizonUnspecified: "Unspecified",
+    onboardGuidanceHorizonDays: "Days",
+    onboardGuidanceHorizonWeeks: "Weeks",
+    onboardGuidanceHorizonMonths: "Months",
+    onboardGuidanceHorizonYears: "Years",
+    onboardGuidanceAdd: "What would make you add?",
+    onboardGuidanceAddPlaceholder: "Optional add condition or confirmation you care about.",
+    onboardGuidanceReduce: "What would make you reduce?",
+    onboardGuidanceReducePlaceholder: "Optional reduce condition or risk you care about.",
+    onboardGuidanceNotes: "Other notes",
+    onboardGuidanceNotesPlaceholder: "Anything else the first strategy pass should know.",
     onboardReviewAccount: "Account",
     onboardReviewSchedule: "Schedule",
     onboardReviewTelegram: "Telegram",
@@ -435,6 +528,7 @@ export const translations: Translations = {
     adminStatusError: "Error ⚠",
     adminStateActive: "ACTIVE",
     adminStateBootstrapping: "BOOTSTRAPPING",
+    adminStateIncomplete: "INCOMPLETE",
     adminPortfolioLoaded: "portfolio ✓",
     adminPortfolioMissing: "portfolio ✗",
     adminFailedLoadUsers: "Failed to load users",
@@ -483,8 +577,8 @@ export const translations: Translations = {
     // Navigation
     settingsTab: "הגדרות",
     portfolioTab: "תיק",
-    alertsTab: "התראות",
-    reportsTab: "דוחות",
+    alertsTab: "פיד",
+    reportsTab: "פיד",
     strategiesTab: "אסטרטגיות",
     controlsTab: "בקרה",
     // Login
@@ -509,6 +603,18 @@ export const translations: Translations = {
     confirm: "אישור",
     delete: "מחיקה",
     rename: "שינוי שם",
+    sending: "שולח...",
+    sendMessage: "שלח הודעה",
+    contactAdmin: "צור קשר עם המנהל",
+    contactAdminTitle: "פנייה למנהל",
+    contactAdminSubtitle: "שלח הודעה קצרה לתמיכה. כתוב מה קרה ומה ציפית שיקרה.",
+    contactAdminSubject: "נושא",
+    contactAdminMessage: "הודעה",
+    contactAdminSubjectPlaceholder: "סיכום קצר",
+    contactAdminMessagePlaceholder: "תאר את הבעיה, הבקשה או השאלה...",
+    contactAdminContext: "הקשר עמוד",
+    contactAdminSent: "ההודעה נשלחה לתמיכה",
+    contactAdminFailed: "שליחת ההודעה לתמיכה נכשלה",
     // Settings
     settings: "הגדרות",
     account: "חשבון",
@@ -520,10 +626,23 @@ export const translations: Translations = {
     weeklyResearch: "מחקר שבועי",
     timezone: "אזור זמן",
     telegram: "טלגרם",
+    whatsapp: "וואטסאפ",
+    webChannel: "ווב",
+    notifications: "התראות",
     statusConnected: "סטטוס: מחובר",
     statusNotConnected: "סטטוס: לא מחובר",
     connect: "חיבור",
     disconnect: "ניתוק",
+    connectedTo: "מחובר אל",
+    notConnected: "לא מחובר",
+    manageConnection: "ניהול חיבור",
+    setupGuide: "מדריך חיבור",
+    telegramGuideStep1: "צרו בוט דרך @BotFather והעתיקו את ה־Bot Token.",
+    telegramGuideStep2: "שלחו הודעה אחת לבוט כדי שטלגרם תיצור את הצ'אט.",
+    telegramGuideStep3: "פתחו את @userinfobot והעתיקו את מזהה הצ'אט המספרי שלכם.",
+    whatsAppGuideStep1: "ב־Meta for Developers צרו אפליקציית WhatsApp ופתחו WhatsApp > API Setup.",
+    whatsAppGuideStep2: "העתיקו Permanent Access Token ואת מזהה Phone Number ID של המספר העסקי.",
+    whatsAppGuideStep3: "הזינו את מספר הוואטסאפ שלכם בפורמט בינלאומי, למשל +14155550123.",
     rateLimits: "מגבלות שימוש",
     fullReport: "דוח מלא",
     dailyBriefLimit: "סיכום יומי",
@@ -552,11 +671,29 @@ export const translations: Translations = {
     errorUpdateSchedule: "עדכון לוח הזמנים נכשל",
     botToken: "טוקן בוט",
     chatId: "מזהה שיחה",
+    accessToken: "Access Token",
+    phoneNumberId: "מזהה מספר עסקי",
+    recipientPhone: "מספר יעד",
     telegramConnected: "טלגרם חובר בהצלחה!",
+    whatsappConnected: "וואטסאפ חובר בהצלחה!",
+    channelDisconnected: "החיבור נותק",
     errorConnectTelegram: "חיבור הטלגרם נכשל",
+    errorConnectWhatsApp: "חיבור הוואטסאפ נכשל",
     errorBothFields: "שני השדות נדרשים",
     errorInvalidBotToken: "פורמט טוקן בוט לא תקין",
     errorInvalidChatId: "מזהה שיחה לא תקין",
+    errorInvalidPhoneNumberId: "מזהה מספר עסקי לא תקין",
+    errorInvalidRecipientPhone: "מספר יעד לא תקין",
+    errorInvalidAccessToken: "Access Token לא נראה תקין",
+    primaryChannel: "ערוץ ראשי",
+    notificationChannels: "ערוצים",
+    notifyMeAbout: "על מה להתראות",
+    dailyBriefsLabel: "סיכומים יומיים",
+    reportRunsLabel: "הרצות דוחות",
+    marketNewsLabel: "חדשות שוק",
+    notificationsUpdated: "ההתראות עודכנו",
+    errorUpdateNotifications: "עדכון ההתראות נכשל",
+    noAlerts: "ללא התראות",
     perWeek: "/ שבוע",
     perDay: "/ יום",
     // Days
@@ -606,8 +743,13 @@ export const translations: Translations = {
     emptyStrategies: "אין אסטרטגיות עדיין — הפעל דוח מלא",
     noStrategyMatches: "לא נמצאו אסטרטגיות התואמות לסינון",
     searchTicker: "חיפוש מניה...",
+    searchNoResults: "לא נמצאו תוצאות עבור",
+    searchUnexpectedError: "קרה משהו לא צפוי.",
+    searchUnexpectedErrorHelp: "נסה שוב ואם הבעיה נמשכת - פנה לעזרה דרך כפתור העזרה.",
     filterAll: "הכל",
     expiredCatalyst: "קטליזטור פג תוקף",
+    strategyTabPortfolio: "בתיק",
+    strategyTabNonPortfolio: "מחוץ לתיק",
     colConfidence: "ביטחון",
     colTimeframe: "מסגרת זמן",
     colSize: "גודל ₪",
@@ -625,16 +767,21 @@ export const translations: Translations = {
     jobDailyDesc: "הפעל סיכום יומי של תיק ההשקעות",
     jobFullTitle: "דוח מלא",
     jobFullDesc: "נתח את כל הפוזיציות",
+    jobWeeklyTitle: "דוח שבועי",
+    jobWeeklyDesc: "סקירת תיק מלאה עם הקשר שבועי רחב יותר",
+    jobWeeklyBlockedReason: "הפיצ'ר מוצג כדי לשקף את מפת הדרך, אבל הדוח השבועי חסום כרגע בזמן שבונים מחדש את זרימת הסקירה המלאה.",
     jobDeepDiveTitle: "צלילה עמוקה",
     jobDeepDiveDesc: "ניתוח מלא למניה אחת",
     jobNewIdeasTitle: "רעיונות חדשים",
-    jobNewIdeasDesc: "סריקת מחקר שבועית",
+    jobNewIdeasDesc: "גילוי רעיונות וזרימת מחקר",
+    jobNewIdeasBlockedReason: "רעיונות חדשים נשאר גלוי, אבל חסום כרגע עד שזרימת המחקר תהיה מוכנה לפרודקשן.",
     jobQueued: "נוסף לתור — תקבל התראה בסיום",
     jobFailed: "הפעלה נכשלה",
     jobCompleted: "הושלם",
     jobCompletedNotif: "הושלם ✓",
     jobFailedNotif: "נכשל — בדוק את הלוגים",
     // Reports
+    feed: "פיד",
     reports: "דוחות",
     emptyReports: "אין דוחות עדיין",
     newerBtn: "→ חדשים",
@@ -677,9 +824,9 @@ export const translations: Translations = {
     jobDone: "הושלם:",
     jobCompletedOk: "הושלם בהצלחה.",
     // Alerts
-    alerts: "התראות",
+    alerts: "פיד",
     errorLoadAlerts: "טעינת ההתראות נכשלה",
-    emptyAlerts: "הכל בסדר — אין התראות כרגע",
+    emptyAlerts: "עדיין אין פריטי פיד",
     alertsNeedAttention: "דורשות תשומת לב",
     alertCritical: "מכור / סגור",
     alertWarning: "הפחת",
@@ -750,6 +897,24 @@ export const translations: Translations = {
     onboardLaunch: "השקה ←",
     onboardLaunching: "משיק...",
     onboardSetupFailed: "ההגדרה נכשלה. בדוק את הפרטים ונסה שנית.",
+    onboardStep6Title: "הכוונה לפוזיציות",
+    onboardStep6Sub: "אופציונלי: הוסיפו את החשיבה שלכם לפני סבב הניתוח הראשון.",
+    onboardStep6Hint: "אפשר לדלג, למלא רק כמה פוזיציות חשובות, או למלא את כולן. Clawd ישתמש בזה כהקשר מובנה לסבב האסטרטגיה הראשון.",
+    onboardGuidanceOptional: "הקשר אופציונלי לפוזיציה",
+    onboardGuidanceThesis: "למה אתם מחזיקים אותה?",
+    onboardGuidanceThesisPlaceholder: "תזה קצרה או מה לדעתכם חשוב כאן.",
+    onboardGuidanceHorizon: "אופק מתוכנן",
+    onboardGuidanceHorizonUnspecified: "לא מוגדר",
+    onboardGuidanceHorizonDays: "ימים",
+    onboardGuidanceHorizonWeeks: "שבועות",
+    onboardGuidanceHorizonMonths: "חודשים",
+    onboardGuidanceHorizonYears: "שנים",
+    onboardGuidanceAdd: "מה יגרום לכם להוסיף?",
+    onboardGuidanceAddPlaceholder: "תנאי הוספה או אישור שאתם רוצים לראות.",
+    onboardGuidanceReduce: "מה יגרום לכם להפחית?",
+    onboardGuidanceReducePlaceholder: "תנאי הפחתה או סיכון שמעניין אתכם.",
+    onboardGuidanceNotes: "הערות נוספות",
+    onboardGuidanceNotesPlaceholder: "כל דבר נוסף שסבב האסטרטגיה הראשון צריך לדעת.",
     onboardReviewAccount: "חשבון",
     onboardReviewSchedule: "לוח זמנים",
     onboardReviewTelegram: "טלגרם",
@@ -794,6 +959,7 @@ export const translations: Translations = {
     adminStatusError: "שגיאה ⚠",
     adminStateActive: "פעיל",
     adminStateBootstrapping: "מאתחל",
+    adminStateIncomplete: "לא הושלם",
     adminPortfolioLoaded: "תיק ✓",
     adminPortfolioMissing: "תיק ✗",
     adminFailedLoadUsers: "טעינת המשתמשים נכשלה",

@@ -9,6 +9,7 @@ interface PositionRowProps {
   verdict?: VerdictRow;
   hasAlert?: boolean;
   isChecking?: boolean;
+  jobType?: 'quick_check' | 'deep_dive' | null;
   onQuickCheck?: () => void;
   onClick: () => void;
 }
@@ -18,6 +19,7 @@ export function PositionRow({
   verdict,
   hasAlert,
   isChecking,
+  jobType,
   onQuickCheck,
   onClick,
 }: PositionRowProps) {
@@ -27,14 +29,29 @@ export function PositionRow({
   const [swiping, setSwiping] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
-  const mobileCardClass = isChecking
-    ? "border-[var(--color-accent-yellow)] bg-[linear-gradient(135deg,rgba(251,191,36,0.16),rgba(251,191,36,0.05))]"
-    : hasAlert
-    ? "border-[rgba(245,158,11,0.35)] bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(239,68,68,0.06))] shadow-[0_0_0_1px_rgba(245,158,11,0.12),0_0_22px_rgba(245,158,11,0.12)]"
-    : "";
-
+  // Determine color based on job type
+  let borderColor = "";
+  let bgClass = "";
+  
+  if (isChecking) {
+    if (jobType === 'quick_check') {
+      // Pale yellow for quick check in progress
+      borderColor = "border-[#fef3c7]";
+      bgClass = "bg-[linear-gradient(135deg,rgba(254,243,199,0.16),rgba(254,243,199,0.05))]";
+    } else {
+      // Orange for deep dive in progress
+      borderColor = "border-[#f97316]";
+      bgClass = "bg-[linear-gradient(135deg,rgba(249,115,22,0.16),rgba(249,115,22,0.05))]";
+    }
+  } else if (hasAlert) {
+    // Existing alert style
+    borderColor = "border-[rgba(245,158,11,0.35)]";
+    bgClass = "bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(239,68,68,0.06))] shadow-[0_0_0_1px_rgba(245,158,11,0.12),0_0_22px_rgba(245,158,11,0.12)]";
+  }
+  
+  const mobileCardClass = `${borderColor} ${bgClass}`;
   const desktopRowClass = isChecking
-    ? "bg-[rgba(251,191,36,0.08)]"
+    ? (jobType === 'quick_check' ? "bg-[rgba(254,243,199,0.08)]" : "bg-[rgba(249,115,22,0.08)]")
     : hasAlert
     ? "bg-[rgba(245,158,11,0.08)]"
     : "hover:bg-[var(--color-bg-muted)]";
@@ -100,8 +117,8 @@ export function PositionRow({
                   </span>
                   {verdict && <VerdictBadge verdict={verdict.verdict} size="sm" />}
                   {isChecking && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-[rgba(251,191,36,0.18)] text-[var(--color-accent-yellow)]">
-                      checking
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${jobType === 'quick_check' ? 'bg-[rgba(254,243,199,0.18)] text-[#d97706]' : 'bg-[rgba(249,115,22,0.18)] text-[#ea580c]'}`}>
+                      {jobType === 'quick_check' ? 'quick check' : 'deep analysis'}
                     </span>
                   )}
                   {!isChecking && hasAlert && (
@@ -143,8 +160,8 @@ export function PositionRow({
               {position.exchange}
             </span>
             {isChecking && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-[rgba(251,191,36,0.18)] text-[var(--color-accent-yellow)]">
-                checking
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${jobType === 'quick_check' ? 'bg-[rgba(254,243,199,0.18)] text-[#d97706]' : 'bg-[rgba(249,115,22,0.18)] text-[#ea580c]'}`}>
+                {jobType === 'quick_check' ? 'quick check' : 'deep analysis'}
               </span>
             )}
             {!isChecking && hasAlert && (

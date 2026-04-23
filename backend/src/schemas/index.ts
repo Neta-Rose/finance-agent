@@ -2,8 +2,9 @@ export {
   ProfileDefinitionSchema,
   ProfilesRegistrySchema,
   UserConfigSchema,
+  UserPlanSchema,
 } from "./profile.js";
-export type { ProfileDefinition, ProfilesRegistry, UserConfig } from "./profile.js";
+export type { ProfileDefinition, ProfilesRegistry, UserConfig, UserPlan } from "./profile.js";
 
 export {
   FundamentalsReportSchema,
@@ -11,13 +12,17 @@ export {
   SentimentReportSchema,
   MacroReportSchema,
   RiskReportSchema,
+  BullCaseReportSchema,
+  BearCaseReportSchema,
   AnalystReportSchema,
 } from "./analysts.js";
 
 export {
   StrategySchema,
   StrategyCatalystSchema,
+  StrategyMetadataSchema,
 } from "./strategy.js";
+export type { Strategy, StrategyMetadata } from "./strategy.js";
 
 export { JobSchema } from "./job.js";
 
@@ -27,6 +32,24 @@ export {
   PortfolioStateSchema,
   BootstrapProgressSchema,
 } from "./portfolio.js";
+export {
+  NotificationChannelSchema,
+  NotificationPreferencesSchema,
+} from "./notifications.js";
+export type {
+  NotificationChannel,
+  NotificationPreferences,
+} from "./notifications.js";
+export {
+  TelegramConnectRequestSchema,
+  WhatsAppConnectionSchema,
+  ConnectWhatsAppRequestSchema,
+} from "./channels.js";
+export type {
+  TelegramConnectRequest,
+  WhatsAppConnection,
+  ConnectWhatsAppRequest,
+} from "./channels.js";
 
 import {
   FundamentalsReportSchema,
@@ -34,6 +57,8 @@ import {
   SentimentReportSchema,
   MacroReportSchema,
   RiskReportSchema,
+  BullCaseReportSchema,
+  BearCaseReportSchema,
   AnalystReportSchema,
 } from "./analysts.js";
 
@@ -63,6 +88,12 @@ export function validateAgentOutput(
       break;
     case "risk":
       schema = RiskReportSchema;
+      break;
+    case "bull":
+      schema = BullCaseReportSchema;
+      break;
+    case "bear":
+      schema = BearCaseReportSchema;
       break;
     default:
       return { success: false, errors: [`Unknown analyst type: ${analyst}`] };

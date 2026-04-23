@@ -18,8 +18,8 @@ Allowed primary write scope:
 - `/root/clawd/frontend`
 - `/root/clawd/data`
 - `/root/clawd/docs`
+- `/root/clawd/shared`
 - `/root/clawd/skills`
-- `/root/clawd/agent-templates`
 - `/root/clawd/*.md`
 - `/root/.openclaw/openclaw.json` when the task requires OpenClaw configuration
 

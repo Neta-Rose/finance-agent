@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import { StrategySchema } from "../schemas/strategy.js";
 import type { Verdict, Confidence } from "../types/index.js";
+import { PortfolioFileSchema } from "../schemas/portfolio.js";
 
 const router = Router();
 
@@ -43,8 +44,24 @@ router.get(
       return;
     }
 
+    const portfolioTickers = new Set<string>();
+    try {
+      const rawPortfolio = await fs.readFile(ws.portfolioFile, "utf-8");
+      const parsedPortfolio = PortfolioFileSchema.safeParse(JSON.parse(rawPortfolio));
+      if (parsedPortfolio.success) {
+        for (const positions of Object.values(parsedPortfolio.data.accounts)) {
+          for (const position of positions) {
+            portfolioTickers.add(position.ticker);
+          }
+        }
+      }
+    } catch {
+      // keep empty portfolio set
+    }
+
     const strategies: Array<{
       ticker: string;
+      inPortfolio: boolean;
       verdict: Verdict;
       confidence: Confidence;
       reasoning: string;
@@ -88,6 +105,7 @@ router.get(
 
       strategies.push({
         ticker,
+        inPortfolio: portfolioTickers.has(ticker),
         verdict: s.verdict as Verdict,
         confidence: s.confidence as Confidence,
         reasoning:

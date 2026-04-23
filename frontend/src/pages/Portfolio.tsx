@@ -222,12 +222,25 @@ export function Portfolio() {
   const activeTickerChecks = useMemo(() => {
     const set = new Set<string>();
     for (const job of activeJobs) {
-      if (job.ticker && job.action === "deep_dive") {
+      if (job.ticker && (job.action === "deep_dive" || job.action === "quick_check")) {
         set.add(job.ticker);
       }
     }
     return set;
   }, [activeJobs]);
+
+  // Map ticker to active job type
+  const tickerJobType = useMemo(() => {
+    const map = new Map<string, 'quick_check' | 'deep_dive'>();
+    for (const job of activeJobs) {
+      if (job.ticker && (job.action === "quick_check" || job.action === "deep_dive")) {
+        map.set(job.ticker, job.action as 'quick_check' | 'deep_dive');
+      }
+    }
+    return map;
+  }, [activeJobs]);
+
+
 
   const accountSummaries = useMemo<AccountSummary[]>(() => {
     if (!portfolio) return [];
@@ -323,7 +336,7 @@ export function Portfolio() {
       let changed = false;
       for (const account of accountSummaries) {
         if (!(account.name in next)) {
-          next[account.name] = true;
+          next[account.name] = false;
           changed = true;
         }
       }
@@ -408,7 +421,7 @@ export function Portfolio() {
 
   const handleQuickCheck = async (ticker: string) => {
     try {
-      await triggerJob("deep_dive", ticker);
+      await triggerJob("quick_check", ticker);
       showToast(`Quick check queued for ${ticker}`, "success");
       await refreshPortfolio();
     } catch (error) {
@@ -507,18 +520,11 @@ export function Portfolio() {
             Manage Accounts
           </button>
         </div>
-        <button
-          onClick={() => setCombinedHoldingsOpen((current) => !current)}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--color-bg-muted)] px-3 py-2 text-xs font-medium text-[var(--color-fg-muted)]"
-        >
-          <Layers3 size={14} />
-          {combinedHoldingsOpen ? "Hide Combined Holdings" : "Show Combined Holdings"}
-        </button>
       </div>
 
       <div className="px-4 pt-2 pb-6 space-y-3">
         {accountSummaries.map((account) => {
-          const expanded = expandedAccounts[account.name] ?? true;
+          const expanded = expandedAccounts[account.name] ?? false;
           return (
             <Card key={account.name} className="overflow-hidden">
               <button
@@ -589,6 +595,7 @@ export function Portfolio() {
                           verdict={verdictMap[position.ticker]}
                           hasAlert={alertTickers.has(position.ticker)}
                           isChecking={activeTickerChecks.has(position.ticker)}
+                          jobType={tickerJobType.get(position.ticker)}
                           onQuickCheck={() => handleQuickCheck(position.ticker)}
                           onClick={() => handlePositionClick(position)}
                         />
@@ -614,6 +621,7 @@ export function Portfolio() {
                               verdict={verdictMap[position.ticker]}
                               hasAlert={alertTickers.has(position.ticker)}
                               isChecking={activeTickerChecks.has(position.ticker)}
+                              jobType={tickerJobType.get(position.ticker)}
                               onClick={() => handlePositionClick(position)}
                             />
                           ))}
@@ -626,6 +634,16 @@ export function Portfolio() {
             </Card>
           );
         })}
+
+        <div>
+          <button
+            onClick={() => setCombinedHoldingsOpen((current) => !current)}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--color-bg-muted)] px-3 py-2 text-xs font-medium text-[var(--color-fg-muted)]"
+          >
+            <Layers3 size={14} />
+            {combinedHoldingsOpen ? "Hide Combined Holdings" : "Show Combined Holdings"}
+          </button>
+        </div>
 
         {combinedHoldingsOpen && (
           <Card className="overflow-hidden">
@@ -654,6 +672,7 @@ export function Portfolio() {
                   verdict={verdictMap[position.ticker]}
                   hasAlert={alertTickers.has(position.ticker)}
                   isChecking={activeTickerChecks.has(position.ticker)}
+                  jobType={tickerJobType.get(position.ticker)}
                   onQuickCheck={() => handleQuickCheck(position.ticker)}
                   onClick={() => handlePositionClick(position)}
                 />
@@ -679,6 +698,7 @@ export function Portfolio() {
                       verdict={verdictMap[position.ticker]}
                       hasAlert={alertTickers.has(position.ticker)}
                       isChecking={activeTickerChecks.has(position.ticker)}
+                      jobType={tickerJobType.get(position.ticker)}
                       onClick={() => handlePositionClick(position)}
                     />
                   ))}

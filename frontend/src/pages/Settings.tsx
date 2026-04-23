@@ -1,15 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useToastStore } from "../store/toastStore";
 import { usePreferencesStore, type Theme, type Language } from "../store/preferencesStore";
 import { t, type TranslationKey } from "../store/i18n";
 import { apiClient } from "../api/client";
-import { fetchOnboardStatus } from "../api/onboarding";
-import { useQuery } from "@tanstack/react-query";
+import {
+  connectTelegram,
+  connectWhatsApp,
+  disconnectTelegram,
+  disconnectWhatsApp,
+  fetchOnboardStatus,
+} from "../api/onboarding";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TopBar } from "../components/ui/TopBar";
 import { Card } from "../components/ui/Card";
-import { User, Lock, Clock, Bot, BarChart2, LogOut, ChevronRight, X, Sun, Moon, Monitor } from "lucide-react";
+import { User, Lock, Clock, Bot, BarChart2, LogOut, ChevronRight, X, Sun, Moon, Monitor, Bell, MessageCircle } from "lucide-react";
+import type { NotificationPreferences } from "../types/api";
 
 const DAY_KEYS: Array<{ value: string; key: TranslationKey }> = [
   { value: "sunday", key: "daySunday" },
@@ -35,15 +42,17 @@ const TIMEZONES = [
 
 const inputCls = "w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)] appearance-none";
 const labelCls = "text-xs font-medium text-[var(--color-fg-muted)] mb-1.5 block";
+const guideItemCls = "text-xs leading-5 text-[var(--color-fg-muted)]";
 
 export function Settings() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const logout = useAuthStore((s) => s.logout);
   const showToast = useToastStore((s) => s.show);
   const lang = usePreferencesStore((s) => s.language);
   const setLanguage = usePreferencesStore((s) => s.setLanguage);
 
-  const { data: onboardStatus } = useQuery({
+  const { data: onboardStatus, refetch: refetchOnboardStatus } = useQuery({
     queryKey: ["onboard-status"],
     queryFn: fetchOnboardStatus,
     staleTime: 60_000,
@@ -73,10 +82,35 @@ export function Settings() {
   const [telegramChatId, setTelegramChatId] = useState("");
   const [telegramError, setTelegramError] = useState("");
   const [telegramLoading, setTelegramLoading] = useState(false);
+  const [showWhatsAppForm, setShowWhatsAppForm] = useState(false);
+  const [whatsAppAccessToken, setWhatsAppAccessToken] = useState("");
+  const [whatsAppPhoneNumberId, setWhatsAppPhoneNumberId] = useState("");
+  const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState("");
+  const [whatsAppError, setWhatsAppError] = useState("");
+  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationPreferences>({
+    primaryChannel: onboardStatus?.notifications?.primaryChannel ?? "telegram",
+    enabledChannels: onboardStatus?.notifications?.enabledChannels ?? {
+      telegram: true,
+      web: true,
+      whatsapp: false,
+    },
+    categories: onboardStatus?.notifications?.categories ?? {
+      dailyBriefs: true,
+      reportRuns: true,
+      marketNews: true,
+    },
+  });
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const refreshOnboardStatus = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["onboard-status"] });
+    await refetchOnboardStatus();
   };
 
   const handleChangePassword = async () => {
@@ -134,7 +168,8 @@ export function Settings() {
     }
     setTelegramLoading(true);
     try {
-      await apiClient.post("/onboard/telegram", { botToken, telegramChatId });
+      await connectTelegram({ botToken, telegramChatId });
+      await refreshOnboardStatus();
       showToast(t("telegramConnected", lang), "success");
       setShowTelegramForm(false);
       setBotToken("");
@@ -146,9 +181,106 @@ export function Settings() {
     }
   };
 
+  const handleDisconnectTelegram = async () => {
+    setTelegramError("");
+    setTelegramLoading(true);
+    try {
+      await disconnectTelegram();
+      await refreshOnboardStatus();
+      showToast(t("channelDisconnected", lang), "success");
+      setShowTelegramForm(false);
+      setBotToken("");
+      setTelegramChatId("");
+    } catch {
+      setTelegramError(t("errorConnectTelegram", lang));
+      showToast(t("errorConnectTelegram", lang), "error");
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
+  const handleConnectWhatsApp = async () => {
+    setWhatsAppError("");
+    if (!whatsAppAccessToken.trim() || !whatsAppPhoneNumberId.trim() || !whatsAppRecipientPhone.trim()) {
+      setWhatsAppError(t("errorBothFields", lang));
+      return;
+    }
+    if (whatsAppAccessToken.trim().length < 20) {
+      setWhatsAppError(t("errorInvalidAccessToken", lang));
+      return;
+    }
+    if (!/^\d+$/.test(whatsAppPhoneNumberId)) {
+      setWhatsAppError(t("errorInvalidPhoneNumberId", lang));
+      return;
+    }
+    if (!/^\+[1-9]\d{7,14}$/.test(whatsAppRecipientPhone)) {
+      setWhatsAppError(t("errorInvalidRecipientPhone", lang));
+      return;
+    }
+
+    setWhatsAppLoading(true);
+    try {
+      await connectWhatsApp({
+        accessToken: whatsAppAccessToken,
+        phoneNumberId: whatsAppPhoneNumberId,
+        recipientPhone: whatsAppRecipientPhone,
+      });
+      await refreshOnboardStatus();
+      showToast(t("whatsappConnected", lang), "success");
+      setShowWhatsAppForm(false);
+      setWhatsAppAccessToken("");
+      setWhatsAppPhoneNumberId("");
+      setWhatsAppRecipientPhone("");
+    } catch {
+      setWhatsAppError(t("errorConnectWhatsApp", lang));
+      showToast(t("errorConnectWhatsApp", lang), "error");
+    } finally {
+      setWhatsAppLoading(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async () => {
+    setWhatsAppError("");
+    setWhatsAppLoading(true);
+    try {
+      await disconnectWhatsApp();
+      await refreshOnboardStatus();
+      showToast(t("channelDisconnected", lang), "success");
+      setShowWhatsAppForm(false);
+      setWhatsAppAccessToken("");
+      setWhatsAppPhoneNumberId("");
+      setWhatsAppRecipientPhone("");
+    } catch {
+      setWhatsAppError(t("errorConnectWhatsApp", lang));
+      showToast(t("errorConnectWhatsApp", lang), "error");
+    } finally {
+      setWhatsAppLoading(false);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    setNotificationsLoading(true);
+    try {
+      await apiClient.patch("/onboard/notifications", notifications);
+      await refreshOnboardStatus();
+      showToast(t("notificationsUpdated", lang), "success");
+    } catch {
+      showToast(t("errorUpdateNotifications", lang), "error");
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
   const rateLimits = onboardStatus?.rateLimits;
   const statusSchedule = onboardStatus?.schedule;
-  const telegramConnected = onboardStatus?.telegramConnected ?? false;
+  const connectivity = onboardStatus?.connectivity;
+  const telegramConnected = connectivity?.telegram.connected ?? onboardStatus?.telegramConnected ?? false;
+  const whatsappConnected = connectivity?.whatsapp.connected ?? false;
+
+  useEffect(() => {
+    if (!onboardStatus?.notifications) return;
+    setNotifications(onboardStatus.notifications);
+  }, [onboardStatus?.notifications]);
 
   const themeOptions: Array<{ value: Theme; label: string; icon: React.ReactNode }> = [
     { value: "dark", label: t("dark", lang), icon: <Moon size={16} /> },
@@ -356,19 +488,39 @@ export function Settings() {
             <Bot size={12} /> {t("telegram", lang).toUpperCase()}
           </h3>
           {!showTelegramForm ? (
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-3">
+            <Card className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--color-fg-default)]">
+                  <p className="text-sm font-semibold text-[var(--color-fg-default)]">
                     {telegramConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
+                  </p>
+                  <p className="text-xs text-[var(--color-fg-muted)] mt-1">
+                    {telegramConnected && connectivity?.telegram.target
+                      ? `${t("connectedTo", lang)} ${connectivity.telegram.target}`
+                      : t("telegramGuideStep1", lang)}
                   </p>
                 </div>
                 <button
-                  onClick={() => setShowTelegramForm(true)}
+                  onClick={() => {
+                    if (telegramConnected) {
+                      void handleDisconnectTelegram();
+                      return;
+                    }
+                    setShowTelegramForm(true);
+                  }}
+                  disabled={telegramLoading}
                   className="py-1.5 px-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold"
                 >
-                  {telegramConnected ? t("disconnect", lang) : t("connect", lang)}
+                  {telegramLoading ? "..." : telegramConnected ? t("disconnect", lang) : t("connect", lang)}
                 </button>
+              </div>
+              <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
+                <p className="text-[11px] font-semibold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+                <ol className="space-y-1">
+                  <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
+                  <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
+                  <li className={guideItemCls}>3. {t("telegramGuideStep3", lang)}</li>
+                </ol>
               </div>
             </Card>
           ) : (
@@ -387,6 +539,14 @@ export function Settings() {
                 <label className={labelCls}>{t("chatId", lang)}</label>
                 <input type="text" value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
               </div>
+              <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
+                <p className="text-[11px] font-semibold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+                <ol className="space-y-1">
+                  <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
+                  <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
+                  <li className={guideItemCls}>3. {t("telegramGuideStep3", lang)}</li>
+                </ol>
+              </div>
               {telegramError && <p className="text-[10px] text-[var(--color-accent-red)]">{telegramError}</p>}
               <div className="flex gap-2">
                 <button onClick={() => setShowTelegramForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-semibold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
@@ -396,6 +556,172 @@ export function Settings() {
               </div>
             </Card>
           )}
+        </section>
+
+        <section>
+          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+            <MessageCircle size={12} /> {t("whatsapp", lang).toUpperCase()}
+          </h3>
+          {!showWhatsAppForm ? (
+            <Card className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--color-fg-default)]">
+                    {whatsappConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
+                  </p>
+                  <p className="text-xs text-[var(--color-fg-muted)] mt-1">
+                    {whatsappConnected && connectivity?.whatsapp.target
+                      ? `${t("connectedTo", lang)} ${connectivity.whatsapp.target}`
+                      : t("whatsAppGuideStep1", lang)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (whatsappConnected) {
+                      void handleDisconnectWhatsApp();
+                      return;
+                    }
+                    setShowWhatsAppForm(true);
+                  }}
+                  disabled={whatsAppLoading}
+                  className="py-1.5 px-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold"
+                >
+                  {whatsAppLoading ? "..." : whatsappConnected ? t("disconnect", lang) : t("connect", lang)}
+                </button>
+              </div>
+              <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
+                <p className="text-[11px] font-semibold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+                <ol className="space-y-1">
+                  <li className={guideItemCls}>1. {t("whatsAppGuideStep1", lang)}</li>
+                  <li className={guideItemCls}>2. {t("whatsAppGuideStep2", lang)}</li>
+                  <li className={guideItemCls}>3. {t("whatsAppGuideStep3", lang)}</li>
+                </ol>
+              </div>
+            </Card>
+          ) : (
+            <Card className="p-4 space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-[var(--color-fg-default)]">{t("whatsapp", lang)}</p>
+                <button onClick={() => setShowWhatsAppForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
+                  <X size={16} />
+                </button>
+              </div>
+              <div>
+                <label className={labelCls}>{t("accessToken", lang)}</label>
+                <input type="password" value={whatsAppAccessToken} onChange={(e) => setWhatsAppAccessToken(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>{t("phoneNumberId", lang)}</label>
+                <input type="text" value={whatsAppPhoneNumberId} onChange={(e) => setWhatsAppPhoneNumberId(e.target.value.replace(/\D/g, ""))} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>{t("recipientPhone", lang)}</label>
+                <input type="text" value={whatsAppRecipientPhone} onChange={(e) => setWhatsAppRecipientPhone(e.target.value)} placeholder="+14155550123" className={inputCls} />
+              </div>
+              <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
+                <p className="text-[11px] font-semibold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+                <ol className="space-y-1">
+                  <li className={guideItemCls}>1. {t("whatsAppGuideStep1", lang)}</li>
+                  <li className={guideItemCls}>2. {t("whatsAppGuideStep2", lang)}</li>
+                  <li className={guideItemCls}>3. {t("whatsAppGuideStep3", lang)}</li>
+                </ol>
+              </div>
+              {whatsAppError && <p className="text-[10px] text-[var(--color-accent-red)]">{whatsAppError}</p>}
+              <div className="flex gap-2">
+                <button onClick={() => setShowWhatsAppForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-semibold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+                <button onClick={handleConnectWhatsApp} disabled={whatsAppLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50">
+                  {whatsAppLoading ? "..." : t("connect", lang)}
+                </button>
+              </div>
+            </Card>
+          )}
+        </section>
+
+        <section>
+          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+            <Bell size={12} /> {t("notifications", lang).toUpperCase()}
+          </h3>
+          <Card className="p-4 space-y-4">
+            <div>
+              <label className={labelCls}>{t("primaryChannel", lang)}</label>
+              <select
+                value={notifications.primaryChannel}
+                onChange={(e) =>
+                  setNotifications((current) => ({
+                    ...current,
+                    primaryChannel: e.target.value as NotificationPreferences["primaryChannel"],
+                  }))
+                }
+                className={inputCls}
+              >
+                {telegramConnected && <option value="telegram">{t("telegram", lang)}</option>}
+                {whatsappConnected && <option value="whatsapp">{t("whatsapp", lang)}</option>}
+                <option value="web">{t("webChannel", lang)}</option>
+                <option value="none">{t("noAlerts", lang)}</option>
+              </select>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-[var(--color-fg-muted)]">{t("notificationChannels", lang)}</p>
+              {([
+                ["telegram", t("telegram", lang), telegramConnected],
+                ["web", t("webChannel", lang), true],
+                ["whatsapp", t("whatsapp", lang), whatsappConnected],
+              ] as const).map(([channel, label, available]) => (
+                <label key={channel} className="flex items-center justify-between text-sm text-[var(--color-fg-default)]">
+                  <span className={available ? "" : "text-[var(--color-fg-subtle)]"}>{label}</span>
+                  <input
+                    type="checkbox"
+                    checked={notifications.enabledChannels[channel]}
+                    disabled={!available}
+                    onChange={(e) =>
+                      setNotifications((current) => ({
+                        ...current,
+                        enabledChannels: {
+                          ...current.enabledChannels,
+                          [channel]: e.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-[var(--color-fg-muted)]">{t("notifyMeAbout", lang)}</p>
+              {([
+                ["dailyBriefs", t("dailyBriefsLabel", lang)],
+                ["reportRuns", t("reportRunsLabel", lang)],
+                ["marketNews", t("marketNewsLabel", lang)],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex items-center justify-between text-sm text-[var(--color-fg-default)]">
+                  <span>{label}</span>
+                  <input
+                    type="checkbox"
+                    checked={notifications.categories[key]}
+                    onChange={(e) =>
+                      setNotifications((current) => ({
+                        ...current,
+                        categories: {
+                          ...current.categories,
+                          [key]: e.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+
+            <button
+              onClick={handleSaveNotifications}
+              disabled={notificationsLoading}
+              className="w-full rounded-lg bg-[var(--color-accent-blue)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {notificationsLoading ? t("saving", lang) : t("save", lang)}
+            </button>
+          </Card>
         </section>
 
         {/* Rate Limits */}

@@ -156,6 +156,36 @@ export const RiskReportSchema = z.object({
   riskFacts: z.string().max(400),
 });
 
+const DebateArgumentSchema = z.object({
+  source: z.string().url(),
+  claim: z.string().max(200),
+  dataPoint: z.string().max(200),
+});
+
+export const BullCaseReportSchema = z.object({
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
+  generatedAt: z.string().datetime(),
+  analyst: z.literal("bull"),
+  round: z.union([z.literal(1), z.literal(2)]),
+  coreThesis: z.string().max(300),
+  arguments: z.array(DebateArgumentSchema).min(3).max(5),
+  responseToBear: z.string().max(300).nullable(),
+  bullVerdict: z.enum(["BUY", "ADD", "HOLD", "REDUCE", "SELL", "CLOSE"]),
+  conditionToBeWrong: z.string().max(200),
+});
+
+export const BearCaseReportSchema = z.object({
+  ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
+  generatedAt: z.string().datetime(),
+  analyst: z.literal("bear"),
+  round: z.union([z.literal(1), z.literal(2)]),
+  coreConcern: z.string().max(300),
+  arguments: z.array(DebateArgumentSchema).min(3).max(5),
+  responseToBull: z.string().max(300).nullable(),
+  bearVerdict: z.enum(["BUY", "ADD", "HOLD", "REDUCE", "SELL", "CLOSE"]),
+  conditionToBeWrong: z.string().max(200),
+});
+
 // Discriminated union type
 export const AnalystReportSchema = z.discriminatedUnion("analyst", [
   FundamentalsReportSchema,
@@ -163,6 +193,8 @@ export const AnalystReportSchema = z.discriminatedUnion("analyst", [
   SentimentReportSchema,
   MacroReportSchema,
   RiskReportSchema,
+  BullCaseReportSchema,
+  BearCaseReportSchema,
 ]);
 
 // export type FundamentalsReport = z.infer<typeof FundamentalsReportSchema>;

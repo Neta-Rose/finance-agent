@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import { readFileSync } from "fs";
-import { execSync, exec as execAsync } from "child_process";
+import { execSync, exec as execAsync, execFile } from "child_process";
+import { promisify } from "util";
 import { logger } from "./logger.js";
 import {
   generateProxyKey,
@@ -17,7 +18,8 @@ const CLAWD_ROOT = "/root/clawd";
 export const SYSTEM_AGENT_ID = "main";
 const SYSTEM_AGENT_WORKSPACE = CLAWD_ROOT;
 const SYSTEM_AGENT_DIR = `/root/.openclaw/agents/${SYSTEM_AGENT_ID}/agent`;
-const SYSTEM_TELEGRAM_ACCOUNT_ID = "main";
+const SYSTEM_TELEGRAM_ACCOUNT_ID = "default";
+const execFileAsync = promisify(execFile);
 
 interface AgentEntry {
   id: string;
@@ -29,6 +31,7 @@ interface TelegramAccount {
   botToken: string;
   dmPolicy: string;
   allowFrom: string[];
+  name?: string;
 }
 
 interface TelegramBinding {
@@ -59,18 +62,168 @@ interface OpenClawConfig {
     list?: AgentEntry[];
     defaults?: Record<string, unknown>;
   };
+  bindings?: TelegramBinding[];
   channels?: {
     telegram?: {
       botToken?: string;
       enabled?: boolean;
       dmPolicy?: string;
       allowFrom?: string[];
+      defaultAccount?: string;
       [key: string]: unknown;
       accounts?: Record<string, TelegramAccount>;
       bindings?: TelegramBinding[];
     };
   };
   [key: string]: unknown;
+}
+
+function normalizeTelegramConfig(config: OpenClawConfig): boolean {
+  const telegram = config.channels?.telegram;
+  if (!telegram) return false;
+
+  let dirty = false;
+  const promotedAllowFrom = Array.isArray(telegram.allowFrom)
+    ? telegram.allowFrom.filter((value): value is string => typeof value === "string")
+    : [];
+
+  if (telegram.botToken) {
+    if (!telegram.accounts) telegram.accounts = {};
+    const existingDefault = telegram.accounts["default"];
+    telegram.accounts["default"] = {
+      botToken: existingDefault?.botToken ?? telegram.botToken,
+      dmPolicy: existingDefault?.dmPolicy ?? telegram.dmPolicy ?? "allowlist",
+      allowFrom:
+        existingDefault?.allowFrom && existingDefault.allowFrom.length > 0
+          ? existingDefault.allowFrom
+          : promotedAllowFrom,
+      name: existingDefault?.name ?? "System bot",
+    };
+    delete telegram.botToken;
+    dirty = true;
+  } else if (telegram.accounts?.["default"]) {
+    const existingDefault = telegram.accounts["default"];
+    if (!existingDefault.dmPolicy) {
+      existingDefault.dmPolicy = telegram.dmPolicy ?? "allowlist";
+      dirty = true;
+    }
+    if (!existingDefault.allowFrom) {
+      existingDefault.allowFrom = promotedAllowFrom;
+      dirty = true;
+    }
+  }
+
+  if (telegram.allowFrom) {
+    delete telegram.allowFrom;
+    dirty = true;
+  }
+
+  if (!config.bindings) config.bindings = [];
+  if (Array.isArray(telegram.bindings) && telegram.bindings.length > 0) {
+    for (const binding of telegram.bindings) {
+      const normalizedBinding: TelegramBinding =
+        binding.agentId === SYSTEM_AGENT_ID &&
+        binding.match?.channel === "telegram" &&
+        binding.match?.accountId === "main"
+          ? {
+              agentId: SYSTEM_AGENT_ID,
+              match: { channel: "telegram", accountId: SYSTEM_TELEGRAM_ACCOUNT_ID },
+            }
+          : binding;
+      const exists = config.bindings.some(
+        (candidate) =>
+          candidate.agentId === normalizedBinding.agentId &&
+          candidate.match?.channel === normalizedBinding.match?.channel &&
+          candidate.match?.accountId === normalizedBinding.match?.accountId
+      );
+      if (!exists) {
+        config.bindings.push(normalizedBinding);
+        dirty = true;
+      }
+    }
+    delete telegram.bindings;
+    dirty = true;
+  }
+
+  if (config.bindings.length > 0) {
+    const nextBindings: TelegramBinding[] = [];
+    for (const binding of config.bindings) {
+      const normalizedBinding: TelegramBinding =
+        binding.agentId === SYSTEM_AGENT_ID &&
+        binding.match?.channel === "telegram" &&
+        binding.match?.accountId === "main"
+          ? {
+              agentId: SYSTEM_AGENT_ID,
+              match: { channel: "telegram", accountId: SYSTEM_TELEGRAM_ACCOUNT_ID },
+            }
+          : binding;
+
+      const exists = nextBindings.some(
+        (candidate) =>
+          candidate.agentId === normalizedBinding.agentId &&
+          candidate.match?.channel === normalizedBinding.match?.channel &&
+          candidate.match?.accountId === normalizedBinding.match?.accountId
+      );
+      if (!exists) nextBindings.push(normalizedBinding);
+    }
+
+    if (nextBindings.length !== config.bindings.length) {
+      config.bindings = nextBindings;
+      dirty = true;
+    }
+  }
+
+  if (telegram.accounts?.["default"] && telegram.defaultAccount !== "default") {
+    telegram.defaultAccount = "default";
+    dirty = true;
+  }
+
+  return dirty;
+}
+
+function ensureBindings(config: OpenClawConfig): TelegramBinding[] {
+  if (!config.bindings) config.bindings = [];
+  return config.bindings;
+}
+
+function upsertTelegramBinding(
+  bindings: TelegramBinding[],
+  binding: TelegramBinding
+): boolean {
+  const existingIndex = bindings.findIndex(
+    (candidate) =>
+      candidate.match?.channel === binding.match.channel &&
+      candidate.match?.accountId === binding.match.accountId
+  );
+
+  if (existingIndex === -1) {
+    bindings.push(binding);
+    return true;
+  }
+
+  const existing = bindings[existingIndex];
+  if (!existing) return false;
+  if (existing.agentId !== binding.agentId) {
+    bindings[existingIndex] = binding;
+    return true;
+  }
+
+  return false;
+}
+
+function buildTriggerOnlyCronMessage(userId: string): string {
+  const triggersPath = `${USERS_DIR}/${userId}/data/triggers`;
+  return (
+    `You have pending backend-owned work. Check ${triggersPath}/ for .json trigger files. ` +
+    `For each trigger: read it, update jobs/[job_id].json status→running if needed, delete the trigger, ` +
+    `and execute only the requested action. ` +
+    `If execution hits analyst_budget_exceeded, budget exhaustion, or repeated provider/rate-limit failure before any report artifact is written, update the matching jobs/[job_id].json status→failed with a short error that includes analyst_budget_exceeded or rate_limit, then stop processing that trigger. ` +
+    `Do not start scheduled portfolio tasks on your own. ` +
+    `Do not run daily briefs, weekly reviews, or exploratory analysis unless a trigger explicitly asks for it. ` +
+    `If no triggers are pending, reply exactly HEARTBEAT_OK and stop. ` +
+    `Do not explain your reasoning in idle heartbeats. ` +
+    `Your workspace is ${USERS_DIR}/${userId}.`
+  );
 }
 
 function isUserWorkspace(workspace: string | undefined): boolean {
@@ -88,13 +241,16 @@ function stripJson5Comments(str: string): string {
 export async function readConfig(): Promise<OpenClawConfig> {
   try {
     const raw = await fs.readFile(OPENCLAW_CONFIG, "utf-8");
-    return JSON.parse(stripJson5Comments(raw)) as OpenClawConfig;
+    const config = JSON.parse(stripJson5Comments(raw)) as OpenClawConfig;
+    normalizeTelegramConfig(config);
+    return config;
   } catch {
     return {};
   }
 }
 
 export async function writeConfig(config: OpenClawConfig): Promise<void> {
+  normalizeTelegramConfig(config);
   await fs.writeFile(OPENCLAW_CONFIG, JSON.stringify(config, null, 2), "utf-8");
 }
 
@@ -102,6 +258,47 @@ export async function writeConfig(config: OpenClawConfig): Promise<void> {
 
 function cronName(userId: string): string {
   return `${userId}-heartbeat`;
+}
+
+export async function hasRunnableTriggerFiles(
+  userId: string,
+  usersDir = USERS_DIR
+): Promise<boolean> {
+  const triggersDir = `${usersDir}/${userId}/data/triggers`;
+  const jobsDir = `${usersDir}/${userId}/data/jobs`;
+
+  let files: string[];
+  try {
+    files = await fs.readdir(triggersDir);
+  } catch {
+    return false;
+  }
+
+  for (const file of files) {
+    if (!file.endsWith(".json")) continue;
+
+    const jobPath = `${jobsDir}/${file}`;
+    try {
+      const raw = await fs.readFile(jobPath, "utf-8");
+      const job = JSON.parse(raw) as { status?: string };
+      if (job.status === "pending" || job.status === "running") {
+        return true;
+      }
+    } catch {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function runOpenClaw(args: string[], timeout = 10_000): Promise<string> {
+  const { stdout } = await execFileAsync("openclaw", args, {
+    timeout,
+    encoding: "utf-8",
+    maxBuffer: 1024 * 1024,
+  });
+  return String(stdout);
 }
 
 function listCrons(): CronEntry[] {
@@ -128,30 +325,66 @@ function listCrons(): CronEntry[] {
   }
 }
 
-export async function ensureUserCron(userId: string): Promise<void> {
+async function listCronsAsync(): Promise<CronEntry[]> {
+  try {
+    const raw = await runOpenClaw(["cron", "list", "--json"]);
+    const parsed = JSON.parse(raw) as { jobs?: CronEntry[] } | CronEntry[];
+    if (parsed && !Array.isArray(parsed) && "jobs" in parsed) {
+      return parsed.jobs ?? [];
+    }
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    try {
+      const raw = readFileSync(CRON_JOBS_PATH, "utf-8");
+      const parsed = JSON.parse(raw) as { jobs?: CronEntry[] };
+      return parsed.jobs ?? [];
+    } catch {
+      logger.warn(`Could not list crons via CLI or file: ${String(err)}`);
+      return [];
+    }
+  }
+}
+
+export async function ensureUserCron(
+  userId: string,
+  existingCrons?: CronEntry[]
+): Promise<void> {
   const name = cronName(userId);
-  const existing = listCrons();
+  const existing = existingCrons ?? (await listCronsAsync());
   if (existing.some((c) => c.name === name)) {
     logger.info(`Cron already exists for: ${userId}`);
     return;
   }
-  const triggersPath = `${USERS_DIR}/${userId}/data/triggers`;
-  const msg =
-    `You have pending work. Check ${triggersPath}/ for .json trigger files. ` +
-    `For each: read it, update jobs/[job_id].json status→running, delete the trigger, ` +
-    `execute the action (full_report/daily_brief/deep_dive/new_ideas/switch_production/switch_testing). ` +
-    `After all triggers processed (or if none found), proceed with HEARTBEAT.md scheduled tasks. ` +
-    `If no triggers are pending and no scheduled task is due, reply exactly HEARTBEAT_OK and stop. ` +
-    `Do not explain your reasoning in idle heartbeats. ` +
-    `Your workspace is ${USERS_DIR}/${userId}.`;
+  const msg = buildTriggerOnlyCronMessage(userId);
   try {
-    execSync(
-      `openclaw cron add --agent "${userId}" --every 30m --thinking low ` +
-        `--name "${name}" --message ${JSON.stringify(msg)} --session isolated ` +
-        `--no-deliver --best-effort-deliver --timeout-seconds 1800`,
-      { timeout: 15_000, stdio: "pipe" }
+    await runOpenClaw(
+      [
+        "cron",
+        "add",
+        "--agent",
+        userId,
+        "--every",
+        "30m",
+        "--thinking",
+        "low",
+        "--name",
+        name,
+        "--message",
+        msg,
+        "--session",
+        "isolated",
+        "--no-deliver",
+        "--best-effort-deliver",
+        "--timeout-seconds",
+        "1800",
+      ],
+      15_000
     );
     logger.info(`Created heartbeat cron for: ${userId}`);
+    if (await hasRunnableTriggerFiles(userId)) {
+      logger.info(`Heartbeat cron ready for ${userId} with pending triggers, waking agent immediately`);
+      wakeAgent(userId);
+    }
   } catch (err) {
     logger.warn(`Failed to create cron for ${userId}: ${err}`);
   }
@@ -162,10 +395,27 @@ export async function ensureAllUserCrons(): Promise<void> {
   const agents = (config.agents?.list ?? []).filter((agent) =>
     isUserWorkspace(agent.workspace)
   );
+  const existingCrons = await listCronsAsync();
   for (const agent of agents) {
-    await ensureUserCron(agent.id);
+    await ensureUserCron(agent.id, existingCrons);
   }
   logger.info(`Ensured heartbeat crons for ${agents.length} agent(s)`);
+}
+
+export async function rebuildUserCron(userId: string): Promise<void> {
+  await removeUserCron(userId);
+  await ensureUserCron(userId);
+}
+
+export async function rebuildAllUserCrons(): Promise<void> {
+  const config = await readConfig();
+  const agents = (config.agents?.list ?? []).filter((agent) =>
+    isUserWorkspace(agent.workspace)
+  );
+  for (const agent of agents) {
+    await rebuildUserCron(agent.id);
+  }
+  logger.info(`Rebuilt heartbeat crons for ${agents.length} agent(s) with trigger-only semantics`);
 }
 
 export async function wakeAgentsWithPendingTriggers(): Promise<void> {
@@ -212,7 +462,7 @@ export async function wakeAgentsWithPendingTriggers(): Promise<void> {
   }
 }
 
-export async function ensureSystemAgent(): Promise<void> {
+export async function ensureSystemAgent(): Promise<boolean> {
   const config = await readConfig();
   if (!config.agents) config.agents = {};
   if (!config.agents.list) config.agents.list = [];
@@ -248,29 +498,14 @@ export async function ensureSystemAgent(): Promise<void> {
   }
 
   const telegram = config.channels?.telegram;
-  if (telegram?.botToken) {
-    if (!telegram.bindings) telegram.bindings = [];
+  const defaultTelegramAccount = telegram?.accounts?.[SYSTEM_TELEGRAM_ACCOUNT_ID];
+  if (defaultTelegramAccount?.botToken) {
+    const bindings = ensureBindings(config);
     const desiredBinding: TelegramBinding = {
       agentId: SYSTEM_AGENT_ID,
       match: { channel: "telegram", accountId: SYSTEM_TELEGRAM_ACCOUNT_ID },
     };
-    const otherBindings = telegram.bindings.filter(
-      (binding) =>
-        !(
-          binding.match?.channel === "telegram" &&
-          binding.match?.accountId === SYSTEM_TELEGRAM_ACCOUNT_ID
-        )
-    );
-    if (
-      telegram.bindings.length !== otherBindings.length + 1 ||
-      !telegram.bindings.some(
-        (binding) =>
-          binding.agentId === desiredBinding.agentId &&
-          binding.match?.channel === desiredBinding.match.channel &&
-          binding.match?.accountId === desiredBinding.match.accountId
-      )
-    ) {
-      telegram.bindings = [...otherBindings, desiredBinding];
+    if (upsertTelegramBinding(bindings, desiredBinding)) {
       dirty = true;
       logger.info("Bound primary Telegram bot to root system agent");
     }
@@ -281,32 +516,46 @@ export async function ensureSystemAgent(): Promise<void> {
   }
 
   await ensureProxyProvider(SYSTEM_AGENT_ID);
+  return dirty;
 }
 
-function getCronId(userId: string): string | null {
+async function getCronId(userId: string): Promise<string | null> {
   const name = cronName(userId);
-  const crons = listCrons();
+  const crons = await listCronsAsync();
   return crons.find((c) => c.name === name)?.id ?? null;
 }
 
 export async function removeUserCron(userId: string): Promise<void> {
-  const id = getCronId(userId);
+  const id = await getCronId(userId);
   if (!id) {
     logger.info(`No cron to remove for: ${userId}`);
     return;
   }
   try {
-    execSync(`openclaw cron rm "${id}"`, { timeout: 10_000, stdio: "ignore" });
+    await runOpenClaw(["cron", "rm", id]);
     logger.info(`Removed heartbeat cron for: ${userId}`);
   } catch (err) {
     logger.warn(`Failed to remove cron for ${userId}: ${err}`);
   }
 }
 
-/**
- * Heal all existing heartbeat crons that were created without --no-deliver.
- * Called once on startup. Idempotent — safe to run on every restart.
- */
+export async function reconcileUserHeartbeatCron(
+  userId: string,
+  enabled: boolean
+): Promise<boolean> {
+  const existingId = await getCronId(userId);
+
+  if (enabled) {
+    if (existingId) return false;
+    await ensureUserCron(userId);
+    return true;
+  }
+
+  if (!existingId) return false;
+  await removeUserCron(userId);
+  return true;
+}
+
 export function healAllCrons(): void {
   try {
     const crons = listCrons();
@@ -421,15 +670,12 @@ export async function addUserAgent(
       logger.info(`Telegram account already exists, skipping: ${userId}`);
     }
 
-    if (!config.channels.telegram.bindings) config.channels.telegram.bindings = [];
-    const alreadyBound = config.channels.telegram.bindings.some(
-      (b) => b.agentId === userId
-    );
-    if (!alreadyBound) {
-      config.channels.telegram.bindings.push({
-        agentId: userId,
-        match: { channel: "telegram", accountId: userId },
-      });
+    const bindings = ensureBindings(config);
+    const changed = upsertTelegramBinding(bindings, {
+      agentId: userId,
+      match: { channel: "telegram", accountId: userId },
+    });
+    if (changed) {
       logger.info(`Added Telegram binding for: ${userId}`);
     } else {
       logger.info(`Telegram binding already exists, skipping: ${userId}`);
@@ -472,10 +718,8 @@ export async function removeUserAgent(userId: string): Promise<void> {
   if (config.agents?.list) {
     config.agents.list = config.agents.list.filter((a) => a.id !== userId);
   }
-  if (config.channels?.telegram?.bindings) {
-    config.channels.telegram.bindings = config.channels.telegram.bindings.filter(
-      (b) => b.agentId !== userId
-    );
+  if (config.bindings) {
+    config.bindings = config.bindings.filter((b) => b.agentId !== userId);
   }
   if (config.channels?.telegram?.accounts?.[userId]) {
     delete config.channels.telegram.accounts[userId];
@@ -509,19 +753,42 @@ export async function updateUserTelegram(
     allowFrom: [telegramChatId],
   };
 
-  if (!config.channels.telegram.bindings) config.channels.telegram.bindings = [];
-  const alreadyBound = config.channels.telegram.bindings.some(
-    (b) => b.agentId === userId
-  );
-  if (!alreadyBound) {
-    config.channels.telegram.bindings.push({
-      agentId: userId,
-      match: { channel: "telegram", accountId: userId },
-    });
-  }
+  upsertTelegramBinding(ensureBindings(config), {
+    agentId: userId,
+    match: { channel: "telegram", accountId: userId },
+  });
 
   await writeConfig(config);
   logger.info(`Updated Telegram for user: ${userId}`);
+}
+
+export async function disconnectUserTelegram(userId: string): Promise<void> {
+  const config = await readConfig();
+  let dirty = false;
+
+  if (config.channels?.telegram?.accounts?.[userId]) {
+    delete config.channels.telegram.accounts[userId];
+    dirty = true;
+  }
+
+  if (config.bindings) {
+    const nextBindings = config.bindings.filter(
+      (binding) =>
+        !(
+          binding.match?.channel === "telegram" &&
+          (binding.agentId === userId || binding.match?.accountId === userId)
+        )
+    );
+    if (nextBindings.length !== config.bindings.length) {
+      config.bindings = nextBindings;
+      dirty = true;
+    }
+  }
+
+  if (!dirty) return;
+
+  await writeConfig(config);
+  logger.info(`Disconnected Telegram for user: ${userId}`);
 }
 
 // ── Model enforcement ─────────────────────────────────────────────────────────
@@ -536,31 +803,55 @@ export async function applyProfileToAgent(
   userId: string,
   orchestratorModel: string,
   analystsModel: string
-): Promise<void> {
+): Promise<boolean> {
   const config = await readConfig();
-  if (!config.agents?.list) return;
+  if (!config.agents?.list) return false;
 
   const entry = config.agents.list.find((a) => a.id === userId);
   if (!entry) {
     logger.warn(`applyProfileToAgent: no agent entry found for ${userId}`);
-    return;
+    return false;
   }
 
   // Type-widen so we can add non-interface fields openclaw accepts per-schema
   const agentEntry = entry as unknown as Record<string, unknown>;
-  // Route openrouter/* models through the per-user proxy; other providers go direct.
-  agentEntry["model"] = { primary: toProxyModel(userId, orchestratorModel), fallbacks: [] };
-  agentEntry["subagents"] = {
-    ...(typeof agentEntry["subagents"] === "object" && agentEntry["subagents"] !== null
+  const desiredPrimary = toProxyModel(userId, orchestratorModel);
+  const currentModel =
+    typeof agentEntry["model"] === "object" && agentEntry["model"] !== null
+      ? (agentEntry["model"] as Record<string, unknown>)
+      : {};
+  const currentSubagents =
+    typeof agentEntry["subagents"] === "object" && agentEntry["subagents"] !== null
       ? (agentEntry["subagents"] as Record<string, unknown>)
-      : {}),
-    model: { primary: toProxyModel(userId, analystsModel), fallbacks: [] },
+      : {};
+  const currentSubModel =
+    typeof currentSubagents["model"] === "object" && currentSubagents["model"] !== null
+      ? (currentSubagents["model"] as Record<string, unknown>)
+      : {};
+  const desiredAnalystsPrimary = toProxyModel(userId, analystsModel);
+  const alreadyApplied =
+    currentModel["primary"] === desiredPrimary &&
+    Array.isArray(currentModel["fallbacks"]) &&
+    currentModel["fallbacks"].length === 0 &&
+    currentSubModel["primary"] === desiredAnalystsPrimary &&
+    Array.isArray(currentSubModel["fallbacks"]) &&
+    currentSubModel["fallbacks"].length === 0;
+  if (alreadyApplied) {
+    return false;
+  }
+
+  // Route openrouter/* models through the per-user proxy; other providers go direct.
+  agentEntry["model"] = { primary: desiredPrimary, fallbacks: [] };
+  agentEntry["subagents"] = {
+    ...currentSubagents,
+    model: { primary: desiredAnalystsPrimary, fallbacks: [] },
   };
 
   await writeConfig(config);
   logger.info(
     `Applied model profile to agent ${userId}: orchestrator=${orchestratorModel} analysts=${analystsModel}`
   );
+  return true;
 }
 
 // ── Proxy provider management ─────────────────────────────────────────────────
@@ -630,7 +921,7 @@ export async function removeProxyProvider(userId: string): Promise<void> {
  * entry and has its openrouter/* model strings transformed to route through the
  * proxy. Rebuilds the in-memory key map from the final config state.
  */
-export async function ensureAllProxyProviders(): Promise<void> {
+export async function ensureAllProxyProviders(): Promise<boolean> {
   const config = await readConfig();
   const agents = config.agents?.list ?? [];
   let dirty = false;
@@ -707,11 +998,12 @@ export async function ensureAllProxyProviders(): Promise<void> {
   logger.info(
     `ensureAllProxyProviders: processed ${agents.length} agents, dirty=${dirty}`
   );
+  return dirty;
 }
 
 export async function restartGateway(): Promise<void> {
   try {
-    execSync("openclaw gateway restart", { timeout: 15_000, stdio: "ignore" });
+    await runOpenClaw(["gateway", "restart"], 15_000);
     logger.info("OpenClaw gateway restarted");
   } catch (err) {
     logger.warn("Gateway restart failed — may restart itself", { err });
@@ -745,8 +1037,8 @@ export async function getSystemAgentStatus(): Promise<{
   try {
     const config = await readConfig();
     const agent = config.agents?.list?.find((entry) => entry.id === SYSTEM_AGENT_ID);
-    const hasTelegram = !!config.channels?.telegram?.botToken &&
-      !!config.channels?.telegram?.bindings?.some(
+    const hasTelegram = !!config.channels?.telegram?.accounts?.[SYSTEM_TELEGRAM_ACCOUNT_ID]?.botToken &&
+      !!config.bindings?.some(
         (binding) =>
           binding.agentId === SYSTEM_AGENT_ID &&
           binding.match?.channel === "telegram" &&
@@ -768,6 +1060,9 @@ export interface AgentHealth {
   lastError: string | null;
   lastErrorReason: string | null;
   lastRunAt: string | null;
+  classification?: "healthy" | "degraded" | "restricted" | "inactive";
+  statusReason?: string | null;
+  operational?: boolean;
 }
 
 const CRON_JOBS_PATH = "/root/.openclaw/cron/jobs.json";

@@ -4,8 +4,9 @@ import { logger } from "./logger.js";
 import {
   ProfileDefinitionSchema,
   ProfilesRegistrySchema,
+  UserConfigSchema,
 } from "../schemas/profile.js";
-import type { ProfileDefinition, ProfilesRegistry } from "../schemas/profile.js";
+import type { ProfileDefinition, ProfilesRegistry, UserPlan } from "../schemas/profile.js";
 import {
   applyProfileToAgent,
   restartGateway,
@@ -138,6 +139,8 @@ export interface UserProfileStatus {
   reason?: string;
 }
 
+const DEFAULT_USER_PLAN: UserPlan = "pro";
+
 /**
  * Returns the raw profile name stored in config.json.
  * Does NOT validate against the registry — callers that need that should use
@@ -146,10 +149,22 @@ export interface UserProfileStatus {
 export async function getUserProfile(userId: string): Promise<string> {
   try {
     const raw = await fs.readFile(userConfigPath(userId), "utf-8");
-    const parsed = JSON.parse(raw) as { modelProfile?: string };
-    return parsed.modelProfile ?? "testing";
+    const parsed = UserConfigSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return "testing";
+    return parsed.data.modelProfile ?? "testing";
   } catch {
     return "testing";
+  }
+}
+
+export async function getUserPlan(userId: string): Promise<UserPlan> {
+  try {
+    const raw = await fs.readFile(userConfigPath(userId), "utf-8");
+    const parsed = UserConfigSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return DEFAULT_USER_PLAN;
+    return parsed.data.plan ?? DEFAULT_USER_PLAN;
+  } catch {
+    return DEFAULT_USER_PLAN;
   }
 }
 
@@ -173,8 +188,9 @@ export async function getUserProfileStatus(userId: string): Promise<UserProfileS
 export async function getSystemAgentProfile(): Promise<string> {
   try {
     const raw = await fs.readFile(systemAgentConfigPath(), "utf-8");
-    const parsed = JSON.parse(raw) as { modelProfile?: string };
-    return parsed.modelProfile ?? "testing";
+    const parsed = UserConfigSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return "testing";
+    return parsed.data.modelProfile ?? "testing";
   } catch {
     return "testing";
   }
@@ -201,7 +217,8 @@ export async function setUserProfile(
   if (!profile) throw new Error(`Profile not found: ${profileName}`);
 
   // Write clean config
-  const config = { modelProfile: profileName };
+  const previousPlan = await getUserPlan(userId);
+  const config = { modelProfile: profileName, plan: previousPlan };
   await fs.writeFile(
     userConfigPath(userId),
     JSON.stringify(config, null, 2),
@@ -219,7 +236,7 @@ export async function setSystemAgentProfile(profileName: string): Promise<void> 
   const profile = await getProfile(profileName);
   if (!profile) throw new Error(`Profile not found: ${profileName}`);
 
-  const config = { modelProfile: profileName };
+  const config = { modelProfile: profileName, plan: DEFAULT_USER_PLAN };
   await fs.writeFile(
     systemAgentConfigPath(),
     JSON.stringify(config, null, 2),
@@ -236,7 +253,8 @@ export async function setSystemAgentProfile(profileName: string): Promise<void> 
   logger.info(`Set profile for ${SYSTEM_AGENT_ID}: ${profileName}`);
 }
 
-export async function syncAllUserProfiles(): Promise<void> {
+export async function syncAllUserProfiles(): Promise<boolean> {
+  let changed = false;
   let entries: Array<{ name: string; isDirectory(): boolean }> = [];
   try {
     entries = (await fs.readdir(USERS_DIR, {
@@ -244,7 +262,7 @@ export async function syncAllUserProfiles(): Promise<void> {
       encoding: "utf8",
     })) as Array<{ name: string; isDirectory(): boolean }>;
   } catch {
-    return;
+    return false;
   }
 
   for (const entry of entries) {
@@ -262,28 +280,32 @@ export async function syncAllUserProfiles(): Promise<void> {
     const profile = await getProfile(status.name);
     if (!profile) continue;
 
-    await applyProfileToAgent(userId, profile.orchestrator, profile.analysts);
+    if (await applyProfileToAgent(userId, profile.orchestrator, profile.analysts)) {
+      changed = true;
+    }
   }
 
-  logger.info("Reconciled model profiles for all users");
+  logger.info(`Reconciled model profiles for all users${changed ? " (changed)" : " (no changes)"}`);
+  return changed;
 }
 
-export async function syncSystemAgentProfile(): Promise<void> {
+export async function syncSystemAgentProfile(): Promise<boolean> {
   const status = await getSystemAgentProfileStatus();
   if (status.broken) {
     logger.warn(
       `Skipping profile sync for ${SYSTEM_AGENT_ID}: ${status.reason ?? "profile missing"}`
     );
-    return;
+    return false;
   }
 
   const profile = await getProfile(status.name);
-  if (!profile) return;
+  if (!profile) return false;
 
-  await applyProfileToAgent(
+  const changed = await applyProfileToAgent(
     SYSTEM_AGENT_ID,
     profile.orchestrator,
     profile.analysts
   );
-  logger.info("Reconciled model profile for root system agent");
+  logger.info(`Reconciled model profile for root system agent${changed ? " (changed)" : " (no changes)"}`);
+  return changed;
 }

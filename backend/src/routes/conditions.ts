@@ -3,7 +3,9 @@ import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import { runConditionCheck, markCatalystTriggered, markDeepDiveComplete } from "../services/conditionEngine.js";
 import { createJob } from "../services/jobService.js";
+import { initializeDeepDiveJob } from "../services/deepDiveService.js";
 import type { EscalationReason } from "../services/conditionEngine.js";
+import { dispatchPendingAgentJobsForUser } from "../services/agentJobDispatcher.js";
 
 const router = Router();
 
@@ -76,9 +78,13 @@ router.post(
     await writeState(ws.userId, { pendingDeepDives: Array.from(pending) });
 
     // Create deep_dive job for this ticker
-    const job = await createJob(ws, "deep_dive", ticker);
+    const job = await createJob(ws, "deep_dive", ticker, { dispatch: false });
+    const initializedJob = await initializeDeepDiveJob(ws, job);
+    if (initializedJob.status === "running") {
+      await dispatchPendingAgentJobsForUser(ws.userId);
+    }
 
-    res.json({ jobId: job.id, ticker, queued: true });
+    res.json({ jobId: initializedJob.id, ticker, queued: true });
   })
 );
 

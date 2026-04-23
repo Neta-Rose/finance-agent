@@ -1,6 +1,7 @@
 export type Verdict = "BUY" | "ADD" | "HOLD" | "REDUCE" | "SELL" | "CLOSE";
 export type Confidence = "high" | "medium" | "low";
 export type Exchange = "TASE" | "NYSE" | "NASDAQ" | "LSE" | "XETRA" | "EURONEXT" | "OTHER";
+export type AssetType = "stock" | "etf" | "crypto" | "fund" | "bond" | "index" | "other";
 
 export interface TickerSelection {
   symbol: string;
@@ -10,16 +11,42 @@ export interface TickerSelection {
   flag: string;
   price: number | null;
   currency: string;
+  assetType: AssetType;
 }
 
 export interface SearchResponse {
   results: TickerSelection[];
+  error?: string | null;
 }
-export type JobStatus = "pending" | "running" | "completed" | "failed";
+
+export interface SupportMessageCreate {
+  subject: string;
+  message: string;
+  source?: string;
+  page?: string;
+}
+
+export interface SupportMessageRecord extends SupportMessageCreate {
+  id: string;
+  userId: string;
+  createdAt: string;
+  status: "open" | "closed";
+}
+export type JobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 export type JobAction =
  | "daily_brief" | "full_report" | "deep_dive"
- | "new_ideas" | "switch_production" | "switch_testing";
-export type PortfolioState = "UNINITIALIZED" | "BOOTSTRAPPING" | "ACTIVE";
+ | "new_ideas" | "quick_check" | "switch_production" | "switch_testing";
+export type PortfolioState = "INCOMPLETE" | "BOOTSTRAPPING" | "ACTIVE" | "BLOCKED";
+
+export type PositionGuidanceHorizon = "unspecified" | "days" | "weeks" | "months" | "years";
+
+export interface PositionGuidance {
+ thesis: string;
+ horizon: PositionGuidanceHorizon;
+ addOn: string;
+ reduceOn: string;
+ notes: string;
+}
 
 export interface PositionRow {
  ticker: string;
@@ -60,6 +87,7 @@ export interface StrategyCatalyst {
 
 export interface StrategyRow {
  ticker: string;
+ inPortfolio: boolean;
  verdict: Verdict;
  confidence: Confidence;
  reasoning: string;
@@ -173,6 +201,7 @@ export interface RateLimits {
  daily_brief: RateLimit;
  deep_dive: RateLimit;
  new_ideas: RateLimit;
+ quick_check: RateLimit;
 }
 
 export interface AgentHealth {
@@ -181,6 +210,9 @@ export interface AgentHealth {
  lastError: string | null;
  lastErrorReason: string | null;
  lastRunAt: string | null;
+ classification?: "healthy" | "degraded" | "restricted" | "inactive";
+ statusReason?: string | null;
+ operational?: boolean;
 }
 
 export interface Schedule {
@@ -188,6 +220,84 @@ export interface Schedule {
  weeklyResearchDay: string;
  weeklyResearchTime: string;
  timezone: string;
+}
+
+export type NotificationChannel = "telegram" | "web" | "none" | "whatsapp";
+
+export interface NotificationPreferences {
+ primaryChannel: NotificationChannel;
+ enabledChannels: {
+  telegram: boolean;
+  web: boolean;
+  whatsapp: boolean;
+ };
+ categories: {
+  dailyBriefs: boolean;
+  reportRuns: boolean;
+  marketNews: boolean;
+ };
+}
+
+export interface ChannelStatus {
+ connected: boolean;
+ target: string | null;
+}
+
+export interface ChannelConnectivity {
+ telegram: ChannelStatus;
+ whatsapp: ChannelStatus;
+ web: ChannelStatus;
+}
+
+export interface FeedItemEntry {
+ ticker: string;
+ mode: string;
+ verdict: string;
+ confidence: string;
+ reasoning: string;
+ timeframe: string;
+ analystTypes: string[];
+ hasBullCase: boolean;
+ hasBearCase: boolean;
+}
+
+export interface FeedItem {
+ id: string;
+ createdAt: string;
+ kind: "daily_brief" | "report" | "market_news";
+ title: string;
+ summary: string;
+ mode: string;
+ tone: "emerald" | "amber" | "rose" | "sky" | "slate";
+ compact: boolean;
+ batchId: string | null;
+ tickers: string[];
+ tickerCount: number;
+ entries: Record<string, FeedItemEntry>;
+ highlights: string[];
+ dailyBrief: {
+  headline: string | null;
+  today: string | null;
+  tomorrow: string | null;
+  marketView: string | null;
+  securityNote: string | null;
+  dashboardPath: string | null;
+ } | null;
+ event: {
+  ticker: string;
+  source: string;
+  url: string | null;
+ } | null;
+}
+
+export interface FeedPageResponse {
+ page: number;
+ totalPages: number;
+ totalItems: number;
+ pageSize: number;
+ appliedMode: string | null;
+ appliedSearch: string | null;
+ items: FeedItem[];
 }
 
 export interface OnboardStatus {
@@ -202,10 +312,14 @@ export interface OnboardStatus {
  pct: number;
  } | null;
  portfolioLoaded: boolean;
+ guidanceStepPending: boolean;
+ positionGuidanceCount: number;
  readyForTrading: boolean;
  rateLimits: RateLimits;
  schedule: Schedule | null;
+ notifications: NotificationPreferences;
  telegramConnected: boolean;
+ connectivity: ChannelConnectivity;
  agentHealthy: boolean;
 }
 

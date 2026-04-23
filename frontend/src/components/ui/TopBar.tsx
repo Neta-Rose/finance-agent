@@ -2,6 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { clsx } from "clsx";
 import { getGreeting } from "../../store/i18n";
 import { usePreferencesStore } from "../../store/preferencesStore";
+import { ContactAdminButton } from "../support/ContactAdminButton";
 
 interface Props {
  title: string;
@@ -10,9 +11,20 @@ interface Props {
  onRefresh?: () => void;
  refreshing?: boolean;
  right?: React.ReactNode;
+ showContactAdmin?: boolean;
+ contactAdminSource?: string;
 }
 
-export function TopBar({ title, subtitle, greeting, onRefresh, refreshing, right }: Props) {
+export function TopBar({
+ title,
+ subtitle,
+ greeting,
+ onRefresh,
+ refreshing,
+ right,
+ showContactAdmin = true,
+ contactAdminSource = "topbar",
+}: Props) {
  const lang = usePreferencesStore((s) => s.language);
  const computedGreeting = greeting !== undefined ? greeting : getGreeting(null, lang);
  return (
@@ -27,6 +39,7 @@ export function TopBar({ title, subtitle, greeting, onRefresh, refreshing, right
  {subtitle && <p className="text-[10px] text-[var(--color-fg-subtle)] leading-tight">{subtitle}</p>}
  </div>
  <div className="flex items-center gap-2">
+ {showContactAdmin && <ContactAdminButton source={contactAdminSource} />}
  {right}
  {onRefresh && (
  <button

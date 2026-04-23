@@ -1,0 +1,719 @@
+import { promises as fs } from "fs";
+import path from "path";
+import type { UserWorkspace } from "../middleware/userIsolation.js";
+import type { Job, JsonValue, Verdict, Confidence } from "../types/index.js";
+import { validateReportFile, validateStrategyFile } from "./validationService.js";
+import { readState, writeState } from "./stateService.js";
+import { updateJob } from "./jobService.js";
+import { logger } from "./logger.js";
+import { publishNotification } from "./notificationService.js";
+
+export const DEEP_DIVE_STEPS = [
+  {
+    key: "fundamentals",
+    label: "Fundamentals",
+    filename: "fundamentals.json",
+    analyst: "fundamentals",
+  },
+  {
+    key: "technical",
+    label: "Technical Analysis",
+    filename: "technical.json",
+    analyst: "technical",
+  },
+  {
+    key: "sentiment",
+    label: "Sentiment",
+    filename: "sentiment.json",
+    analyst: "sentiment",
+  },
+  {
+    key: "macro",
+    label: "Macro",
+    filename: "macro.json",
+    analyst: "macro",
+  },
+  {
+    key: "risk",
+    label: "Portfolio Risk",
+    filename: "risk.json",
+    analyst: "risk",
+  },
+  {
+    key: "bull_case",
+    label: "Bull Researcher",
+    filename: "bull_case.json",
+    analyst: "bull",
+  },
+  {
+    key: "bear_case",
+    label: "Bear Researcher",
+    filename: "bear_case.json",
+    analyst: "bear",
+  },
+] as const;
+
+type DeepDiveStepDefinition = (typeof DEEP_DIVE_STEPS)[number];
+export type DeepDiveStepKey = DeepDiveStepDefinition["key"];
+
+export interface DeepDiveStepState {
+  key: DeepDiveStepKey;
+  label: string;
+  filename: string;
+  status: "pending" | "running" | "completed" | "failed";
+  completedAt: string | null;
+  detail: string | null;
+}
+
+export interface DeepDiveState {
+  version: 1;
+  ticker: string;
+  jobId: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  triggeredAt: string;
+  startedAt: string;
+  dispatchedAt: string | null;
+  updatedAt: string;
+  completedAt: string | null;
+  completedSteps: number;
+  totalSteps: number;
+  currentStep: string | null;
+  strategyReady: boolean;
+  lastProgressAt: string | null;
+  failureReason?: string | null;
+  steps: DeepDiveStepState[];
+}
+
+interface StepScanResult {
+  steps: DeepDiveStepState[];
+  completedSteps: number;
+  totalSteps: number;
+  nextStep: string | null;
+  strategyReady: boolean;
+  strategyUpdatedAt: string | null;
+  lastProgressAt: string | null;
+}
+
+interface StrategySnapshot {
+  verdict: Verdict;
+  confidence: Confidence;
+  reasoning: string;
+  timeframe: string;
+}
+
+const OPENCLAW_AGENT_ROOT = process.env["OPENCLAW_AGENTS_DIR"] ?? "/root/.openclaw/agents";
+
+function deepDiveStatePath(ws: UserWorkspace, ticker: string): string {
+  return path.join(ws.reportsDir, ticker, "deep_dive_state.json");
+}
+
+async function readJsonIfExists<T>(filePath: string): Promise<T | null> {
+  try {
+    const raw = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function findDeepDiveSessionFailureSignal(
+  userId: string,
+  jobId: string
+): Promise<"analyst_budget_exceeded" | "rate_limit" | null> {
+  const sessionsDir = path.join(OPENCLAW_AGENT_ROOT, userId, "sessions");
+  let sessionFiles: Array<{ name: string; mtimeMs: number }> = [];
+  try {
+    const entries = await fs.readdir(sessionsDir, { withFileTypes: true });
+    const candidates = await Promise.all(
+      entries
+        .filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"))
+        .map(async (entry) => {
+          const fullPath = path.join(sessionsDir, entry.name);
+          const stat = await fs.stat(fullPath);
+          return { name: fullPath, mtimeMs: stat.mtimeMs };
+        })
+    );
+    sessionFiles = candidates.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 6);
+  } catch {
+    return null;
+  }
+
+  for (const session of sessionFiles) {
+    try {
+      const raw = await fs.readFile(session.name, "utf-8");
+      if (!raw.includes(jobId)) continue;
+      if (raw.includes("analyst_budget_exceeded")) {
+        return "analyst_budget_exceeded";
+      }
+      if (raw.includes("rate_limit") || raw.includes('429 "rate_limit"')) {
+        return "rate_limit";
+      }
+    } catch {
+      // ignore unreadable sessions
+    }
+  }
+
+  return null;
+}
+
+async function appendDeepDiveBatch(
+  ws: UserWorkspace,
+  job: Job,
+  ticker: string,
+  strategy: StrategySnapshot
+): Promise<void> {
+  const batchId = `batch_${job.id}_deep_dive`;
+  const indexDir = path.join(ws.reportsDir, "index");
+  await fs.mkdir(indexDir, { recursive: true });
+
+  const metaPath = path.join(indexDir, "meta.json");
+  const pagePath = path.join(indexDir, "page-001.json");
+
+  let meta: {
+    totalBatches: number;
+    totalPages: number;
+    lastUpdated: string | null;
+    newestBatchId: string | null;
+    pageSize?: number;
+  } = {
+    totalBatches: 0,
+    totalPages: 1,
+    lastUpdated: null,
+    newestBatchId: null,
+    pageSize: 10,
+  };
+  try {
+    meta = JSON.parse(await fs.readFile(metaPath, "utf-8")) as typeof meta;
+  } catch {}
+
+  let page: {
+    page: number;
+    totalPages: number;
+    batches: Array<{ batchId: string } & Record<string, unknown>>;
+  } = {
+    page: 1,
+    totalPages: 1,
+    batches: [],
+  };
+  try {
+    page = JSON.parse(await fs.readFile(pagePath, "utf-8")) as typeof page;
+  } catch {}
+
+  page.batches = page.batches.filter((entry) => entry.batchId !== batchId);
+  page.batches.unshift({
+    batchId,
+    triggeredAt: job.completed_at ?? job.triggered_at,
+    date: (job.completed_at ?? job.triggered_at).slice(0, 10),
+    mode: "deep_dive",
+    tickers: [ticker],
+    tickerCount: 1,
+    jobId: job.id,
+    entries: {
+      [ticker]: {
+        ticker,
+        mode: "deep_dive",
+        verdict: strategy.verdict,
+        confidence: strategy.confidence,
+        reasoning: strategy.reasoning,
+        timeframe: strategy.timeframe,
+        analystTypes: ["fundamentals", "technical", "sentiment", "macro", "risk", "bull", "bear"],
+        hasBullCase: true,
+        hasBearCase: true,
+      },
+    },
+  });
+  page.batches = page.batches.slice(0, meta.pageSize ?? 10);
+
+  meta.totalBatches = Math.max(meta.totalBatches, page.batches.length);
+  meta.totalPages = 1;
+  meta.lastUpdated = job.completed_at ?? job.triggered_at;
+  meta.newestBatchId = batchId;
+
+  await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+  await fs.writeFile(pagePath, JSON.stringify(page, null, 2), "utf-8");
+
+  await publishNotification({
+    userId: ws.userId,
+    category: "report",
+    title: `${ticker} deep dive`,
+    body: strategy.reasoning,
+    ticker,
+    batchId,
+  });
+}
+
+async function scanDeepDiveArtifacts(
+  ws: UserWorkspace,
+  ticker: string,
+  triggeredAt: string
+): Promise<StepScanResult> {
+  const reportDir = path.join(ws.reportsDir, ticker);
+  const cutoff = new Date(triggeredAt).getTime();
+  const steps = await Promise.all(
+    DEEP_DIVE_STEPS.map(async (definition): Promise<DeepDiveStepState> => {
+      const filePath = path.join(reportDir, definition.filename);
+      try {
+        const stat = await fs.stat(filePath);
+        if (stat.mtimeMs < cutoff) {
+          return {
+            key: definition.key,
+            label: definition.label,
+            filename: definition.filename,
+            status: "pending",
+            completedAt: null,
+            detail: "artifact predates current job",
+          };
+        }
+
+        const validation = await validateReportFile(filePath, definition.analyst);
+        if (!validation.valid) {
+          return {
+            key: definition.key,
+            label: definition.label,
+            filename: definition.filename,
+            status: "pending",
+            completedAt: null,
+            detail: validation.errors?.[0] ?? "artifact failed validation",
+          };
+        }
+
+        return {
+          key: definition.key,
+          label: definition.label,
+          filename: definition.filename,
+          status: "completed",
+          completedAt: stat.mtime.toISOString(),
+          detail: null,
+        };
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+          return {
+            key: definition.key,
+            label: definition.label,
+            filename: definition.filename,
+            status: "pending",
+            completedAt: null,
+            detail: null,
+          };
+        }
+        throw err;
+      }
+    })
+  );
+
+  const strategyPath = ws.strategyFile(ticker);
+  let strategyReady = false;
+  let strategyUpdatedAt: string | null = null;
+  try {
+    const stat = await fs.stat(strategyPath);
+    strategyUpdatedAt = stat.mtime.toISOString();
+    if (stat.mtimeMs >= cutoff) {
+      const validation = await validateStrategyFile(strategyPath);
+      strategyReady = validation.valid;
+    }
+  } catch {}
+
+  const completedSteps = steps.filter((step) => step.status === "completed").length;
+  const nextStep = steps.find((step) => step.status !== "completed")?.label ?? null;
+  const lastProgressAt = [strategyUpdatedAt, ...steps.map((step) => step.completedAt)]
+    .filter((value): value is string => typeof value === "string")
+    .sort()
+    .at(-1) ?? null;
+  return {
+    steps,
+    completedSteps,
+    totalSteps: DEEP_DIVE_STEPS.length,
+    nextStep,
+    strategyReady,
+    strategyUpdatedAt,
+    lastProgressAt,
+  };
+}
+
+function deriveDeepDiveStatus(job: Job, scan: StepScanResult): DeepDiveState["status"] {
+  if (scan.completedSteps === scan.totalSteps && scan.strategyReady) {
+    return "completed";
+  }
+  if (job.status === "cancelled") {
+    return "cancelled";
+  }
+  if (job.status === "failed") {
+    return "failed";
+  }
+  if (job.status === "running" && job.started_at) {
+    return "running";
+  }
+  return "pending";
+}
+
+function decorateStepsForStatus(
+  steps: DeepDiveStepState[],
+  status: DeepDiveState["status"]
+): DeepDiveStepState[] {
+  let markedActive = false;
+  return steps.map((step) => {
+    if (step.status === "completed") {
+      return step;
+    }
+    if (markedActive) {
+      return step;
+    }
+    if (status === "running") {
+      markedActive = true;
+      return { ...step, status: "running" };
+    }
+    if (status === "failed") {
+      markedActive = true;
+      return { ...step, status: "failed" };
+    }
+    return step;
+  });
+}
+
+async function buildDeepDiveState(ws: UserWorkspace, job: Job): Promise<DeepDiveState> {
+  const scan = await scanDeepDiveArtifacts(ws, job.ticker!, job.triggered_at);
+  const status = deriveDeepDiveStatus(job, scan);
+  const completedAt =
+    status === "completed"
+      ? scan.strategyUpdatedAt ?? new Date().toISOString()
+      : status === "failed" || status === "cancelled"
+      ? job.completed_at ?? new Date().toISOString()
+      : null;
+
+  return {
+    version: 1,
+    ticker: job.ticker!,
+    jobId: job.id,
+    status,
+    triggeredAt: job.triggered_at,
+    startedAt: job.started_at ?? new Date().toISOString(),
+    dispatchedAt: job.started_at ?? null,
+    updatedAt: new Date().toISOString(),
+    completedAt,
+    completedSteps: scan.completedSteps,
+    totalSteps: scan.totalSteps,
+    currentStep: status === "completed" ? null : scan.nextStep,
+    strategyReady: scan.strategyReady,
+    lastProgressAt: scan.lastProgressAt,
+    failureReason:
+      status === "failed" || status === "cancelled"
+        ? job.error ?? null
+        : null,
+    steps: decorateStepsForStatus(scan.steps, status),
+  };
+}
+
+async function writeDeepDiveState(
+  ws: UserWorkspace,
+  ticker: string,
+  state: DeepDiveState
+): Promise<void> {
+  const statePath = deepDiveStatePath(ws, ticker);
+  await fs.mkdir(path.dirname(statePath), { recursive: true });
+  await fs.writeFile(statePath, JSON.stringify(state, null, 2), "utf-8");
+}
+
+async function readStrategySnapshot(
+  ws: UserWorkspace,
+  ticker: string
+): Promise<StrategySnapshot | null> {
+  const raw = await readJsonIfExists<Record<string, unknown>>(ws.strategyFile(ticker));
+  if (!raw) return null;
+  const verdict = raw["verdict"];
+  const confidence = raw["confidence"];
+  const reasoning = raw["reasoning"];
+  const timeframe = raw["timeframe"];
+  if (
+    typeof verdict !== "string" ||
+    typeof confidence !== "string" ||
+    typeof reasoning !== "string" ||
+    typeof timeframe !== "string"
+  ) {
+    return null;
+  }
+  return {
+    verdict: verdict as Verdict,
+    confidence: confidence as Confidence,
+    reasoning,
+    timeframe,
+  };
+}
+
+async function syncPendingDeepDiveState(
+  ws: UserWorkspace,
+  ticker: string,
+  done: boolean
+): Promise<void> {
+  const state = await readState(ws.userId);
+  const pending = new Set(state.pendingDeepDives ?? []);
+  if (done) {
+    pending.delete(ticker);
+  } else {
+    pending.add(ticker);
+  }
+  await writeState(ws.userId, { pendingDeepDives: Array.from(pending) });
+}
+
+export async function initializeDeepDiveJob(
+  ws: UserWorkspace,
+  job: Job
+): Promise<Job> {
+  if (job.action !== "deep_dive" || !job.ticker) {
+    return job;
+  }
+
+  const state = await buildDeepDiveState(ws, job);
+
+  await writeDeepDiveState(ws, job.ticker, state);
+  await syncPendingDeepDiveState(ws, job.ticker, state.status === "completed");
+
+  if (job.status === "pending") {
+    job = await updateJob(ws, job.id, {
+      status: state.status === "completed" ? "completed" : "pending",
+      started_at: state.status === "completed" ? state.startedAt : null,
+      completed_at: state.completedAt,
+      result:
+        state.status === "completed"
+          ? ({
+              ticker: job.ticker,
+              completedSteps: state.completedSteps,
+              totalSteps: state.totalSteps,
+              strategyReady: state.strategyReady,
+            } as JsonValue)
+          : job.result,
+      error: null,
+    });
+  }
+
+  return state.status === "completed" ? reconcileDeepDiveJob(ws, job) : job;
+}
+
+export async function getDeepDiveJobProgress(
+  ws: UserWorkspace,
+  job: Job
+): Promise<{
+  pct: number;
+  currentTicker: string | null;
+  currentStep: string | null;
+  completedTickers: string[];
+  remainingTickers: string[];
+  totalTickers: number;
+  completedSteps: number;
+  totalSteps: number;
+} | null> {
+  if (job.action !== "deep_dive" || !job.ticker) return null;
+
+  const state = await readJsonIfExists<DeepDiveState>(deepDiveStatePath(ws, job.ticker));
+  if (!state || state.jobId !== job.id) {
+    const scan = await scanDeepDiveArtifacts(ws, job.ticker, job.triggered_at);
+    const pct = Math.round((scan.completedSteps / scan.totalSteps) * 100);
+    return {
+      pct,
+      currentTicker: job.ticker,
+      currentStep: scan.nextStep,
+      completedTickers: scan.completedSteps === scan.totalSteps ? [job.ticker] : [],
+      remainingTickers: scan.completedSteps === scan.totalSteps ? [] : [job.ticker],
+      totalTickers: 1,
+      completedSteps: scan.completedSteps,
+      totalSteps: scan.totalSteps,
+    };
+  }
+
+  const pct = Math.round((state.completedSteps / state.totalSteps) * 100);
+  return {
+    pct,
+    currentTicker: job.ticker,
+    currentStep: state.currentStep,
+    completedTickers: state.status === "completed" ? [job.ticker] : [],
+    remainingTickers: state.status === "completed" ? [] : [job.ticker],
+    totalTickers: 1,
+    completedSteps: state.completedSteps,
+    totalSteps: state.totalSteps,
+  };
+}
+
+export async function reconcileDeepDiveJob(
+  ws: UserWorkspace,
+  job: Job
+): Promise<Job> {
+  if (job.action !== "deep_dive" || !job.ticker) {
+    return job;
+  }
+
+  const state = await buildDeepDiveState(ws, job);
+
+  await writeDeepDiveState(ws, job.ticker, state);
+
+  if (state.status !== "completed") {
+    await syncPendingDeepDiveState(ws, job.ticker, false);
+    if (job.status === "pending" && state.status === "running") {
+      return updateJob(ws, job.id, {
+        status: "running",
+        started_at: state.startedAt,
+        error: null,
+      });
+    }
+    if (job.status !== state.status && state.status === "pending") {
+      return updateJob(ws, job.id, {
+        status: "pending",
+        started_at: null,
+        completed_at: null,
+        error: null,
+      });
+    }
+    return job;
+  }
+
+  const strategy = await readStrategySnapshot(ws, job.ticker);
+  if (!strategy) {
+    logger.warn(`Deep dive completion missing strategy snapshot for ${job.ticker}`);
+    return job;
+  }
+
+  const completedJob = await updateJob(ws, job.id, {
+    status: "completed",
+    started_at: state.startedAt,
+    completed_at: state.completedAt,
+    result: {
+      ticker: job.ticker,
+      completedSteps: state.completedSteps,
+      totalSteps: state.totalSteps,
+      strategyReady: true,
+      verdict: strategy.verdict,
+      confidence: strategy.confidence,
+    },
+    error: null,
+  });
+
+  await syncPendingDeepDiveState(ws, job.ticker, true);
+  await appendDeepDiveBatch(ws, completedJob, job.ticker, strategy);
+  return completedJob;
+}
+
+export async function markDeepDiveJobFailed(
+  ws: UserWorkspace,
+  job: Job,
+  reason: string,
+  completedAt = new Date().toISOString()
+): Promise<Job> {
+  if (job.action !== "deep_dive" || !job.ticker) {
+    return updateJob(ws, job.id, {
+      status: "failed",
+      completed_at: completedAt,
+      error: reason.slice(0, 490),
+    });
+  }
+
+  const existingState = await readJsonIfExists<DeepDiveState>(deepDiveStatePath(ws, job.ticker));
+  if (existingState && existingState.jobId === job.id) {
+    await writeDeepDiveState(ws, job.ticker, {
+      ...existingState,
+      status: "failed",
+      steps: decorateStepsForStatus(existingState.steps, "failed"),
+      updatedAt: completedAt,
+      completedAt,
+      lastProgressAt: existingState.lastProgressAt,
+      failureReason: reason,
+    });
+  }
+
+  await syncPendingDeepDiveState(ws, job.ticker, true);
+
+  try {
+    await fs.unlink(path.join(ws.triggersDir, `${job.id}.json`));
+  } catch {
+    // trigger may already be gone
+  }
+
+  return updateJob(ws, job.id, {
+    status: "failed",
+    completed_at: completedAt,
+    error: reason.slice(0, 490),
+  });
+}
+
+export async function markDeepDiveJobCancelled(
+  ws: UserWorkspace,
+  job: Job,
+  reason: string,
+  completedAt = new Date().toISOString()
+): Promise<Job> {
+  if (job.action !== "deep_dive" || !job.ticker) {
+    return updateJob(ws, job.id, {
+      status: "cancelled",
+      completed_at: completedAt,
+      error: reason.slice(0, 490),
+    });
+  }
+
+  const existingState = await readJsonIfExists<DeepDiveState>(deepDiveStatePath(ws, job.ticker));
+  if (existingState && existingState.jobId === job.id) {
+    await writeDeepDiveState(ws, job.ticker, {
+      ...existingState,
+      status: "cancelled",
+      updatedAt: completedAt,
+      completedAt,
+      failureReason: reason,
+    });
+  }
+
+  await syncPendingDeepDiveState(ws, job.ticker, true);
+
+  try {
+    await fs.unlink(path.join(ws.triggersDir, `${job.id}.json`));
+  } catch {
+    // trigger may already be gone
+  }
+
+  return updateJob(ws, job.id, {
+    status: "cancelled",
+    completed_at: completedAt,
+    error: reason.slice(0, 490),
+  });
+}
+
+export async function detectDeepDiveExecutionFailureSignal(
+  userId: string,
+  job: Job
+): Promise<string | null> {
+  if (job.action !== "deep_dive" || !job.ticker || job.status !== "running" || !job.started_at) {
+    return null;
+  }
+
+  const signal = await findDeepDiveSessionFailureSignal(userId, job.id);
+  if (signal === "analyst_budget_exceeded") {
+    return "Failed before any deep-dive artifact was written — analyst_budget_exceeded";
+  }
+  if (signal === "rate_limit") {
+    return "Failed before any deep-dive artifact was written — rate_limit";
+  }
+  return null;
+}
+
+export async function reconcileFailedDeepDiveJob(
+  ws: UserWorkspace,
+  job: Job
+): Promise<void> {
+  if (job.action !== "deep_dive" || !job.ticker || job.status !== "failed") {
+    return;
+  }
+
+  const existingState = await readJsonIfExists<DeepDiveState>(deepDiveStatePath(ws, job.ticker));
+  if (existingState && existingState.jobId === job.id && existingState.status !== "completed") {
+    await writeDeepDiveState(ws, job.ticker, {
+      ...existingState,
+      status: "failed",
+      updatedAt: job.completed_at ?? new Date().toISOString(),
+      completedAt: job.completed_at ?? existingState.completedAt ?? new Date().toISOString(),
+      failureReason: job.error ?? existingState.failureReason ?? "Deep dive failed",
+    });
+  }
+
+  await syncPendingDeepDiveState(ws, job.ticker, true);
+
+  try {
+    await fs.unlink(path.join(ws.triggersDir, `${job.id}.json`));
+  } catch {
+    // trigger may already be gone
+  }
+}

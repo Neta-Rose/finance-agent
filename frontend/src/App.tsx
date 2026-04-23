@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "./store/authStore";
@@ -17,9 +17,11 @@ import { Settings } from "./pages/Settings";
 import { Admin } from "./pages/Admin";
 import { fetchOnboardStatus } from "./api/onboarding";
 import { fetchControlState } from "./api/control";
+import { fetchNotifications, markNotificationsRead } from "./api/notifications";
 import { ControlBanner } from "./components/ControlBanner";
 import { SuspensionPage } from "./pages/SuspensionPage";
 import { Spinner } from "./components/ui/Spinner";
+import { useToastStore } from "./store/toastStore";
 
 const queryClient = new QueryClient({
  defaultOptions: {
@@ -35,6 +37,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const language = usePreferencesStore((s) => s.language);
   const [healthDismissed, setHealthDismissed] = useState(false);
+  const showToast = useToastStore((s) => s.show);
+  const seenNotificationIds = useRef<Set<string>>(new Set());
 
   const { data: onboardStatus, isLoading, error } = useQuery({
     queryKey: ["onboard-status"],
@@ -52,6 +56,27 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     retry: false,
   });
 
+  const { data: notifications } = useQuery({
+    queryKey: ["web-notifications"],
+    queryFn: () => fetchNotifications({ channel: "web", unread: true, limit: 10 }),
+    enabled: isAuthenticated,
+    refetchInterval: 15_000,
+    staleTime: 5_000,
+  });
+
+  useEffect(() => {
+    if (!notifications?.items.length) return;
+    const unseen = notifications.items.filter((item) => !seenNotificationIds.current.has(item.id));
+    if (unseen.length === 0) return;
+    const ids = unseen.map((item) => item.id);
+    for (const item of unseen) {
+      seenNotificationIds.current.add(item.id);
+      const message = item.body ? `${item.title}: ${item.body}` : item.title;
+      showToast(message, item.category === "daily_brief" ? "info" : "warning");
+    }
+    void markNotificationsRead(ids);
+  }, [notifications?.items, showToast]);
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   if (isLoading) {
@@ -64,7 +89,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (error || !onboardStatus) return <>{children}</>;
 
-  if (!onboardStatus.portfolioLoaded) {
+  if (!onboardStatus.portfolioLoaded || onboardStatus.guidanceStepPending) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -121,7 +146,7 @@ function OnboardingRoute() {
  }
 
  // If portfolio already loaded, send them to portfolio - no going back
- if (onboardStatus?.portfolioLoaded) {
+ if (onboardStatus?.portfolioLoaded && !onboardStatus.guidanceStepPending) {
    return <Navigate to="/portfolio" replace />;
  }
 

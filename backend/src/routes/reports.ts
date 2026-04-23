@@ -5,6 +5,7 @@ import { StrategySchema } from "../schemas/strategy.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import { guardPath } from "../middleware/userIsolation.js";
+import { readFeedPage, type StoredBatch } from "../services/feedService.js";
 
 const router = Router();
 
@@ -31,27 +32,59 @@ const VALID_REPORT_TYPES = [
   "bull_case",
   "bear_case",
   "strategy",
+  "quick_check",
 ];
 
 const BATCH_ID_REGEX = /^[a-zA-Z0-9_]{1,60}$/;
 const TICKER_REGEX = /^[A-Z0-9]{1,10}$/;
 
+async function readCurrentMeta(ws: UserWorkspace): Promise<{
+  totalBatches: number;
+  totalPages: number;
+  lastUpdated: string | null;
+  newestBatchId: string | null;
+}> {
+  try {
+    const raw = await fs.readFile(path.join(ws.reportsDir, "index", "meta.json"), "utf-8");
+    return JSON.parse(raw) as {
+      totalBatches: number;
+      totalPages: number;
+      lastUpdated: string | null;
+      newestBatchId: string | null;
+    };
+  } catch {
+    return {
+      totalBatches: 0,
+      totalPages: 0,
+      lastUpdated: null,
+      newestBatchId: null,
+    };
+  }
+}
+
+async function readCurrentPage(ws: UserWorkspace, pageNum: number): Promise<{
+  page: number;
+  totalPages: number;
+  batches: StoredBatch[];
+} | null> {
+  const pagePath = path.join(ws.reportsDir, "index", `page-${String(pageNum).padStart(3, "0")}.json`);
+  try {
+    const raw = await fs.readFile(pagePath, "utf-8");
+    return JSON.parse(raw) as {
+      page: number;
+      totalPages: number;
+      batches: StoredBatch[];
+    };
+  } catch {
+    return null;
+  }
+}
+
 router.get(
   "/reports/meta",
   handler(async (_req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
-    const metaPath = path.join(ws.snapshotsDir, "index", "meta.json");
-    try {
-      const raw = await fs.readFile(metaPath, "utf-8");
-      res.json(JSON.parse(raw));
-    } catch {
-      res.json({
-        totalBatches: 0,
-        totalPages: 0,
-        lastUpdated: null,
-        newestBatchId: null,
-      });
-    }
+    res.json(await readCurrentMeta(ws));
   })
 );
 
@@ -64,37 +97,49 @@ router.get(
       res.status(400).json({ error: "pageNum must be positive integer" });
       return;
     }
-    const pageFile = path.join(
-      ws.snapshotsDir,
-      "index",
-      `page-${String(pageNum).padStart(3, "0")}.json`
-    );
-    try {
-      const raw = await fs.readFile(pageFile, "utf-8");
-      const page = JSON.parse(raw) as {
-        page: number;
-        totalPages: number;
-        batches: Array<{
-          batchId: string;
-          date: string;
-          mode: string;
-          tickers: string[];
-          entries?: Record<string, { verdict?: string }>;
-          [key: string]: unknown;
-        }>;
-      };
-      // Reshape: snapshot stores tickers as string[], frontend expects {ticker, verdict}[]
-      const batches = page.batches.map((b) => ({
-        ...b,
-        tickers: b.tickers.map((ticker) => ({
-          ticker,
-          verdict: b.entries?.[ticker]?.verdict ?? "HOLD",
-        })),
-      }));
-      res.json({ ...page, batches });
-    } catch {
+    
+    const page = await readCurrentPage(ws, pageNum);
+    if (!page) {
       res.status(404).json({ error: "Page not found" });
+      return;
     }
+
+    res.json({
+      ...page,
+      batches: page.batches.map((batch) => ({
+        ...batch,
+        tickers: batch.tickers.map((ticker: string) => ({
+          ticker,
+          verdict: batch.entries?.[ticker]?.verdict ?? "HOLD",
+        })),
+      })),
+    });
+  })
+);
+
+router.get(
+  "/reports/feed/:pageNum",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const pageNum = parseInt(String(req.params["pageNum"] ?? "0"), 10);
+    const mode = typeof req.query["mode"] === "string" ? req.query["mode"] : null;
+    const search = typeof req.query["q"] === "string" ? req.query["q"].trim() : null;
+    if (!Number.isInteger(pageNum) || pageNum < 1) {
+      res.status(400).json({ error: "pageNum must be positive integer" });
+      return;
+    }
+
+    const page = await readFeedPage(
+      ws,
+      {
+        pageNum,
+        mode,
+        search,
+      },
+      readCurrentMeta,
+      readCurrentPage
+    );
+    res.json(page);
   })
 );
 
@@ -123,19 +168,17 @@ router.get(
       return;
     }
 
-    const filePath = path.join(
-      ws.snapshotsDir,
-      batchId,
-      ticker,
-      `${reportType}.json`
-    );
-
+    const filePath = path.join(ws.reportsDir, ticker, `${reportType}.json`);
     guardPath(ws, filePath);
 
     try {
       const raw = await fs.readFile(filePath, "utf-8");
-      const content = JSON.parse(raw);
-      res.json({ batchId, ticker, reportType, content });
+      try {
+        res.json({ batchId, ticker, reportType, content: JSON.parse(raw) });
+      } catch {
+        res.status(422).json({ error: "Report is not valid JSON" });
+      }
+      return;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
         res.status(404).json({ error: "Report not found" });

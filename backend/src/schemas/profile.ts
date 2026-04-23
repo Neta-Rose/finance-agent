@@ -14,6 +14,8 @@
  */
 import { z } from "zod";
 
+export const UserPlanSchema = z.enum(["low", "pro"]);
+
 export const ProfileDefinitionSchema = z.object({
   orchestrator: z.string().min(1),
   analysts: z.string().min(1),
@@ -27,9 +29,13 @@ export const ProfilesRegistrySchema = z.record(
 );
 
 export const UserConfigSchema = z
-  .object({ modelProfile: z.string().min(1) })
+  .object({
+    modelProfile: z.string().min(1),
+    plan: UserPlanSchema.optional(),
+  })
   .passthrough();
 
 export type ProfileDefinition = z.infer<typeof ProfileDefinitionSchema>;
 export type ProfilesRegistry = z.infer<typeof ProfilesRegistrySchema>;
 export type UserConfig = z.infer<typeof UserConfigSchema>;
+export type UserPlan = z.infer<typeof UserPlanSchema>;

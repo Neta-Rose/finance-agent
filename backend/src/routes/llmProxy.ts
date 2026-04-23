@@ -19,15 +19,31 @@ import {
   resolveUserId,
   fingerprintAnalyst,
   getActiveJob,
+  hasPendingTriggerFiles,
+  resolveProxyMetadata,
+  shouldAllowProxyRequest,
   estimateCost,
   OPENROUTER_BASE,
+  toUpstreamModel,
 } from "../services/llmProxy.js";
 import { eventStore } from "../services/eventStore.js";
 import { logger } from "../services/logger.js";
 import { getSystemControl, getUserControl } from "../services/controlService.js";
+import { buildTokenBudgetUsage, getUserTokenBudgets } from "../services/tokenBudgetService.js";
 
 const OPENROUTER_KEY = process.env["OPENROUTER_API_KEY"] ?? "";
 const UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const DEEP_DIVE_ANALYST_BUDGETS: Record<string, number> = {
+  fundamentals: 8,
+  technical: 6,
+  sentiment: 6,
+  macro: 6,
+  risk: 6,
+  bull: 4,
+  bear: 4,
+  advisor: 4,
+  orchestrator: 4,
+};
 
 // Hop-by-hop headers must not be forwarded to the client
 const HOP_BY_HOP = new Set([
@@ -43,6 +59,13 @@ const HOP_BY_HOP = new Set([
 ]);
 
 const router = Router();
+
+function safeSnippet(text: string | null | undefined, max = 240): string | null {
+  if (!text) return null;
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return normalized.slice(0, max);
+}
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 // OpenClaw sends the proxy API key via either:
@@ -106,6 +129,87 @@ function anthropicToOpenAI(body: AnthropicRequestBody): Record<string, unknown> 
   };
 }
 
+async function deriveProxyMetadata(
+  req: Request,
+  userId: string,
+  isAnthropic: boolean
+): Promise<{
+  openAIBody: Record<string, unknown>;
+  metadata: ReturnType<typeof resolveProxyMetadata>;
+  modelRaw: string;
+}> {
+  const openAIBody = isAnthropic
+    ? anthropicToOpenAI(req.body as AnthropicRequestBody)
+    : (req.body as Record<string, unknown>);
+  const messages =
+    (openAIBody["messages"] as Array<{ role?: string; content?: unknown }>) ?? [];
+  const analyst = fingerprintAnalyst(messages);
+  const activeJob = await getActiveJob(userId);
+  const metadata = resolveProxyMetadata(req.headers, analyst, activeJob, messages);
+  const modelRaw = String(openAIBody["model"] ?? "unknown");
+  return { openAIBody, metadata, modelRaw };
+}
+
+async function logRejectedProxyRequest(params: {
+  userId: string;
+  metadata: ReturnType<typeof resolveProxyMetadata>;
+  modelRaw: string;
+  startedAt: number;
+  rejectionReason: string;
+  errorMessage: string;
+}): Promise<void> {
+  await eventStore.logRequest({
+    userId: params.userId,
+    purpose: params.metadata.purpose,
+    ticker: params.metadata.ticker,
+    jobId: params.metadata.jobId,
+    sourceClass: params.metadata.sourceClass,
+    analyst: params.metadata.analyst,
+    model: params.modelRaw,
+    tokensIn: 0,
+    tokensOut: 0,
+    costUsd: 0,
+    latencyMs: Date.now() - params.startedAt,
+    status: "error",
+    errorMessage: params.errorMessage,
+    attributionSource: params.metadata.attributionSource,
+    rejectionReason: params.rejectionReason,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+async function logProxyRequest(params: {
+  userId: string;
+  metadata: ReturnType<typeof resolveProxyMetadata>;
+  modelRaw: string;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  latencyMs: number;
+  status: "success" | "error" | "timeout";
+  errorMessage: string | null;
+  rejectionReason: string | null;
+}): Promise<void> {
+  await eventStore.logRequest({
+    userId: params.userId,
+    purpose: params.metadata.purpose,
+    ticker: params.metadata.ticker,
+    jobId: params.metadata.jobId,
+    sourceClass: params.metadata.sourceClass,
+    analyst: params.metadata.analyst,
+    model: params.modelRaw,
+    tokensIn: params.tokensIn,
+    tokensOut: params.tokensOut,
+    costUsd: params.costUsd,
+    latencyMs: params.latencyMs,
+    status: params.status,
+    errorMessage: params.errorMessage,
+    attributionSource: params.metadata.attributionSource,
+    rejectionReason: params.rejectionReason,
+    timestamp: new Date().toISOString(),
+  });
+}
+
 interface OpenAIResponse {
   id?: string;
   model?: string;
@@ -133,6 +237,46 @@ function openAIToAnthropic(openAI: OpenAIResponse, originalModel: string): Recor
       output_tokens: openAI.usage?.completion_tokens ?? 0,
     },
   };
+}
+
+function parseStreamingUsageFromText(text: string): {
+  tokensIn: number;
+  tokensOut: number;
+  errorMessage: string | null;
+} {
+  let tokensIn = 0;
+  let tokensOut = 0;
+  let errorMessage: string | null = null;
+
+  for (const rawLine of text.split("\n")) {
+    if (!rawLine.startsWith("data: ")) continue;
+    const payload = rawLine.slice(6).trim();
+    if (!payload || payload === "[DONE]") continue;
+
+    try {
+      const parsed = JSON.parse(payload) as {
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        error?: { message?: string };
+      };
+
+      if (parsed.usage) {
+        tokensIn = parsed.usage.prompt_tokens ?? tokensIn;
+        tokensOut = parsed.usage.completion_tokens ?? tokensOut;
+      }
+
+      if (!errorMessage && typeof parsed.error?.message === "string") {
+        errorMessage = safeSnippet(parsed.error.message);
+      }
+    } catch {
+      // Ignore malformed SSE chunks while auditing usage.
+    }
+  }
+
+  if (!errorMessage && !text.includes("data: ")) {
+    errorMessage = safeSnippet(text);
+  }
+
+  return { tokensIn, tokensOut, errorMessage };
 }
 
 // Convert OpenAI SSE stream → Anthropic SSE stream
@@ -255,6 +399,7 @@ async function handleCompletion(
 ): Promise<void> {
   const startTime = Date.now();
   const modelRaw = String(openAIBody["model"] ?? "unknown");
+  const upstreamModel = toUpstreamModel(modelRaw);
   const isStreaming = openAIBody["stream"] === true;
 
   // Fingerprint analyst from system prompt
@@ -263,17 +408,121 @@ async function handleCompletion(
 
   // Correlate with active job
   const activeJob = await getActiveJob(userId);
+  const metadata = resolveProxyMetadata(_req.headers, analyst, activeJob, messages);
+  const hasPendingTriggers =
+    metadata.sourceClass === "unknown_agent_session"
+      ? await hasPendingTriggerFiles(userId)
+      : false;
+
+  if (!shouldAllowProxyRequest(userId, metadata, hasPendingTriggers)) {
+    void logProxyRequest({
+      userId,
+      metadata,
+      modelRaw: upstreamModel,
+      tokensIn: 0,
+      tokensOut: 0,
+      costUsd: 0,
+      latencyMs: Date.now() - startTime,
+      status: "error",
+      errorMessage: "rejected: no active backend job",
+      rejectionReason: "no_active_job",
+    }).catch(() => {});
+    res.status(409).json({ error: "no_active_job", message: "LLM requests require an active backend job." });
+    return;
+  }
+
+  if (metadata.sourceClass === "direct_chat") {
+    const tokenBudgets = await getUserTokenBudgets(userId);
+    const sinceIso = new Date(
+      Date.now() - tokenBudgets.conversation.periodHours * 3600 * 1000
+    ).toISOString();
+    const usageSummary = await eventStore.getTokenUsageSummary({
+      userId,
+      sinceIso,
+      sourceClasses: ["direct_chat"],
+    });
+    const usage = buildTokenBudgetUsage(
+      tokenBudgets.conversation,
+      usageSummary.totalTokensIn + usageSummary.totalTokensOut
+    );
+
+    if (usage.exhausted) {
+      void logProxyRequest({
+        userId,
+        metadata,
+        modelRaw: upstreamModel,
+        tokensIn: 0,
+        tokensOut: 0,
+        costUsd: 0,
+        latencyMs: Date.now() - startTime,
+        status: "error",
+        errorMessage: `rejected: conversation token budget exceeded (${usage.tokensUsed}/${usage.maxTokens})`,
+        rejectionReason: "conversation_token_budget_exceeded",
+      }).catch(() => {});
+      res.status(429).json({
+        error: "conversation_token_budget_exceeded",
+        message: `Conversation usage is at ${usage.pctUsed}% of the current allowance. Try again after the budget window resets or contact admin.`,
+      });
+      return;
+    }
+  }
+
+  if (metadata.purpose === "deep_dive" && metadata.ticker) {
+    const budget = DEEP_DIVE_ANALYST_BUDGETS[metadata.analyst] ?? 6;
+    const recentCount = await eventStore.countRecentRequests({
+      userId,
+      purpose: metadata.purpose,
+      ticker: metadata.ticker,
+      analyst: metadata.analyst,
+      sinceIso: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    });
+
+    if (recentCount >= budget) {
+      const latencyMs = Date.now() - startTime;
+      void logProxyRequest({
+        userId,
+        metadata,
+        modelRaw: upstreamModel,
+        tokensIn: 0,
+        tokensOut: 0,
+        costUsd: 0,
+        latencyMs,
+        status: "error",
+        errorMessage: `rejected: analyst budget exceeded (${recentCount}/${budget})`,
+        rejectionReason: "analyst_budget_exceeded",
+      }).catch(() => {});
+      res.status(429).json({
+        error: "analyst_budget_exceeded",
+        message: `Deep-dive ${metadata.analyst} request budget exceeded for ${metadata.ticker}.`,
+      });
+      return;
+    }
+  }
 
   // Enrich with OpenRouter metadata
   const enrichedBody: Record<string, unknown> = {
     ...openAIBody,
+    model: upstreamModel,
     metadata: {
       user_id: userId,
-      purpose: activeJob?.action ?? null,
-      ticker: activeJob?.ticker ?? null,
-      analyst,
+      purpose: metadata.purpose,
+      ticker: metadata.ticker,
+      analyst: metadata.analyst,
+      job_id: metadata.jobId,
+      source_class: metadata.sourceClass,
     },
   };
+
+  if (isStreaming) {
+    const currentStreamOptions =
+      enrichedBody["stream_options"] && typeof enrichedBody["stream_options"] === "object"
+        ? (enrichedBody["stream_options"] as Record<string, unknown>)
+        : {};
+    enrichedBody["stream_options"] = {
+      ...currentStreamOptions,
+      include_usage: true,
+    };
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -287,7 +536,7 @@ async function handleCompletion(
         Authorization: `Bearer ${OPENROUTER_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://clawd.app",
-        "X-Title": `clawd/${userId}/${activeJob?.action ?? "session"}`,
+        "X-Title": `clawd/${userId}/${metadata.purpose ?? "session"}`,
       },
       body: JSON.stringify(enrichedBody),
     });
@@ -298,26 +547,22 @@ async function handleCompletion(
     logger.warn(
       `LLM proxy upstream ${isTimeoutErr ? "timeout" : "error"} for ${userId}: ${(err as Error).message}`
     );
-    void eventStore.logRequest({
+    void logProxyRequest({
       userId,
-      purpose: activeJob?.action ?? null,
-      ticker: activeJob?.ticker ?? null,
-      analyst,
-      model: modelRaw,
+      metadata,
+      modelRaw: upstreamModel,
       tokensIn: 0,
       tokensOut: 0,
       costUsd: 0,
       latencyMs,
       status: isTimeoutErr ? "timeout" : "error",
       errorMessage: (err as Error).message.slice(0, 500),
-      timestamp: new Date().toISOString(),
+      rejectionReason: null,
     }).catch(() => {});
     res.status(isTimeoutErr ? 504 : 502).json({ error: "Upstream request failed" });
     return;
   }
   clearTimeout(timeout);
-
-  const latencyMs = Date.now() - startTime;
 
   if (isStreaming && upstream.body) {
     // Set Anthropic streaming headers when client expects Anthropic format
@@ -330,29 +575,41 @@ async function handleCompletion(
     }
     res.status(200);
 
-    void eventStore.logRequest({
-      userId,
-      purpose: activeJob?.action ?? null,
-      ticker: activeJob?.ticker ?? null,
-      analyst,
-      model: modelRaw,
-      tokensIn: 0,
-      tokensOut: 0,
-      costUsd: 0,
-      latencyMs,
-      status: upstream.ok ? "success" : "error",
-      errorMessage: null,
-      timestamp: new Date().toISOString(),
-    }).catch(() => {});
+    const streamAuditPromise = upstream
+      .clone()
+      .text()
+      .then(parseStreamingUsageFromText)
+      .catch(() => ({
+        tokensIn: 0,
+        tokensOut: 0,
+        errorMessage: null,
+      }));
+
+    void (async () => {
+      const audit = await streamAuditPromise;
+      await logProxyRequest({
+        userId,
+        metadata,
+        modelRaw: upstreamModel,
+        tokensIn: audit.tokensIn,
+        tokensOut: audit.tokensOut,
+        costUsd: estimateCost(upstreamModel, audit.tokensIn, audit.tokensOut),
+        latencyMs: Date.now() - startTime,
+        status: upstream.ok ? "success" : "error",
+        errorMessage: upstream.ok ? null : audit.errorMessage,
+        rejectionReason: null,
+      });
+    })().catch(() => {});
 
     if (isAnthropic) {
-      const converted = convertStreamToAnthropic(upstream.body, modelRaw);
+      const converted = convertStreamToAnthropic(upstream.body, upstreamModel);
       converted.pipe(res);
     } else {
       const nodeStream = Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]);
       nodeStream.pipe(res);
     }
   } else {
+    const latencyMs = Date.now() - startTime;
     const responseText = await upstream.text();
     let tokensIn = 0;
     let tokensOut = 0;
@@ -363,7 +620,7 @@ async function handleCompletion(
         const openAIResp = JSON.parse(responseText) as OpenAIResponse;
         tokensIn = openAIResp.usage?.prompt_tokens ?? 0;
         tokensOut = openAIResp.usage?.completion_tokens ?? 0;
-        outText = JSON.stringify(openAIToAnthropic(openAIResp, modelRaw));
+        outText = JSON.stringify(openAIToAnthropic(openAIResp, upstreamModel));
         res.setHeader("content-type", "application/json");
       } catch { /* if conversion fails, pass through raw */ }
     } else {
@@ -382,20 +639,18 @@ async function handleCompletion(
       });
     }
 
-    const costUsd = estimateCost(modelRaw, tokensIn, tokensOut);
-    void eventStore.logRequest({
+    const costUsd = estimateCost(upstreamModel, tokensIn, tokensOut);
+    void logProxyRequest({
       userId,
-      purpose: activeJob?.action ?? null,
-      ticker: activeJob?.ticker ?? null,
-      analyst,
-      model: modelRaw,
+      metadata,
+      modelRaw: upstreamModel,
       tokensIn,
       tokensOut,
       costUsd,
       latencyMs,
       status: upstream.ok ? "success" : "error",
-      errorMessage: null,
-      timestamp: new Date().toISOString(),
+      errorMessage: upstream.ok ? null : safeSnippet(responseText),
+      rejectionReason: null,
     }).catch(() => {});
 
     res.status(upstream.status).send(outText);
@@ -406,6 +661,7 @@ async function handleCompletion(
 router.post(
   "/chat/completions",
   (async (req: Request, res: Response) => {
+    const startedAt = Date.now();
     const proxyKey = extractProxyKey(req);
     const userId = resolveUserId(proxyKey);
     if (!userId) {
@@ -413,20 +669,38 @@ router.post(
       return;
     }
 
+    const { openAIBody, metadata, modelRaw } = await deriveProxyMetadata(req, userId, false);
+
     const [sysCtrl, userCtrl] = await Promise.all([
       getSystemControl(),
       getUserControl(userId),
     ]);
     if (sysCtrl.locked) {
+      void logRejectedProxyRequest({
+        userId,
+        metadata,
+        modelRaw,
+        startedAt,
+        rejectionReason: "system_locked",
+        errorMessage: sysCtrl.lockReason || "System is temporarily unavailable.",
+      }).catch(() => {});
       res.status(503).json({ error: "system_locked", message: sysCtrl.lockReason || "System is temporarily unavailable." });
       return;
     }
     if (userCtrl.restriction === "suspended" || userCtrl.restriction === "blocked" || userCtrl.restriction === "readonly") {
+      void logRejectedProxyRequest({
+        userId,
+        metadata,
+        modelRaw,
+        startedAt,
+        rejectionReason: "user_restricted",
+        errorMessage: userCtrl.reason || "Account restricted.",
+      }).catch(() => {});
       res.status(403).json({ error: "user_restricted", restriction: userCtrl.restriction, message: userCtrl.reason || "Account restricted." });
       return;
     }
 
-    await handleCompletion(req, res, req.body as Record<string, unknown>, false, userId);
+    await handleCompletion(req, res, openAIBody, false, userId);
   }) as (req: Request, res: Response) => Promise<void>
 );
 
@@ -434,6 +708,7 @@ router.post(
 router.post(
   "/messages",
   (async (req: Request, res: Response) => {
+    const startedAt = Date.now();
     const proxyKey = extractProxyKey(req);
     const userId = resolveUserId(proxyKey);
     if (!userId) {
@@ -441,23 +716,38 @@ router.post(
       return;
     }
 
+    const { openAIBody, metadata, modelRaw } = await deriveProxyMetadata(req, userId, true);
+
     const [sysCtrl, userCtrl] = await Promise.all([
       getSystemControl(),
       getUserControl(userId),
     ]);
     if (sysCtrl.locked) {
+      void logRejectedProxyRequest({
+        userId,
+        metadata,
+        modelRaw,
+        startedAt,
+        rejectionReason: "system_locked",
+        errorMessage: sysCtrl.lockReason || "System is temporarily unavailable.",
+      }).catch(() => {});
       res.status(503).json({ error: "system_locked", message: sysCtrl.lockReason || "System is temporarily unavailable." });
       return;
     }
     if (userCtrl.restriction === "suspended" || userCtrl.restriction === "blocked" || userCtrl.restriction === "readonly") {
+      void logRejectedProxyRequest({
+        userId,
+        metadata,
+        modelRaw,
+        startedAt,
+        rejectionReason: "user_restricted",
+        errorMessage: userCtrl.reason || "Account restricted.",
+      }).catch(() => {});
       res.status(403).json({ error: "user_restricted", restriction: userCtrl.restriction, message: userCtrl.reason || "Account restricted." });
       return;
     }
 
-    const anthropicBody = req.body as AnthropicRequestBody;
-    const openAIBody = anthropicToOpenAI(anthropicBody);
-
-    logger.info(`LLM proxy /messages (Anthropic→OpenAI) for ${userId} model=${anthropicBody.model ?? "unknown"}`);
+    logger.info(`LLM proxy /messages (Anthropic→OpenAI) for ${userId} model=${(req.body as AnthropicRequestBody).model ?? "unknown"}`);
 
     await handleCompletion(req, res, openAIBody, true, userId);
   }) as (req: Request, res: Response) => Promise<void>

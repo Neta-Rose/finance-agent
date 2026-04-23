@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { searchTicker } from "../../api/search";
-import type { TickerSelection, Exchange } from "../../types/api";
+import type { TickerSelection, Exchange, AssetType } from "../../types/api";
+import { ContactAdminButton } from "../support/ContactAdminButton";
+import { usePreferencesStore } from "../../store/preferencesStore";
+import { t } from "../../store/i18n";
 
 interface TickerSearchProps {
   value: TickerSelection | null;
@@ -19,7 +22,18 @@ function formatPrice(price: number | null, exchange: Exchange): string | null {
   return `${sym}${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const ASSET_TYPE_LABELS: Record<AssetType, string> = {
+  stock: "Stock",
+  etf: "ETF",
+  crypto: "Crypto",
+  fund: "Fund",
+  bond: "Bond",
+  index: "Index",
+  other: "Asset",
+};
+
 export function TickerSearch({ value, onChange, placeholder = "Search ticker…", disabled }: TickerSearchProps) {
+  const language = usePreferencesStore((s) => s.language);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [highlightIdx, setHighlightIdx] = useState(-1);
@@ -52,6 +66,7 @@ export function TickerSearch({ value, onChange, placeholder = "Search ticker…"
   });
 
   const results = data?.results ?? [];
+  const searchError = data?.error ?? null;
 
   // Reset highlight + open dropdown when results arrive
   useEffect(() => {
@@ -98,6 +113,9 @@ export function TickerSearch({ value, onChange, placeholder = "Search ticker…"
             {priceStr && (
               <span className="text-sm font-semibold text-[var(--color-accent-green)]">{priceStr}</span>
             )}
+            <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-fg-muted)]">
+              {ASSET_TYPE_LABELS[value.assetType]}
+            </span>
             <span className="text-xs text-[var(--color-fg-muted)] flex items-center gap-1">
               <span className="text-sm">{value.flag}</span>{value.exchDisp}
             </span>
@@ -158,7 +176,12 @@ export function TickerSearch({ value, onChange, placeholder = "Search ticker…"
                 >
                   <span className="text-xl leading-none flex-shrink-0">{r.flag}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-[var(--color-fg-default)]">{r.symbol}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs font-bold text-[var(--color-fg-default)]">{r.symbol}</div>
+                      <span className="rounded-full border border-[var(--color-border)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--color-fg-subtle)]">
+                        {ASSET_TYPE_LABELS[r.assetType]}
+                      </span>
+                    </div>
                     <div className="text-[10px] text-[var(--color-fg-muted)] truncate">{r.shortName}</div>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -172,9 +195,24 @@ export function TickerSearch({ value, onChange, placeholder = "Search ticker…"
                 </button>
               );
             })
+          ) : !isFetching && searchError ? (
+            <div className="space-y-2 px-3 py-3">
+              <div className="text-xs text-[var(--color-accent-red)]">
+                {t("searchUnexpectedError", language)}
+              </div>
+              <div className="text-[11px] text-[var(--color-fg-muted)]">
+                {t("searchUnexpectedErrorHelp", language)}
+              </div>
+              <ContactAdminButton
+                source="ticker-search"
+                defaultSubject={`Search issue: ${debouncedQuery}`}
+                variant="inline"
+                className="mt-1"
+              />
+            </div>
           ) : !isFetching ? (
             <div className="px-3 py-3 text-xs text-[var(--color-fg-muted)]">
-              No results for &ldquo;{debouncedQuery}&rdquo;
+              {t("searchNoResults", language)} &ldquo;{debouncedQuery}&rdquo;
             </div>
           ) : null}
         </div>

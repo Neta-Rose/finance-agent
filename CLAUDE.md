@@ -350,7 +350,7 @@ before confirming.
 | `portfolio-risk.md` | Position sizing, P/L, portfolio weight, concentration flag | `reports/[TICKER]/risk.json` | `RISK_DONE — [TICKER]` |
 | `bull-researcher.md` | Best bull case citing actual analyst data (2 rounds) | `reports/[TICKER]/bull_case.json` | `BULL_DONE — [TICKER] Round [N]` |
 | `bear-researcher.md` | Best bear case citing actual analyst data (2 rounds) | `reports/[TICKER]/bear_case.json` | `BEAR_DONE — [TICKER] Round [N]` |
-| `user-profile-template.md` | Template for new user `USER.md` files | written to `users/[userId]/USER.md` | — |
+| `shared/user-workspace/USER.md.template` | Template for new user `USER.md` files | written to `users/[userId]/USER.md` | — |
 
 **Bull/Bear debate flow (Mode 2 and 4):**
 1. Bull Round 1 → Bear Round 1 → Bull Round 2 (rebuts bear's `coreConcern`) →
@@ -392,7 +392,7 @@ TASE note: `avgPricePaid` in ILA (agorot), not ILS.
 `responseToBear`/`responseToBull` (null in Round 1, rebuttal in Round 2),
 `bullVerdict`/`bearVerdict`, `conditionToBeWrong` (max 200 chars)
 
-`user-profile-template.md` — YAML-style template for `USER.md`. Contains:
+`shared/user-workspace/USER.md.template` — YAML-style template for `USER.md`. Contains:
 `riskTolerance`, `maxSinglePositionPct` (default 15%), `stopLossThresholdPct` (default 25%),
 `preferredHoldingPeriod`, `primaryCurrency`, `accounts`, `timezone`, `alertStyle`,
 `language`, `telegramActive`, free-text `notes`. Placeholders `[DISPLAY_NAME]` and

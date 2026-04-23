@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PositionGuidanceRecordSchema } from "./onboarding.js";
 
 export const PortfolioPositionSchema = z.object({
   ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
@@ -29,11 +30,22 @@ export const BootstrapProgressSchema = z.object({
   completedTickers: z.array(z.string()),
 });
 
+export const OnboardingStateSchema = z.object({
+  portfolioSubmittedAt: z.string().datetime().nullable(),
+  positionGuidanceStatus: z.enum(["not_started", "pending", "completed", "skipped"]),
+  positionGuidance: PositionGuidanceRecordSchema.default({}),
+});
+
 export const PortfolioStateSchema = z.object({
   userId: z.string(),
-  state: z.enum(["UNINITIALIZED", "BOOTSTRAPPING", "ACTIVE"]),
+  state: z.enum(["INCOMPLETE", "BOOTSTRAPPING", "ACTIVE", "BLOCKED"]),
   lastFullReportAt: z.string().datetime().nullable(),
   lastDailyAt: z.string().datetime().nullable(),
   pendingDeepDives: z.array(z.string()).optional().default([]),
   bootstrapProgress: BootstrapProgressSchema.nullable(),
+  onboarding: OnboardingStateSchema.default({
+    portfolioSubmittedAt: null,
+    positionGuidanceStatus: "not_started",
+    positionGuidance: {},
+  }),
 });

@@ -1,15 +1,18 @@
 import { Router, type Response, type NextFunction } from "express";
 import { triggerLimiter } from "../middleware/rateLimit.js";
-import { createJob, listJobs, getJob, updateJob } from "../services/jobService.js";
+import { listJobs, getJob } from "../services/jobService.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
-import type { JobAction, RateLimits, Job } from "../types/index.js";
-import { DEFAULT_RATE_LIMITS } from "../types/index.js";
-import { guardPath } from "../middleware/userIsolation.js";
-import { setUserProfile, getUserProfileStatus } from "../services/profileService.js";
-import { getSystemControl, getUserControl } from "../services/controlService.js";
+import type { JobAction, Job } from "../types/index.js";
 import { promises as fs } from "fs";
 import path from "path";
+import {
+  getDeepDiveJobProgress,
+} from "../services/deepDiveService.js";
+import {
+  getFullReportJobProgress,
+} from "../services/fullReportService.js";
+import { triggerUserJob } from "../services/jobTriggerService.js";
 
 // ── Progress inference ────────────────────────────────────────────────────────
 
@@ -51,24 +54,33 @@ async function computeJobProgress(ws: UserWorkspace, job: Job): Promise<JobProgr
   const reportsBase = ws.reportsDir;
 
   if (job.action === "deep_dive" && job.ticker) {
+    const progress = await getDeepDiveJobProgress(ws, job);
+    if (progress) return progress;
+  }
+
+  if (job.action === "quick_check" && job.ticker) {
+    // Quick check only has 1 step (sentiment analyst)
     let files: string[] = [];
     try { files = await fs.readdir(path.join(reportsBase, job.ticker)); } catch { /* not started */ }
-    const { done, nextStep } = await tickerAnalystsDone(reportsBase, job.ticker, files);
-    const total = DEEP_STEPS.length;
-    const pct = Math.round((done.length / total) * 100);
+    const hasQuickCheckFile = files.includes("quick_check.json");
+    const pct = hasQuickCheckFile ? 100 : 5; // 5% if just started
     return {
       pct,
       currentTicker: job.ticker,
-      currentStep: nextStep ? (STEP_LABELS[nextStep] ?? nextStep) : null,
-      completedTickers: pct >= 100 ? [job.ticker] : [],
-      remainingTickers: pct < 100 ? [job.ticker] : [],
+      currentStep: hasQuickCheckFile ? null : "Sentiment Analysis",
+      completedTickers: hasQuickCheckFile ? [job.ticker] : [],
+      remainingTickers: hasQuickCheckFile ? [] : [job.ticker],
       totalTickers: 1,
-      completedSteps: done.length,
-      totalSteps: total,
+      completedSteps: hasQuickCheckFile ? 1 : 0,
+      totalSteps: 1,
     };
   }
 
   if (job.action === "full_report" || job.action === "daily_brief") {
+    if (job.action === "full_report") {
+      const progress = await getFullReportJobProgress(ws, job);
+      if (progress) return progress;
+    }
     // Read agent-maintained progress.json
     let progressData: { completed?: string[]; remaining?: string[]; failed?: string[]; totalTickers?: number } = {};
     try {
@@ -137,107 +149,12 @@ const VALID_ACTIONS: JobAction[] = [
   "full_report",
   "deep_dive",
   "new_ideas",
+  "quick_check",
   "switch_production",
   "switch_testing",
 ];
 
 const JOB_ID_REGEX = /^job_[0-9]{8}_[0-9]{6}_[a-f0-9]{6}$/;
-
-async function ensureDeepDiveTickerWorkspace(
-  ws: UserWorkspace,
-  ticker: string
-): Promise<void> {
-  const tickerDir = path.join(ws.tickersDir, ticker);
-  const strategyPath = ws.strategyFile(ticker);
-  const eventsPath = ws.eventsFile(ticker);
-  const reportsDir = path.join(ws.reportsDir, ticker);
-
-  await fs.mkdir(tickerDir, { recursive: true });
-  await fs.mkdir(reportsDir, { recursive: true });
-
-  try {
-    await fs.access(strategyPath);
-  } catch {
-    const strategyStub = {
-      ticker,
-      updatedAt: new Date().toISOString(),
-      version: 1,
-      verdict: "HOLD",
-      confidence: "low",
-      reasoning: "Pending exploratory deep dive analysis",
-      timeframe: "undefined",
-      positionSizeILS: 0,
-      positionWeightPct: 0,
-      entryConditions: [],
-      exitConditions: [],
-      catalysts: [],
-      bullCase: null,
-      bearCase: null,
-      lastDeepDiveAt: null,
-      deepDiveTriggeredBy: "manual_exploration",
-    };
-    await fs.writeFile(strategyPath, JSON.stringify(strategyStub, null, 2), "utf-8");
-  }
-
-  try {
-    await fs.access(eventsPath);
-  } catch {
-    await fs.writeFile(eventsPath, "", "utf-8");
-  }
-}
-
-async function checkRateLimit(
-  ws: UserWorkspace,
-  action: JobAction
-): Promise<{ allowed: boolean; reason?: string }> {
-  // Get rate limits from profile
-  let limits: RateLimits = DEFAULT_RATE_LIMITS;
-  try {
-    const raw = await fs.readFile(path.join(ws.root, "profile.json"), "utf-8");
-    const profile = JSON.parse(raw);
-    if (profile.rateLimits) {
-      limits = { ...DEFAULT_RATE_LIMITS, ...profile.rateLimits };
-    }
-  } catch { /* use defaults */ }
-
-  const limit = limits[action as keyof RateLimits];
-  if (!limit) return { allowed: true }; // switch_production/test — no limit
-
-  const now = Date.now();
-  const periodMs = limit.periodHours * 3600 * 1000;
-  const cutoff = new Date(now - periodMs).toISOString();
-
-  let jobs: Array<{ action: string; status: string; triggered_at: string }> = [];
-  try {
-    const files = await fs.readdir(ws.jobsDir);
-    await Promise.all(
-      files
-        .filter((f) => f.endsWith(".json"))
-        .map(async (f) => {
-          try {
-            const raw = await fs.readFile(path.join(ws.jobsDir, f), "utf-8");
-            jobs.push(JSON.parse(raw));
-          } catch { /* skip invalid files */ }
-        })
-    );
-  } catch { /* no jobs dir yet */ }
-
-  const recent = jobs.filter(
-    (j) =>
-      j.action === action &&
-      j.status !== "failed" &&
-      j.triggered_at >= cutoff
-  );
-
-  if (recent.length >= limit.maxPerPeriod) {
-    return {
-      allowed: false,
-      reason: `Rate limit: max ${limit.maxPerPeriod} ${action} per ${limit.periodHours} hours`,
-    };
-  }
-
-  return { allowed: true };
-}
 
 router.post(
   "/jobs/trigger",
@@ -255,92 +172,22 @@ router.post(
         return;
       }
 
-      if (action === "deep_dive") {
+      if (action === "deep_dive" || action === "quick_check") {
         if (!ticker || !/^[A-Z0-9]{1,10}$/.test(ticker)) {
           res.status(400).json({
-            error: "deep_dive requires ticker (uppercase, 1-10 chars)",
+            error: `${action} requires ticker (uppercase, 1-10 chars)`,
           });
           return;
         }
-        await ensureDeepDiveTickerWorkspace(ws, ticker);
-        guardPath(ws, ws.strategyFile(ticker));
       }
 
-      // ── System lock + user restriction check ─────────────────────────────
-      const [sysCtrl, userCtrl] = await Promise.all([
-        getSystemControl(),
-        getUserControl(ws.userId),
-      ]);
-
-      if (sysCtrl.locked) {
-        res.status(503).json({
-          error: "system_locked",
-          message: sysCtrl.lockReason || "System is temporarily locked. Contact admin.",
-        });
-        return;
-      }
-
-      if (userCtrl.restriction === "suspended" ||
-          userCtrl.restriction === "blocked" ||
-          userCtrl.restriction === "readonly") {
-        res.status(403).json({
-          error: "user_restricted",
-          restriction: userCtrl.restriction,
-          message: userCtrl.reason || "Your account is restricted. Contact admin.",
-        });
-        return;
-      }
-
-      // ── Switch actions: apply immediately in the backend, never delegate to agent ──
-      const isSwitchAction = action === "switch_production" || action === "switch_testing";
-      if (isSwitchAction) {
-        const targetProfile = action === "switch_production" ? "production" : "testing";
-        const job = await createJob(ws, action as JobAction);
-        try {
-          await setUserProfile(ws.userId, targetProfile);
-          await updateJob(ws, job.id, {
-            status: "completed",
-            started_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
-            result: `Switched to ${targetProfile} profile`,
-          });
-        } catch (err) {
-          await updateJob(ws, job.id, {
-            status: "failed",
-            started_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
-            error: err instanceof Error ? err.message.slice(0, 490) : "Switch failed",
-          });
-          res.status(500).json({ error: "Failed to switch profile", reason: (err instanceof Error ? err.message : String(err)) });
-          return;
-        }
-        res.status(201).json({ jobId: job.id, job: await getJob(ws, job.id) });
-        return;
-      }
-
-      // ── For all other actions: validate that the user's profile is not broken ──
-      const profileStatus = await getUserProfileStatus(ws.userId);
-      if (profileStatus.broken) {
-        res.status(409).json({
-          error: "model_profile_broken",
-          reason: profileStatus.reason ?? `Profile "${profileStatus.name}" is invalid — contact support`,
-        });
-        return;
-      }
-
-      // Rate limit check
-      const rateLimitResult = await checkRateLimit(ws, action as JobAction);
-      if (!rateLimitResult.allowed) {
-        res.status(429).json({
-          error: "rate_limit_exceeded",
-          reason: rateLimitResult.reason,
-        });
-        return;
-      }
-
-      const job = await createJob(ws, action as JobAction, ticker);
-
-      res.status(201).json({ jobId: job.id, job });
+      const result = await triggerUserJob({
+        workspace: ws,
+        action: action as JobAction,
+        ...(ticker ? { ticker } : {}),
+        source: "dashboard_action",
+      });
+      res.status(result.statusCode).json(result.body);
     }
   )
 );

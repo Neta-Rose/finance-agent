@@ -22,6 +22,7 @@ const VERDICT_ORDER: Record<Verdict, number> = {
 };
 
 const VERDICT_FILTER_OPTIONS = ["All", "BUY", "ADD", "HOLD", "REDUCE", "SELL", "CLOSE"] as const;
+type StrategyScope = "portfolio" | "non_portfolio";
 
 function sortStrategies(strategies: StrategyRow[]): StrategyRow[] {
   return [...strategies].sort((a, b) => {
@@ -37,6 +38,7 @@ export function Strategies() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [verdictFilter, setVerdictFilter] = useState<string>("All");
+  const [scope, setScope] = useState<StrategyScope>("portfolio");
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["strategies"],
@@ -47,6 +49,9 @@ export function Strategies() {
   const filtered = useMemo(() => {
     if (!data) return [];
     let list = sortStrategies(data.strategies);
+    list = list.filter((strategy) =>
+      scope === "portfolio" ? strategy.inPortfolio : !strategy.inPortfolio
+    );
     if (search.trim()) {
       const q = search.trim().toUpperCase();
       list = list.filter((s) => s.ticker.includes(q));
@@ -55,17 +60,42 @@ export function Strategies() {
       list = list.filter((s) => s.verdict === verdictFilter);
     }
     return list;
-  }, [data, search, verdictFilter]);
+  }, [data, search, verdictFilter, scope]);
 
-  const isEmpty = !data || data.strategies.length === 0;
+  const scopedTotal = useMemo(() => {
+    if (!data) return 0;
+    return data.strategies.filter((strategy) =>
+      scope === "portfolio" ? strategy.inPortfolio : !strategy.inPortfolio
+    ).length;
+  }, [data, scope]);
+
+  const isEmpty = !data || scopedTotal === 0;
   const noResults = !isEmpty && filtered.length === 0;
 
   return (
     <>
-      <TopBar title={t("strategies", language)} subtitle={`${data?.strategies.length ?? 0} ${t("positions", language).toLowerCase()}`} />
+      <TopBar title={t("strategies", language)} subtitle={`${scopedTotal} ${t("positions", language).toLowerCase()}`} />
 
       {/* Filters */}
       <div className="px-4 pt-3 pb-2 space-y-2">
+        <div className="inline-flex rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-1">
+          {([
+            ["portfolio", t("strategyTabPortfolio", language)],
+            ["non_portfolio", t("strategyTabNonPortfolio", language)],
+          ] as const).map(([nextScope, label]) => (
+            <button
+              key={nextScope}
+              onClick={() => setScope(nextScope)}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                scope === nextScope
+                  ? "bg-[var(--color-bg-subtle)] text-[var(--color-fg-default)] shadow-sm"
+                  : "text-[var(--color-fg-muted)]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <input
           type="text"
           value={search}

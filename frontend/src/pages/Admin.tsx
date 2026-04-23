@@ -27,9 +27,11 @@ import {
   adminContinueJob,
   adminWakeUser,
   adminKillJob,
+  adminUpdateTokenBudgets,
   type UserSummary,
   type SystemAgentSummary,
   type RateLimits,
+  type TokenBudgets,
   type AdminStatus,
   type ProfileDefinition,
   type ProfilesRegistry,
@@ -112,6 +114,7 @@ function RateLimitsEditor({
     { key: "daily_brief", label: t("dailyBriefLimit", language) },
     { key: "deep_dive", label: t("deepDiveLimit", language) },
     { key: "new_ideas", label: t("newIdeasLimit", language) },
+    { key: "quick_check", label: "Quick Check" },
   ];
 
   return (
@@ -144,6 +147,63 @@ function RateLimitsEditor({
         </button>
         <button onClick={() => onSave(draft)} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold">
           {t("save", language)}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TokenBudgetsEditor({
+  budgets,
+  onSave,
+  onCancel,
+}: {
+  budgets: TokenBudgets;
+  onSave: (b: TokenBudgets) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState<TokenBudgets>({ ...budgets });
+
+  const update = (key: keyof TokenBudgets, field: "maxTokens" | "periodHours", value: number) => {
+    setDraft((current) => ({
+      ...current,
+      [key]: { ...current[key], [field]: value },
+    }));
+  };
+
+  return (
+    <div className="space-y-3">
+      {(["conversation", "structured"] as const).map((key) => (
+        <div key={key} className="flex items-center gap-2 text-xs">
+          <span className="w-24 text-[var(--color-fg-muted)] shrink-0">
+            {key === "conversation" ? "Conversation" : "Structured"}
+          </span>
+          <span className="text-[var(--color-fg-subtle)]">max</span>
+          <input
+            type="number"
+            min={1000}
+            step={1000}
+            value={draft[key].maxTokens}
+            onChange={(e) => update(key, "maxTokens", Number(e.target.value))}
+            className="w-24 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
+          />
+          <span className="text-[var(--color-fg-subtle)]">tokens /</span>
+          <input
+            type="number"
+            min={1}
+            value={draft[key].periodHours}
+            onChange={(e) => update(key, "periodHours", Number(e.target.value))}
+            className="w-16 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
+          />
+          <span className="text-[var(--color-fg-subtle)]">hrs</span>
+        </div>
+      ))}
+      <div className="flex gap-2 pt-2">
+        <button onClick={onCancel} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-medium text-[var(--color-fg-muted)]">
+          Cancel
+        </button>
+        <button onClick={() => onSave(draft)} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold">
+          Save
         </button>
       </div>
     </div>
@@ -202,6 +262,7 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           daily_brief: { maxPerPeriod: Number(form.daily_brief_max), periodHours: Number(form.daily_brief_period) },
           deep_dive: { maxPerPeriod: Number(form.deep_dive_max), periodHours: Number(form.deep_dive_period) },
           new_ideas: { maxPerPeriod: Number(form.new_ideas_max), periodHours: Number(form.new_ideas_period) },
+          quick_check: { maxPerPeriod: 20, periodHours: 24 },
         },
       });
       onAdded();
@@ -541,10 +602,32 @@ function ProfileBadge({
 // ---- Health Badge ----
 function HealthBadge({ health }: { health: UserSummary["agentHealth"] }) {
   const language = usePreferencesStore((s) => s.language);
+  if (health.classification === "restricted") {
+    return (
+      <span
+        title={health.statusReason ?? "User is currently restricted"}
+        className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium cursor-help"
+      >
+        Restricted
+      </span>
+    );
+  }
+  if (health.classification === "inactive") {
+    return (
+      <span
+        title={health.statusReason ?? "User is not operational right now"}
+        className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 font-medium cursor-help"
+      >
+        Inactive
+      </span>
+    );
+  }
   if (health.healthy) {
     return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">{t("adminStatusOk", language)}</span>;
   }
-  const tooltip = health.lastErrorReason
+  const tooltip = health.statusReason
+    ? `${health.statusReason} (${health.consecutiveErrors} errors)`
+    : health.lastErrorReason
     ? `${health.lastErrorReason} (${health.consecutiveErrors} errors)`
     : health.lastError
     ? health.lastError.slice(0, 160)
@@ -563,12 +646,14 @@ function HealthBadge({ health }: { health: UserSummary["agentHealth"] }) {
 function UserActivityBadge({ userId }: { userId: string }) {
   const [data, setData] = useState<UserObservability | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const pageSize = 20;
 
   useEffect(() => {
-    adminGetUserObservability(userId)
+    adminGetUserObservability(userId, { limit: pageSize, offset })
       .then(setData)
       .catch(() => { /* no data yet — silently ignore */ });
-  }, [userId]);
+  }, [userId, offset]);
 
   if (!data || (data.history.length === 0 && data.recent.length === 0)) {
     return (
@@ -578,40 +663,93 @@ function UserActivityBadge({ userId }: { userId: string }) {
     );
   }
 
-  const today = data.history[0];
+  const calendarToday = new Date().toISOString().slice(0, 10);
+  const today =
+    data.todaySummary ??
+    data.history.find((entry) => entry.date === calendarToday) ??
+    {
+      userId,
+      date: calendarToday,
+      requestCount: 0,
+      totalTokensIn: 0,
+      totalTokensOut: 0,
+      totalCostUsd: 0,
+      successCount: 0,
+      errorCount: 0,
+      timeoutCount: 0,
+      rejectedCount: 0,
+      unattributedCount: 0,
+    };
   const last = data.recent[0];
+  const recentOffset = data.recentOffset ?? offset;
+  const recentTotal = data.recentTotal ?? data.recent.length;
+  const hasPrev = recentOffset > 0;
+  const hasNext = recentOffset + data.recent.length < recentTotal;
+  const latestActiveDay = data.history.find((entry) => entry.requestCount > 0);
+
+  const formatDateTime = (iso: string) =>
+    new Date(iso).toLocaleString([], {
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const formatAttribution = (source: string, sourceClass: LlmRequestEvent["sourceClass"]) => {
+    if (sourceClass === "telegram_command") return "tg";
+    if (sourceClass === "dashboard_action") return "dash";
+    if (sourceClass === "backend_job") return "job";
+    if (sourceClass === "direct_chat") return "chat";
+    if (sourceClass === "unknown_agent_session") return "unknown";
+    if (source === "explicit_header") return "header";
+    if (source === "active_job") return "job";
+    if (source === "inferred_direct_chat") return "direct";
+    if (source === "empty from earlier version") return "legacy";
+    return source;
+  };
 
   return (
     <div className="mt-1 text-[11px] text-[var(--color-fg-muted)]">
       <div className="flex items-center gap-3 flex-wrap">
-        {today && (
-          <>
-            <span>
-              <span className="text-[var(--color-fg-subtle)]">Today: </span>
-              <span className="font-medium text-[var(--color-fg-default)]">
-                {today.requestCount} req
-              </span>
-              {" · "}
-              <span className="text-[var(--color-accent-green)]">
-                ${today.totalCostUsd.toFixed(4)}
-              </span>
-            </span>
-            <span>
-              <span className="text-[var(--color-fg-subtle)]">Tokens: </span>
-              {((today.totalTokensIn + today.totalTokensOut) / 1000).toFixed(1)}k
-            </span>
-          </>
-        )}
+        <span>
+          <span className="text-[var(--color-fg-subtle)]">Today: </span>
+          <span className="font-medium text-[var(--color-fg-default)]">
+            {today.requestCount} req
+          </span>
+          {" · "}
+          <span className="text-[var(--color-accent-green)]">
+            ${today.totalCostUsd.toFixed(4)}
+          </span>
+        </span>
+        <span>
+          <span className="text-[var(--color-fg-subtle)]">Ok/Err: </span>
+          <span className="text-[var(--color-accent-green)]">{today.successCount}</span>
+          {" / "}
+          <span className="text-[var(--color-accent-red)]">{today.errorCount + today.timeoutCount}</span>
+        </span>
+        <span>
+          <span className="text-[var(--color-fg-subtle)]">Legacy: </span>
+          <span className={today.unattributedCount > 0 ? "text-[var(--color-accent-red)]" : ""}>
+            {today.unattributedCount}
+          </span>
+        </span>
+        <span>
+          <span className="text-[var(--color-fg-subtle)]">Chat budget: </span>
+          <span className={data.budgetUsage.conversation.exhausted ? "text-[var(--color-accent-red)]" : "text-[var(--color-fg-default)]"}>
+            {data.budgetUsage.conversation.pctUsed}%
+          </span>
+        </span>
+        <span>
+          <span className="text-[var(--color-fg-subtle)]">Structured: </span>
+          <span className="text-[var(--color-fg-default)]">{data.budgetUsage.structured.pctUsed}%</span>
+        </span>
         {last && (
           <span>
             <span className="text-[var(--color-fg-subtle)]">Last: </span>
             <span className="font-mono text-[10px]">{last.analyst}</span>
             {" · "}
             <span className="text-[10px] text-[var(--color-fg-subtle)]">
-              {new Date(last.timestamp).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatDateTime(last.timestamp)}
             </span>
             {" · "}
             <span
@@ -625,11 +763,19 @@ function UserActivityBadge({ userId }: { userId: string }) {
             </span>
           </span>
         )}
+        {!last && latestActiveDay && (
+          <span className="text-[10px] text-[var(--color-fg-subtle)]">
+            Latest activity: {latestActiveDay.date}
+          </span>
+        )}
         <button
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => {
+            setExpanded((v) => !v);
+            if (!expanded) setOffset(0);
+          }}
           className="text-[var(--color-accent-blue)] underline text-[10px]"
         >
-          {expanded ? "hide" : `show ${data.recent.length} recent`}
+          {expanded ? "hide" : `show recent`}
         </button>
       </div>
 
@@ -641,6 +787,7 @@ function UserActivityBadge({ userId }: { userId: string }) {
                 <th className="text-left py-1 pr-2 font-normal">Time</th>
                 <th className="text-left pr-2 font-normal">Analyst</th>
                 <th className="text-left pr-2 font-normal">Purpose</th>
+                <th className="text-left pr-2 font-normal">Src</th>
                 <th className="text-left pr-2 font-normal">Model</th>
                 <th className="text-right pr-2 font-normal">Tokens</th>
                 <th className="text-right pr-2 font-normal">Cost</th>
@@ -653,17 +800,27 @@ function UserActivityBadge({ userId }: { userId: string }) {
                   key={r.id}
                   className="border-b border-[var(--color-border)] border-opacity-30 hover:bg-[var(--color-bg-muted)]"
                 >
-                  <td className="py-0.5 pr-2 text-[var(--color-fg-subtle)] font-mono whitespace-nowrap">
-                    {new Date(r.timestamp).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
+                  <td className="py-1 pr-2 text-[var(--color-fg-subtle)] whitespace-nowrap">
+                    <div className="font-mono">
+                      {new Date(r.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </div>
+                    <div className="text-[9px]">{new Date(r.timestamp).toLocaleDateString([], {
+                      month: "short",
+                      day: "2-digit",
+                      year: "numeric",
+                    })}</div>
                   </td>
                   <td className="pr-2 font-medium">{r.analyst}</td>
                   <td className="pr-2 text-[var(--color-fg-subtle)]">
-                    {r.purpose ?? "—"}
+                    {r.purpose}
                     {r.ticker ? ` (${r.ticker})` : ""}
+                  </td>
+                  <td className="pr-2 text-[9px] text-[var(--color-fg-subtle)]">
+                    {formatAttribution(r.attributionSource, r.sourceClass)}
                   </td>
                   <td className="pr-2 font-mono text-[9px] text-[var(--color-fg-subtle)]">
                     {r.model.split("/").slice(-1)[0]}
@@ -681,12 +838,47 @@ function UserActivityBadge({ userId }: { userId: string }) {
                         : "text-[var(--color-accent-red)]"
                     }
                   >
-                    {r.status}
+                    <div>{r.status}</div>
+                    {(r.errorMessage || r.rejectionReason) && (
+                      <div className="max-w-48 truncate text-[9px] text-[var(--color-fg-subtle)]">
+                        {r.errorMessage ?? r.rejectionReason}
+                      </div>
+                    )}
+                    {r.jobId && (
+                      <div className="text-[9px] text-[var(--color-fg-subtle)]">
+                        {r.jobId}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <div className="mt-2 flex items-center justify-between text-[10px]">
+            <span className="text-[var(--color-fg-subtle)]">
+              Showing {recentTotal === 0 ? 0 : recentOffset + 1}
+              {"-"}
+              {recentOffset + data.recent.length} of {recentTotal}
+            </span>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setOffset((current) => Math.max(0, current - pageSize))}
+                disabled={!hasPrev}
+                className="px-2 py-0.5 rounded border disabled:opacity-40"
+                style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setOffset((current) => current + pageSize)}
+                disabled={!hasNext}
+                className="px-2 py-0.5 rounded border disabled:opacity-40"
+                style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1288,6 +1480,7 @@ function UserCard({
   profiles,
   onDelete,
   onUpdateLimits,
+  onUpdateTokenBudgets,
   onAddTelegram,
   onProfileChanged,
   onControlChanged,
@@ -1297,6 +1490,7 @@ function UserCard({
   profiles: ProfilesRegistry;
   onDelete: (userId: string) => void;
   onUpdateLimits: (userId: string, limits: Partial<RateLimits>) => void;
+  onUpdateTokenBudgets: (userId: string, budgets: Partial<TokenBudgets>) => void;
   onAddTelegram: (userId: string, botToken: string, chatId: string) => void;
   onProfileChanged: () => void;
   onControlChanged: () => void;
@@ -1304,6 +1498,7 @@ function UserCard({
 }) {
   const language = usePreferencesStore((s) => s.language);
   const [showLimits,    setShowLimits]    = useState(false);
+  const [showTokenBudgets, setShowTokenBudgets] = useState(false);
   const [showDelete,    setShowDelete]    = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [showTelegram,  setShowTelegram]  = useState(false);
@@ -1335,8 +1530,17 @@ function UserCard({
 
   const stateLabel     = user.state === "ACTIVE" ? t("adminStateActive", language)
     : user.state === "BOOTSTRAPPING"              ? t("adminStateBootstrapping", language)
+    : user.state === "INCOMPLETE"                 ? t("adminStateIncomplete", language)
     : user.state;
   const portfolioLabel = user.portfolioLoaded ? t("adminPortfolioLoaded", language) : t("adminPortfolioMissing", language);
+  const eligibilityIssueLabel = user.eligibilityIssue
+    ? `Daily scheduling paused: ${user.eligibilityIssue}.`
+    : null;
+  const integrityIssueLabel = user.integrityErrors[0]
+    ? `Integrity: ${user.integrityErrors[0]}`
+    : user.integrityWarnings[0]
+      ? `Integrity warning: ${user.integrityWarnings[0]}`
+      : null;
 
   return (
     <div className="rounded-xl border p-4 space-y-3"
@@ -1358,6 +1562,23 @@ function UserCard({
           <p className={`text-[10px] font-medium uppercase mt-0.5 ${stateColor}`}>
             {stateLabel} · {portfolioLabel}
           </p>
+          {eligibilityIssueLabel && (
+            <p className="mt-1 text-[10px] font-medium" style={{ color: "var(--color-accent-yellow)" }}>
+              {eligibilityIssueLabel}
+            </p>
+          )}
+          {integrityIssueLabel && (
+            <p
+              className="mt-1 text-[10px]"
+              style={{
+                color: user.integrityErrors.length > 0
+                  ? "var(--color-accent-red)"
+                  : "var(--color-fg-muted)",
+              }}
+            >
+              {integrityIssueLabel}
+            </p>
+          )}
         </div>
         <HealthBadge health={user.agentHealth} />
       </div>
@@ -1403,6 +1624,11 @@ function UserCard({
           className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
           style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
           {t("adminEditLimits", language)}
+        </button>
+        <button onClick={() => setShowTokenBudgets(!showTokenBudgets)}
+          className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
+          style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
+          Edit chat budgets
         </button>
         <button onClick={handleForceLogout} disabled={logoutLoading}
           title="Invalidate all active sessions"
@@ -1450,6 +1676,19 @@ function UserCard({
             limits={user.rateLimits}
             onSave={(l) => { onUpdateLimits(user.userId, l); setShowLimits(false); }}
             onCancel={() => setShowLimits(false)}
+          />
+        </div>
+      )}
+
+      {showTokenBudgets && (
+        <div className="rounded-lg p-3" style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-fg-muted)" }}>
+            Chat and structured token budgets
+          </p>
+          <TokenBudgetsEditor
+            budgets={user.tokenBudgets}
+            onSave={(budgets) => { onUpdateTokenBudgets(user.userId, budgets); setShowTokenBudgets(false); }}
+            onCancel={() => setShowTokenBudgets(false)}
           />
         </div>
       )}
@@ -1618,10 +1857,35 @@ export function Admin() {
     setUsers((prev) => prev.map((u) => u.userId === userId ? { ...u, rateLimits: { ...u.rateLimits, ...limits } } : u));
   };
 
+  const handleUpdateTokenBudgets = async (userId: string, budgets: Partial<TokenBudgets>) => {
+    await adminUpdateTokenBudgets(userId, budgets);
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.userId === userId
+          ? {
+              ...u,
+              tokenBudgets: {
+                ...u.tokenBudgets,
+                ...budgets,
+                conversation: { ...u.tokenBudgets.conversation, ...(budgets.conversation ?? {}) },
+                structured: { ...u.tokenBudgets.structured, ...(budgets.structured ?? {}) },
+              },
+            }
+          : u
+      )
+    );
+  };
+
   const handleAddTelegram = async (userId: string, botToken: string, chatId: string) => {
     await adminAddTelegram(userId, botToken, chatId);
     load();
   };
+
+  const restrictedCount = users.filter((user) => user.restriction !== null).length;
+  const unhealthyCount = users.filter((user) => !user.agentHealth.healthy).length;
+  const degradedCount = users.filter(
+    (user) => !user.integrityValid || user.eligibilityIssue !== null
+  ).length;
 
   if (!loggedIn) return <AdminLogin onLogin={() => setLoggedIn(true)} />;
 
@@ -1669,6 +1933,25 @@ export function Admin() {
           ))}
         </div>
 
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Degraded", value: degradedCount, color: degradedCount > 0 ? "var(--color-accent-yellow)" : "var(--color-fg-default)" },
+            { label: "Unhealthy", value: unhealthyCount, color: unhealthyCount > 0 ? "var(--color-accent-red)" : "var(--color-fg-default)" },
+            { label: "Restricted", value: restrictedCount, color: restrictedCount > 0 ? "var(--color-accent-blue)" : "var(--color-fg-default)" },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="rounded-lg px-4 py-3 text-center"
+              style={{ background: "var(--color-bg-subtle)", border: "1px solid var(--color-border)" }}
+            >
+              <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>{item.label}</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: item.color }}>
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
         {/* System controls */}
         <SystemControls onError={(m) => setError(m)} />
 
@@ -1711,6 +1994,7 @@ export function Admin() {
                 profiles={profiles}
                 onDelete={handleDelete}
                 onUpdateLimits={handleUpdateLimits}
+                onUpdateTokenBudgets={handleUpdateTokenBudgets}
                 onAddTelegram={handleAddTelegram}
                 onProfileChanged={load}
                 onControlChanged={load}

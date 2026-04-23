@@ -3,6 +3,20 @@
 
 ---
 
+## Backend-owned scheduling
+
+The backend is the only scheduler for portfolio workflows.
+
+You must never autonomously start:
+- daily brief
+- weekly review
+- portfolio sweep
+- exploratory research
+
+You only act when a trigger file explicitly asks for work.
+
+---
+
 ## On every session start — process pending jobs first
 
 Before running any scheduled task:
@@ -17,73 +31,36 @@ Before running any scheduled task:
       - "daily_brief" → Mode 1 on top 5 positions
       - "deep_dive" + ticker → Mode 2 on that ticker
       - "new_ideas" → Mode 3 weekly research
+      - "quick_check" + ticker → Quick check using server briefing (see Quick Check section below)
       - "switch_production" → update config.json modelProfile → "production"
       - "switch_testing" → update config.json modelProfile → "testing"
    e. On success: update job file → status "completed", completed_at, result (max 200 chars)
    f. On failure: update job file → status "failed", completed_at, error (max 200 chars)
-3. Only after ALL trigger files are processed: proceed to scheduled tasks below
-
----
-
-## Scheduled tasks
-
-### Daily brief — 8:00 AM Israel time (UTC+3), weekdays only
-Override time with user's schedule.dailyBriefTime from profile.json.
-
-1. Read ~/clawd/users/[USER_ID]/data/portfolio.json
-2. Fetch live prices for all positions, sort by currentValueILS descending
-3. Take top 5 positions
-4. Run condition check (conditionEngine equivalent):
-   - For each top-5 ticker: read strategy.json
-   - Check expired catalysts, hold_no_catalyst, stale_low_confidence
-5. For tickers with no escalation needed:
-   - Run Mode 1 (lightweight — fundamentals + sentiment only, no technical/macro/risk)
-   - Report: ON_TRACK or WATCH
-6. For tickers needing escalation:
-   - Immediately run Mode 2 (full pipeline + bull/bear debate)
-   - Update strategy.json
-7. Send Telegram briefing:
-   - Header: date, portfolio total value, daily P/L
-   - Per ticker: verdict badge, one-line status, any escalation note
-   - Footer: X on-track, Y escalated, Z pending deep dives
-
-### Weekly research — Sunday 7:00 PM Israel time
-Override day/time with user's schedule from profile.json.
-
-1. Run Mode 3 — new opportunities research
-2. Half from sectors already in portfolio
-3. Half from new sectors/asset classes
-4. Full 5-analyst + bull/bear pipeline per candidate
-5. Write to ~/clawd/users/[USER_ID]/data/research/[TICKER]/strategy.json
-6. Send Telegram: structured new-idea cards
+3. After ALL trigger files are processed:
+   - if no more triggers remain, reply exactly `HEARTBEAT_OK`
+   - stop immediately
 
 ---
 
 ## Ambient heartbeat — every 30 minutes
 
-If no scheduled task is running and no trigger files pending:
+If no trigger files are pending:
 - Reply: HEARTBEAT_OK
 - Do NOT run analyst pipelines
 - Do NOT fetch live prices
 - Do NOT write any files
 
-Exception: if a Telegram message arrived since last heartbeat that mentions
-a specific ticker + urgent language ("crash", "news", "dropped", "spiked"):
-- Run a quick sentiment check on that ticker only (sentiment analyst, no other analysts)
-- Report finding to Telegram
-- Do NOT update strategy.json from an ambient check — flag only
-
 ---
 
 ## State-aware behavior
 
-Read ~/clawd/users/[USER_ID]/data/state.json before any scheduled task:
+Read ~/clawd/users/[USER_ID]/data/state.json before any triggered task:
 
 - state = "UNINITIALIZED": do nothing. Inform user onboarding is required.
 - state = "BOOTSTRAPPING": check bootstrapProgress.
   If full_report job is pending or running: report progress only, do not start new tasks.
   If full_report job is completed: transition state → "ACTIVE", run first daily brief.
-- state = "ACTIVE": proceed normally with schedule above.
+- state = "ACTIVE": proceed only with the explicit triggered task.
 
 ---
 
@@ -99,6 +76,52 @@ Portfolio: ₪[TOTAL] ([+/-]% today)
 
 [X] on track · [Y] escalated · [Z] total positions
 ```
+
+---
+
+## Quick Check (Server-Assisted)
+
+When processing "quick_check" action:
+
+### Step 1: Use server briefing data
+- The trigger file contains "briefing" data pre-loaded by server
+- Use briefing.sentiment (or briefing.sentiment_error if missing)
+- Use briefing.strategy (or briefing.strategy_error if missing)
+- Check briefing.is_portfolio_ticker
+
+### Step 2: Fast analysis (target: 30 seconds)
+1. **Sentiment check**: Briefing.sentiment or quick web search if missing
+2. **Catalyst check**: Check briefing.strategy.catalysts
+3. **Portfolio context**: briefing.is_portfolio_ticker
+
+### Step 3: Decision
+- Any catalysts triggered? → escalate to deep_dive
+- Unexpected major events? → escalate to deep_dive
+- Strategy issues (null lastDeepDiveAt, missing catalyst dates)? → escalate
+
+### Step 4: Create quick_check.json
+Path: ~/clawd/users/[USER_ID]/data/reports/[TICKER]/quick_check.json
+```json
+{
+  "ticker": "TICKER",
+  "timestamp": "ISO_DATE",
+  "sentiment_score": number|null,
+  "catalyst_triggered": boolean,
+  "unexpected_event": boolean,
+  "needs_escalation": boolean,
+  "escalation_reason": string|null,
+  "escalated_to_job_id": string|null,
+  "used_briefing": boolean
+}
+```
+
+### Step 5: Escalate if needed
+If needs_escalation = true:
+- Create deep_dive trigger file for same ticker
+- Set escalated_to_job_id to the new job ID
+
+### Important: 2-minute timeout
+Quick check MUST complete within 2 minutes. If taking longer, abort and mark job as failed.
 
 ---
 

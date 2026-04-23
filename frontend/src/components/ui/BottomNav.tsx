@@ -7,8 +7,8 @@ import { usePreferencesStore } from "../../store/preferencesStore";
 const tabs = [
  { to: "/portfolio", icon: TrendingUp, labelKey: "portfolioTab" as const },
  { to: "/controls", icon: Sliders, labelKey: "controlsTab" as const },
- { to: "/strategies", icon: BarChart2, labelKey: "strategiesTab" as const },
  { to: "/reports", icon: FileText, labelKey: "reportsTab" as const },
+ { to: "/strategies", icon: BarChart2, labelKey: "strategiesTab" as const },
  { to: "/settings", icon: Settings, labelKey: "settingsTab" as const },
 ];
 

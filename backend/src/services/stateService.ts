@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { logger } from "./logger.js";
-import { PortfolioStateSchema } from "../schemas/portfolio.js";
+import { PortfolioFileSchema, PortfolioStateSchema } from "../schemas/portfolio.js";
 import type { PortfolioState, PortfolioStateData } from "../types/index.js";
 import { resolveConfiguredPath } from "./paths.js";
 
@@ -9,6 +9,10 @@ const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 
 function stateFilePath(userId: string): string {
   return path.join(USERS_DIR, userId, "data", "state.json");
+}
+
+function portfolioFilePath(userId: string): string {
+  return path.join(USERS_DIR, userId, "data", "portfolio.json");
 }
 
 export class StateTransitionError extends Error {
@@ -26,7 +30,10 @@ export async function readState(userId: string): Promise<PortfolioStateData> {
   const filePath = stateFilePath(userId);
   try {
     const raw = await fs.readFile(filePath, "utf-8");
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (parsed["state"] === "UNINITIALIZED") {
+      parsed["state"] = "INCOMPLETE";
+    }
     const result = PortfolioStateSchema.safeParse(parsed);
     if (!result.success) {
       throw new Error(`Invalid state file: ${result.error.message}`);
@@ -36,11 +43,16 @@ export async function readState(userId: string): Promise<PortfolioStateData> {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       return {
         userId,
-        state: "UNINITIALIZED",
+        state: "INCOMPLETE",
         lastFullReportAt: null,
         lastDailyAt: null,
         pendingDeepDives: [],
         bootstrapProgress: null,
+        onboarding: {
+          portfolioSubmittedAt: null,
+          positionGuidanceStatus: "not_started",
+          positionGuidance: {},
+        },
       };
     }
     throw err;
@@ -66,10 +78,93 @@ export async function writeState(
   await fs.writeFile(filePath, JSON.stringify(result.data, null, 2), "utf-8");
 }
 
+export interface ActiveUserEligibility {
+  eligible: boolean;
+  reason: string | null;
+}
+
+export async function getActiveUserEligibility(userId: string): Promise<ActiveUserEligibility> {
+  const current = await readState(userId);
+  if (current.state !== "ACTIVE") {
+    return {
+      eligible: false,
+      reason: `state is ${current.state.toLowerCase()}`,
+    };
+  }
+
+  let rawPortfolio: string;
+  try {
+    rawPortfolio = await fs.readFile(portfolioFilePath(userId), "utf-8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { eligible: false, reason: "portfolio missing" };
+    }
+    throw err;
+  }
+
+  let parsedPortfolio: unknown;
+  try {
+    parsedPortfolio = JSON.parse(rawPortfolio);
+  } catch {
+    return { eligible: false, reason: "portfolio invalid" };
+  }
+
+  const portfolioResult = PortfolioFileSchema.safeParse(parsedPortfolio);
+  if (!portfolioResult.success) {
+    return { eligible: false, reason: "portfolio invalid" };
+  }
+
+  const positionCount = Object.values(portfolioResult.data.accounts)
+    .flat()
+    .length;
+  if (positionCount === 0) {
+    return { eligible: false, reason: "portfolio empty" };
+  }
+
+  return {
+    eligible: true,
+    reason: null,
+  };
+}
+
+export async function repairActiveUserState(userId: string): Promise<boolean> {
+  const current = await readState(userId);
+  if (current.state !== "ACTIVE") return false;
+
+  const updates: Partial<PortfolioStateData> = {};
+  let changed = false;
+
+  if (current.bootstrapProgress !== null) {
+    updates.bootstrapProgress = null;
+    changed = true;
+  }
+
+  const eligibility = await getActiveUserEligibility(userId);
+  if (!eligibility.eligible) {
+    updates.state = "INCOMPLETE";
+    changed = true;
+  }
+
+  if (changed) {
+    await writeState(userId, updates);
+    const repairReasons: string[] = [];
+    if (current.bootstrapProgress !== null) {
+      repairReasons.push("cleared stale bootstrap-only fields");
+    }
+    if (!eligibility.eligible) {
+      repairReasons.push(`downgraded ACTIVE user to INCOMPLETE because ${eligibility.reason}`);
+    }
+    logger.info(`Repaired active-user state for ${userId}: ${repairReasons.join("; ")}`);
+  }
+
+  return changed;
+}
+
 const LEGAL_TRANSITIONS: Record<PortfolioState, PortfolioState[]> = {
-  UNINITIALIZED: ["BOOTSTRAPPING"],
-  BOOTSTRAPPING: ["ACTIVE"],
-  ACTIVE: ["BOOTSTRAPPING", "UNINITIALIZED"],
+  INCOMPLETE: ["BOOTSTRAPPING", "BLOCKED"],
+  BOOTSTRAPPING: ["ACTIVE", "INCOMPLETE", "BLOCKED"],
+  ACTIVE: ["BOOTSTRAPPING", "INCOMPLETE", "BLOCKED"],
+  BLOCKED: [],
 };
 
 export async function transitionState(

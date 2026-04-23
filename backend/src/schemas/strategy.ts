@@ -14,6 +14,20 @@ export const StrategyCatalystSchema = z.object({
   triggered: z.boolean(),
 });
 
+export const StrategyMetadataSchema = z.object({
+  source: z.enum([
+    "bootstrap",
+    "full_report",
+    "deep_dive",
+    "new_ideas",
+    "manual_exploration",
+    "migration",
+  ]),
+  status: z.enum(["provisional", "validated"]),
+  generatedAt: FlexibleDateTimeString.nullable(),
+  userGuidanceApplied: z.boolean().optional().default(false),
+});
+
 export const StrategySchema = z.object({
   ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/),
   updatedAt: FlexibleDateTimeString,
@@ -41,6 +55,8 @@ export const StrategySchema = z.object({
   bearCase: z.string().max(600).nullable(),
   lastDeepDiveAt: FlexibleDateTimeString.nullable(),
   deepDiveTriggeredBy: z.string().nullable(),
+  metadata: StrategyMetadataSchema.optional(),
 });
 
-// export type Strategy = z.infer<typeof StrategySchema>;
+export type Strategy = z.infer<typeof StrategySchema>;
+export type StrategyMetadata = z.infer<typeof StrategyMetadataSchema>;

@@ -4,16 +4,16 @@ import path from "path";
 import {
   addUserAgent,
   removeUserAgent,
-  updateUserTelegram,
   restartGateway,
   getUserAgentStatus,
   getUserAgentHealth,
+  reconcileUserHeartbeatCron,
   wakeAgent,
   getSystemAgentStatus,
   SYSTEM_AGENT_ID,
   readConfig,
 } from "../services/agentService.js";
-import { createUserWorkspace, workspaceExists } from "../services/workspaceService.js";
+import { createUserWorkspace, validateWorkspaceIntegrity, workspaceExists } from "../services/workspaceService.js";
 import { hashPassword } from "../middleware/auth.js";
 import { logger } from "../services/logger.js";
 import {
@@ -26,7 +26,8 @@ import {
   getSystemAgentProfileStatus,
   setSystemAgentProfile,
 } from "../services/profileService.js";
-import type { RateLimits } from "../types/index.js";
+import type { RateLimits, TokenBudgets } from "../types/index.js";
+import { DEFAULT_TOKEN_BUDGETS } from "../types/index.js";
 import type { ProfileDefinition } from "../schemas/profile.js";
 import { eventStore } from "../services/eventStore.js";
 import {
@@ -38,8 +39,23 @@ import {
   incrementTokenVersion,
 } from "../services/controlService.js";
 import { updateJob, createJob, listJobs, getJob } from "../services/jobService.js";
+import { hasPendingAgentManagedWork } from "../services/jobService.js";
 import { buildWorkspace } from "../middleware/userIsolation.js";
 import type { JobAction, Job } from "../types/index.js";
+import { connectUserTelegramChannel } from "../services/channelService.js";
+import { listSupportMessages } from "../services/supportService.js";
+import { getActiveUserEligibility, readState } from "../services/stateService.js";
+import { markDeepDiveJobCancelled } from "../services/deepDiveService.js";
+import {
+  getUserTokenBudgets,
+  setUserTokenBudgets,
+  buildTokenBudgetUsage,
+} from "../services/tokenBudgetService.js";
+import {
+  classifySystemAgentHealth,
+  classifyUserAgentHealth,
+  shouldUserHeartbeatBeEnabled,
+} from "../services/startupService.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "";
@@ -70,6 +86,15 @@ function handler(fn: AdminHandler) {
   };
 }
 
+router.get(
+  "/support/messages",
+  handler(async (req, res) => {
+    const limit = Math.min(Math.max(Number(req.query["limit"] ?? 100), 1), 500);
+    const messages = await listSupportMessages(limit);
+    res.json({ messages });
+  })
+);
+
 // GET /api/admin/users
 router.get(
   "/users",
@@ -97,6 +122,10 @@ router.get(
           daily_brief: { maxPerPeriod: 3, periodHours: 24 },
           deep_dive: { maxPerPeriod: 5, periodHours: 24 },
           new_ideas: { maxPerPeriod: 2, periodHours: 168 },
+          quick_check: { maxPerPeriod: 20, periodHours: 24 },
+        };
+        const tokenBudgets: TokenBudgets = {
+          ...DEFAULT_TOKEN_BUDGETS,
         };
 
         try {
@@ -105,6 +134,12 @@ router.get(
           createdAt = profile.createdAt ?? "";
           if (profile.schedule) Object.assign(schedule, profile.schedule);
           if (profile.rateLimits) Object.assign(rateLimits, profile.rateLimits);
+          if (profile.tokenBudgets?.conversation) {
+            Object.assign(tokenBudgets.conversation, profile.tokenBudgets.conversation);
+          }
+          if (profile.tokenBudgets?.structured) {
+            Object.assign(tokenBudgets.structured, profile.tokenBudgets.structured);
+          }
         } catch { /* no profile */ }
 
         let state = "UNKNOWN";
@@ -119,12 +154,23 @@ router.get(
           portfolioLoaded = true;
         } catch { /* no portfolio */ }
 
-        const [agentStatus, profileStatus, agentHealth, userCtrl] = await Promise.all([
+        const [agentStatus, profileStatus, rawAgentHealth, userCtrl, activeEligibility, integrity, hasAgentManagedWork] = await Promise.all([
           getUserAgentStatus(userId),
           getUserProfileStatus(userId),
           getUserAgentHealth(userId),
           getUserControl(userId),
+          state === "ACTIVE"
+            ? getActiveUserEligibility(userId)
+            : Promise.resolve({ eligible: true, reason: null }),
+          validateWorkspaceIntegrity(userId),
+          hasPendingAgentManagedWork(buildWorkspace(userId, USERS_DIR)),
         ]);
+        const agentHealth = classifyUserAgentHealth(rawAgentHealth, {
+          state,
+          restriction: userCtrl.restriction,
+          eligibilityIssue: activeEligibility.eligible ? null : activeEligibility.reason,
+          hasAgentManagedWork,
+        });
 
         return {
           userId,
@@ -137,11 +183,16 @@ router.get(
           createdAt,
           rateLimits,
           schedule,
+          tokenBudgets,
           modelProfile: profileStatus.name,
           profileBroken: profileStatus.broken,
           profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
           agentHealth,
           restriction: userCtrl.restriction,
+          eligibilityIssue: activeEligibility.eligible ? null : activeEligibility.reason,
+          integrityValid: integrity.valid,
+          integrityErrors: integrity.errors,
+          integrityWarnings: integrity.warnings,
         };
       })
     );
@@ -172,7 +223,9 @@ router.post(
       daily_brief: { maxPerPeriod: 3, periodHours: 24 },
       deep_dive: { maxPerPeriod: 5, periodHours: 24 },
       new_ideas: { maxPerPeriod: 2, periodHours: 168 },
+      quick_check: { maxPerPeriod: 20, periodHours: 24 },
     };
+    const tokenBudgets = (body.tokenBudgets as TokenBudgets) ?? DEFAULT_TOKEN_BUDGETS;
 
     if (!/^[a-zA-Z0-9-]{4,32}$/.test(userId)) {
       res.status(400).json({ error: "userId must be 4-32 alphanumeric or hyphens" });
@@ -198,6 +251,7 @@ router.post(
       telegramChatId: telegramChatId ?? null,
       schedule,
       rateLimits,
+      tokenBudgets,
       createdAt: new Date().toISOString(),
     };
     await fs.writeFile(path.join(ws.root, "profile.json"), JSON.stringify(profile, null, 2), "utf-8");
@@ -220,6 +274,8 @@ router.post(
     } catch (err) {
       logger.warn(`Failed to apply default model profile for ${userId}: ${err}`);
     }
+
+    await reconcileUserHeartbeatCron(userId, false);
 
     res.status(201).json({ userId, created: true });
   })
@@ -285,12 +341,29 @@ router.patch(
       daily_brief: { maxPerPeriod: 3, periodHours: 24 },
       deep_dive: { maxPerPeriod: 5, periodHours: 24 },
       new_ideas: { maxPerPeriod: 2, periodHours: 168 },
+      quick_check: { maxPerPeriod: 20, periodHours: 24 },
     };
 
     const merged = { ...currentLimits, ...updates };
     profile.rateLimits = merged;
     await fs.writeFile(profilePath, JSON.stringify(profile, null, 2), "utf-8");
     res.json({ userId, rateLimits: merged });
+  })
+);
+
+// PATCH /api/admin/users/:userId/token-budgets
+router.patch(
+  "/users/:userId/token-budgets",
+  handler(async (req, res) => {
+    const userId = req.params.userId as string;
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    const updates = req.body as Partial<TokenBudgets>;
+    try {
+      const tokenBudgets = await setUserTokenBudgets(userId, updates);
+      res.json({ userId, tokenBudgets });
+    } catch (err) {
+      res.status(404).json({ error: err instanceof Error ? err.message : "User not found" });
+    }
   })
 );
 
@@ -308,21 +381,12 @@ router.post(
     }
 
     try {
-      await updateUserTelegram(userId, botToken, telegramChatId);
+      await connectUserTelegramChannel(userId, botToken, telegramChatId);
     } catch (err) {
       logger.error(`Failed to update Telegram for ${userId}`, { err });
       res.status(500).json({ error: "Failed to update Telegram" });
       return;
     }
-
-    const profilePath = path.join(USERS_DIR, userId, "profile.json");
-    try {
-      const profile = JSON.parse(await fs.readFile(profilePath, "utf-8"));
-      profile.telegramChatId = telegramChatId;
-      await fs.writeFile(profilePath, JSON.stringify(profile, null, 2), "utf-8");
-    } catch { /* skip if no profile */ }
-
-    await restartGateway();
     res.json({ updated: true });
   })
 );
@@ -359,11 +423,12 @@ router.get(
 router.get(
   "/system-agent",
   handler(async (_req, res) => {
-    const [agentStatus, profileStatus, agentHealth] = await Promise.all([
+    const [agentStatus, profileStatus, rawAgentHealth] = await Promise.all([
       getSystemAgentStatus(),
       getSystemAgentProfileStatus(),
       getUserAgentHealth(SYSTEM_AGENT_ID),
     ]);
+    const agentHealth = classifySystemAgentHealth(rawAgentHealth);
 
     res.json({
       agentId: SYSTEM_AGENT_ID,
@@ -504,11 +569,69 @@ router.get(
   handler(async (req, res) => {
     const userId = req.params.userId as string;
     if (!userId) { res.status(400).json({ error: "userId required" }); return; }
-    const [history, recent] = await Promise.all([
+    const limit = Math.min(Math.max(Number(req.query["limit"] ?? 20), 1), 100);
+    const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
+    const now = new Date();
+    const tokenBudgets = await getUserTokenBudgets(userId);
+    const conversationSinceIso = new Date(
+      now.getTime() - tokenBudgets.conversation.periodHours * 3600 * 1000
+    ).toISOString();
+    const structuredSinceIso = new Date(
+      now.getTime() - tokenBudgets.structured.periodHours * 3600 * 1000
+    ).toISOString();
+    const [history, recentPage] = await Promise.all([
       eventStore.getUserDailyHistory(userId, 7),
-      eventStore.getRecentActivity(userId, 20),
+      eventStore.getRecentActivityPage(userId, limit, offset),
     ]);
-    res.json({ userId, history, recent });
+    const [conversationUsageSummary, structuredUsageSummary] = await Promise.all([
+      eventStore.getTokenUsageSummary({
+        userId,
+        sinceIso: conversationSinceIso,
+        sourceClasses: ["direct_chat"],
+      }),
+      eventStore.getTokenUsageSummary({
+        userId,
+        sinceIso: structuredSinceIso,
+        sourceClasses: ["backend_job", "telegram_command", "dashboard_action"],
+      }),
+    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    const todaySummary =
+      history.find((entry) => entry.date === today) ?? {
+        userId,
+        date: today,
+        requestCount: 0,
+        totalTokensIn: 0,
+        totalTokensOut: 0,
+        totalCostUsd: 0,
+        successCount: 0,
+        errorCount: 0,
+        timeoutCount: 0,
+        rejectedCount: 0,
+        unattributedCount: 0,
+      };
+    res.json({
+      userId,
+      todaySummary,
+      history,
+      recent: recentPage.events,
+      recentTotal: recentPage.total,
+      recentLimit: recentPage.limit,
+      recentOffset: recentPage.offset,
+      tokenBudgets,
+      budgetUsage: {
+        conversation: buildTokenBudgetUsage(
+          tokenBudgets.conversation,
+          conversationUsageSummary.totalTokensIn + conversationUsageSummary.totalTokensOut,
+          now
+        ),
+        structured: buildTokenBudgetUsage(
+          tokenBudgets.structured,
+          structuredUsageSummary.totalTokensIn + structuredUsageSummary.totalTokensOut,
+          now
+        ),
+      },
+    });
   })
 );
 
@@ -584,6 +707,7 @@ router.patch(
       restrictedUntil: body.restrictedUntil ?? null,
       banner:          body.banner as Parameters<typeof setUserControl>[1]["banner"] ?? null,
     });
+    await reconcileUserHeartbeatCron(userId, false);
     res.json({ updated: true, userId, control: await getUserControl(userId) });
   })
 );
@@ -595,6 +719,26 @@ router.delete(
     const userId = req.params.userId as string;
     if (!userId) { res.status(400).json({ error: "userId required" }); return; }
     await clearUserControl(userId);
+    let shouldEnableCron = false;
+    try {
+      const state = await readState(userId);
+      const agentStatus = await getUserAgentStatus(userId);
+      const hasAgentManagedWork = await hasPendingAgentManagedWork(
+        buildWorkspace(userId, USERS_DIR)
+      );
+      const eligibility = state.state === "ACTIVE"
+        ? await getActiveUserEligibility(userId)
+        : { eligible: true, reason: null };
+      shouldEnableCron = agentStatus.configured && shouldUserHeartbeatBeEnabled({
+        state: state.state,
+        restriction: null,
+        eligibilityIssue: eligibility.eligible ? null : eligibility.reason,
+        hasAgentManagedWork,
+      });
+    } catch {
+      shouldEnableCron = false;
+    }
+    await reconcileUserHeartbeatCron(userId, shouldEnableCron);
     res.json({ cleared: true, userId });
   })
 );
@@ -636,7 +780,7 @@ router.post(
 // ── Admin job control ─────────────────────────────────────────────────────────
 
 const VALID_JOB_ACTIONS: JobAction[] = [
-  "daily_brief", "full_report", "deep_dive", "new_ideas", "switch_production", "switch_testing",
+  "daily_brief", "full_report", "deep_dive", "new_ideas", "quick_check", "switch_production", "switch_testing",
 ];
 
 // GET /api/admin/users/:userId/jobs — list all jobs for a user
@@ -662,8 +806,8 @@ router.post(
       res.status(400).json({ error: `Invalid action. Must be one of: ${VALID_JOB_ACTIONS.join(", ")}` });
       return;
     }
-    if (action === "deep_dive" && !ticker) {
-      res.status(400).json({ error: "deep_dive requires ticker" });
+    if ((action === "deep_dive" || action === "quick_check") && !ticker) {
+      res.status(400).json({ error: `${action} requires ticker` });
       return;
     }
     const ws = buildWorkspace(userId, USERS_DIR);
@@ -714,11 +858,14 @@ router.delete(
     const ws = buildWorkspace(userId, USERS_DIR);
     // Remove trigger file (prevents pickup if still pending)
     try { await fs.unlink(path.join(ws.triggersDir, `${jobId}.json`)); } catch { /* ok */ }
-    const job = await updateJob(ws, jobId, {
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      error: "Cancelled by admin",
-    });
+    const existing = await getJob(ws, jobId);
+    const job = existing.action === "deep_dive"
+      ? await markDeepDiveJobCancelled(ws, existing, "Cancelled by admin")
+      : await updateJob(ws, jobId, {
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          error: "Cancelled by admin",
+        });
     res.json({ cancelled: true, job });
   })
 );
@@ -732,7 +879,7 @@ router.post(
     const ws = buildWorkspace(userId, USERS_DIR);
     const job = await getJob(ws, jobId);
 
-    if (job.status === "failed") {
+    if (job.status === "failed" || job.status === "cancelled") {
       // Reset to pending, recreate trigger file
       const reset: Job = {
         ...job,

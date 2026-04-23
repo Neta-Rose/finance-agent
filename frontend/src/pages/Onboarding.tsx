@@ -1,11 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TickerSearch } from "../components/ui/TickerSearch";
 import type { TickerSelection } from "../types/api";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useToastStore } from "../store/toastStore";
 import { usePreferencesStore } from "../store/preferencesStore";
-import { submitOnboardInit, submitPortfolio, type PositionEntry } from "../api/onboarding";
+import {
+  completePositionGuidance,
+  fetchOnboardStatus,
+  fetchPositionGuidance,
+  submitOnboardInit,
+  submitPortfolio,
+  type PositionEntry,
+} from "../api/onboarding";
 import { login } from "../api/auth";
 import { generateId } from "../utils/id";
 import { apiClient } from "../api/client";
@@ -52,8 +59,16 @@ interface Account {
   positions: PositionEntry[];
 }
 
+interface GuidanceDraft {
+  thesis: string;
+  horizon: "unspecified" | "days" | "weeks" | "months" | "years";
+  addOn: string;
+  reduceOn: string;
+  notes: string;
+}
+
 interface OnboardingState {
-  step: 1 | 2 | 3 | 4 | 5;
+  step: 1 | 2 | 3 | 4 | 5 | 6;
   adminKey: string;
   userId: string;
   password: string;
@@ -66,6 +81,8 @@ interface OnboardingState {
   weeklyResearchTime: string;
   timezone: string;
   accounts: Account[];
+  guidanceTickers: string[];
+  positionGuidance: Record<string, GuidanceDraft>;
   botToken: string;
   telegramSkip: boolean;
 }
@@ -84,6 +101,8 @@ const initialState = {
   weeklyResearchTime: "19:00",
   timezone: "Asia/Jerusalem",
   accounts: [] as Account[],
+  guidanceTickers: [],
+  positionGuidance: {},
   botToken: "",
   telegramSkip: false,
 };
@@ -92,7 +111,7 @@ const inputCls = "w-full bg-[var(--color-bg-muted)] border border-[var(--color-b
 const labelCls = "text-xs font-medium text-[var(--color-fg-muted)] mb-1.5 block";
 const errorCls = "text-[10px] text-[var(--color-accent-red)] mt-1";
 
-function ProgressDots({ step, total = 5 }: { step: number; total?: number }) {
+function ProgressDots({ step, total = 6 }: { step: number; total?: number }) {
   return (
     <div className="flex items-center justify-center gap-2 py-4">
       {Array.from({ length: total }, (_, i) => i + 1).map((s) => (
@@ -395,6 +414,7 @@ function PositionCard({
       flag: "",
       price: null,
       currency: "USD",
+      assetType: "stock",
     } : null
   );
 
@@ -662,6 +682,139 @@ function Step5({ state }: { state: OnboardingState }) {
   );
 }
 
+function GuidanceCard({
+  ticker,
+  guidance,
+  updateGuidance,
+}: {
+  ticker: string;
+  guidance: GuidanceDraft;
+  updateGuidance: (ticker: string, patch: Partial<GuidanceDraft>) => void;
+}) {
+  const language = usePreferencesStore((s) => s.language);
+
+  return (
+    <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg p-4 space-y-3">
+      <div>
+        <p className="text-sm font-bold text-[var(--color-fg-default)]">{ticker}</p>
+        <p className="text-[11px] text-[var(--color-fg-subtle)]">{t("onboardGuidanceOptional", language)}</p>
+      </div>
+      <div>
+        <label className={labelCls}>{t("onboardGuidanceThesis", language)}</label>
+        <textarea
+          value={guidance.thesis}
+          onChange={(e) => updateGuidance(ticker, { thesis: e.target.value })}
+          rows={3}
+          className={inputCls}
+          placeholder={t("onboardGuidanceThesisPlaceholder", language)}
+        />
+      </div>
+      <div>
+        <label className={labelCls}>{t("onboardGuidanceHorizon", language)}</label>
+        <select
+          value={guidance.horizon}
+          onChange={(e) => updateGuidance(ticker, { horizon: e.target.value as GuidanceDraft["horizon"] })}
+          className={inputCls}
+        >
+          <option value="unspecified">{t("onboardGuidanceHorizonUnspecified", language)}</option>
+          <option value="days">{t("onboardGuidanceHorizonDays", language)}</option>
+          <option value="weeks">{t("onboardGuidanceHorizonWeeks", language)}</option>
+          <option value="months">{t("onboardGuidanceHorizonMonths", language)}</option>
+          <option value="years">{t("onboardGuidanceHorizonYears", language)}</option>
+        </select>
+      </div>
+      <div>
+        <label className={labelCls}>{t("onboardGuidanceAdd", language)}</label>
+        <textarea
+          value={guidance.addOn}
+          onChange={(e) => updateGuidance(ticker, { addOn: e.target.value })}
+          rows={2}
+          className={inputCls}
+          placeholder={t("onboardGuidanceAddPlaceholder", language)}
+        />
+      </div>
+      <div>
+        <label className={labelCls}>{t("onboardGuidanceReduce", language)}</label>
+        <textarea
+          value={guidance.reduceOn}
+          onChange={(e) => updateGuidance(ticker, { reduceOn: e.target.value })}
+          rows={2}
+          className={inputCls}
+          placeholder={t("onboardGuidanceReducePlaceholder", language)}
+        />
+      </div>
+      <div>
+        <label className={labelCls}>{t("onboardGuidanceNotes", language)}</label>
+        <textarea
+          value={guidance.notes}
+          onChange={(e) => updateGuidance(ticker, { notes: e.target.value })}
+          rows={3}
+          className={inputCls}
+          placeholder={t("onboardGuidanceNotesPlaceholder", language)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Step6({
+  tickers,
+  guidance,
+  updateGuidance,
+  onBack,
+  onSkip,
+  onLaunch,
+  submitting,
+}: {
+  tickers: string[];
+  guidance: Record<string, GuidanceDraft>;
+  updateGuidance: (ticker: string, patch: Partial<GuidanceDraft>) => void;
+  onBack: () => void;
+  onSkip: () => void;
+  onLaunch: () => void;
+  submitting: boolean;
+}) {
+  const language = usePreferencesStore((s) => s.language);
+  return (
+    <>
+      <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
+        <StepTitle
+          title={t("onboardStep6Title", language)}
+          subtitle={t("onboardStep6Sub", language)}
+        />
+        <div className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg p-3 text-xs text-[var(--color-fg-muted)]">
+          {t("onboardStep6Hint", language)}
+        </div>
+        {tickers.map((ticker) => (
+          <GuidanceCard
+            key={ticker}
+            ticker={ticker}
+            guidance={guidance[ticker] ?? {
+              thesis: "",
+              horizon: "unspecified",
+              addOn: "",
+              reduceOn: "",
+              notes: "",
+            }}
+            updateGuidance={updateGuidance}
+          />
+        ))}
+      </div>
+      <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border)] p-4 flex gap-3 safe-bottom z-30">
+        <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">
+          {t("back", language)}
+        </button>
+        <button onClick={onSkip} disabled={submitting} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)] disabled:opacity-50">
+          {t("onboardSkip", language)}
+        </button>
+        <button onClick={onLaunch} disabled={submitting} className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50">
+          {submitting ? t("onboardLaunching", language) : t("onboardLaunchBtn", language)}
+        </button>
+      </div>
+    </>
+  );
+}
+
 // ---- Main Component ----
 export function Onboarding() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -678,8 +831,89 @@ export function Onboarding() {
 
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const status = await fetchOnboardStatus();
+        if (!status.portfolioLoaded || !status.guidanceStepPending) return;
+        const guidanceData = await fetchPositionGuidance();
+        if (cancelled) return;
+        setState((current) => ({
+          ...current,
+          step: 6,
+          guidanceTickers: guidanceData.tickers,
+          positionGuidance: Object.fromEntries(
+            Object.entries(guidanceData.guidance).map(([ticker, guidance]) => [ticker, { ...guidance }])
+          ),
+        }));
+      } catch {
+        // Keep the normal onboarding flow if loading pending guidance fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
   const update = <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => {
     setState((s) => ({ ...s, [k]: v }));
+  };
+
+  const buildGuidancePayload = () =>
+    Object.fromEntries(
+      Object.entries(state.positionGuidance).filter(([, guidance]) =>
+        guidance.thesis.trim().length > 0 ||
+        guidance.horizon !== "unspecified" ||
+        guidance.addOn.trim().length > 0 ||
+        guidance.reduceOn.trim().length > 0 ||
+        guidance.notes.trim().length > 0
+      )
+    );
+
+  const completeGuidanceAndLaunch = async (skip: boolean) => {
+    setSubmitting(true);
+    try {
+      await completePositionGuidance({
+        skip,
+        guidance: skip ? {} : buildGuidancePayload(),
+      });
+      navigate("/portfolio", { replace: true });
+    } catch {
+      showToast(t("onboardSetupFailed", language), "error");
+      setSubmitting(false);
+    }
+  };
+
+  const tickersForGuidance = Array.from(
+    new Set([
+      ...state.guidanceTickers,
+      ...state.accounts.flatMap((account) =>
+        account.positions.map((position) => position.ticker).filter((ticker) => ticker.trim().length > 0)
+      ),
+    ])
+  );
+
+  const updateGuidance = (ticker: string, patch: Partial<GuidanceDraft>) => {
+    setState((current) => ({
+      ...current,
+      positionGuidance: {
+        ...current.positionGuidance,
+        [ticker]: {
+          ...(current.positionGuidance[ticker] ?? {
+            thesis: "",
+            horizon: "unspecified",
+            addOn: "",
+            reduceOn: "",
+            notes: "",
+          }),
+          ...patch,
+        },
+      },
+    }));
   };
 
   const ensureOneAccount = (s: OnboardingState): OnboardingState => {
@@ -734,7 +968,17 @@ export function Onboarding() {
         });
       }
 
-      navigate("/portfolio", { replace: true });
+      setState((current) => ({
+        ...current,
+        step: 6,
+        guidanceTickers: Array.from(
+          new Set(
+            current.accounts.flatMap((account) =>
+              account.positions.map((position) => position.ticker).filter((ticker) => ticker.trim().length > 0)
+            )
+          )
+        ),
+      }));
     } catch {
       showToast(t("onboardSetupFailed", language), "error");
       setSubmitting(false);
@@ -780,11 +1024,22 @@ export function Onboarding() {
             <BottomBar
               onBack={() => update("step", 4)}
               onNext={handleSubmit}
-              nextLabel={submitting ? t("onboardLaunching", language) : t("onboardLaunchBtn", language)}
+              nextLabel={submitting ? t("onboardLaunching", language) : t("onboardContinue", language)}
               nextDisabled={submitting}
               showBack={true}
             />
           </>
+        )}
+        {state.step === 6 && (
+          <Step6
+            tickers={tickersForGuidance}
+            guidance={state.positionGuidance}
+            updateGuidance={updateGuidance}
+            onBack={() => update("step", 5)}
+            onSkip={() => void completeGuidanceAndLaunch(true)}
+            onLaunch={() => void completeGuidanceAndLaunch(false)}
+            submitting={submitting}
+          />
         )}
       </div>
     </div>

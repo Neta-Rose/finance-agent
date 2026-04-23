@@ -8,19 +8,22 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "rebuild-index": "node dist/scripts/rebuildIndex.js"
+    "rebuild-index": "node dist/scripts/rebuildIndex.js",
+    "migrate-observability": "node scripts/migrateObservabilityToPostgres.mjs",
+    "test": "node --test --import tsx src/**/*.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^12.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^5.0.1",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
-    "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^3.0.3",
+    "pg": "^8.16.3",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.25",
     "winston": "^3.17.0",
     "yahoo-finance2": "^3.14.0",
     "zod": "^3.24.1"
@@ -28,7 +31,6 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
     "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",

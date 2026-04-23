@@ -18,6 +18,8 @@ function ActionCard({
   action,
   tickerRequired,
   onTrigger,
+  blocked = false,
+  blockedReason,
 }: {
   icon: string;
   title: string;
@@ -25,6 +27,8 @@ function ActionCard({
   action: JobAction;
   tickerRequired?: boolean;
   onTrigger: (job: Job) => void;
+  blocked?: boolean;
+  blockedReason?: string;
 }) {
   const language = usePreferencesStore((s) => s.language);
   const [tickerSelection, setTickerSelection] = useState<TickerSelection | null>(null);
@@ -32,6 +36,10 @@ function ActionCard({
   const showToast = useToastStore((s) => s.show);
 
   const handleTrigger = async () => {
+    if (blocked) {
+      showToast(blockedReason ?? "This feature is currently blocked.", "info");
+      return;
+    }
     if (tickerRequired && !tickerSelection) {
       showToast(t("tickerRequired", language), "warning");
       return;
@@ -64,15 +72,25 @@ function ActionCard({
             value={tickerSelection}
             onChange={setTickerSelection}
             placeholder={t("enterTicker", language)}
+            disabled={blocked}
           />
         </div>
       )}
+      {blockedReason ? (
+        <div className="rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2 text-[10px] leading-5 text-[var(--color-fg-muted)]">
+          {blockedReason}
+        </div>
+      ) : null}
       <button
         onClick={handleTrigger}
-        disabled={loading || (tickerRequired && !tickerSelection)}
-        className="w-full py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50 mt-1"
+        disabled={blocked || loading || (tickerRequired && !tickerSelection)}
+        className={`w-full py-2 rounded-lg text-xs font-semibold disabled:opacity-50 mt-1 ${
+          blocked
+            ? "border border-[var(--color-border)] bg-[var(--color-bg-muted)] text-[var(--color-fg-subtle)]"
+            : "bg-[var(--color-accent-blue)] text-white"
+        }`}
       >
-        {loading ? "..." : t("run", language)}
+        {blocked ? t("comingSoon", language) : loading ? "..." : t("run", language)}
       </button>
     </Card>
   );
@@ -136,10 +154,12 @@ export function Controls() {
           />
           <ActionCard
             icon="📊"
-            title={t("jobFullTitle", language)}
-            description={t("jobFullDesc", language)}
+            title={t("jobWeeklyTitle", language)}
+            description={t("jobWeeklyDesc", language)}
             action="full_report"
             onTrigger={() => {}}
+            blocked
+            blockedReason={t("jobWeeklyBlockedReason", language)}
           />
           <ActionCard
             icon="🔬"
@@ -155,6 +175,8 @@ export function Controls() {
             description={t("jobNewIdeasDesc", language)}
             action="new_ideas"
             onTrigger={() => {}}
+            blocked
+            blockedReason={t("jobNewIdeasBlockedReason", language)}
           />
         </div>
 

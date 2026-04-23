@@ -8,21 +8,49 @@ import type { Profile } from "../schemas/onboarding.js";
 import {
   OnboardInitSchema,
   ProfileSchema,
+  NotificationPreferencesUpdateSchema,
   ScheduleSchema,
+  PositionGuidanceCompletionSchema,
+  type PositionGuidance,
 } from "../schemas/onboarding.js";
+import {
+  ConnectWhatsAppRequestSchema,
+  TelegramConnectRequestSchema,
+} from "../schemas/channels.js";
 import { PortfolioFileSchema } from "../schemas/portfolio.js";
 import { hashPassword, verifyPassword } from "../middleware/auth.js";
 import {
   createUserWorkspace,
   workspaceExists,
-  initUserWorkspace,
+  saveUserPortfolio,
+  startUserBootstrap,
 } from "../services/workspaceService.js";
 import { createJob } from "../services/jobService.js";
-import { updateUserTelegram, restartGateway, getUserAgentHealth } from "../services/agentService.js";
+import { hasPendingAgentManagedWork } from "../services/jobService.js";
+import { initializeFullReportJob } from "../services/fullReportService.js";
+import {
+  getUserAgentHealth,
+  getUserAgentStatus,
+  reconcileUserHeartbeatCron,
+} from "../services/agentService.js";
 import { DEFAULT_RATE_LIMITS } from "../types/index.js";
 import type { RateLimits } from "../types/index.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { userIsolationMiddleware } from "../middleware/userIsolation.js";
+import { getNotificationPreferences, setNotificationPreferences } from "../services/notificationService.js";
+import { dispatchPendingAgentJobsForUser } from "../services/agentJobDispatcher.js";
+import { readState, writeState } from "../services/stateService.js";
+import {
+  classifyUserAgentHealth,
+  shouldUserHeartbeatBeEnabled,
+} from "../services/startupService.js";
+import {
+  connectUserTelegramChannel,
+  connectUserWhatsAppChannel,
+  disconnectUserTelegramChannel,
+  disconnectUserWhatsAppChannel,
+  getUserChannelConnectivity,
+} from "../services/channelService.js";
 
 const router = Router();
 
@@ -139,8 +167,8 @@ router.post(
 
     const userId = ws.userId;
 
-    // Idempotent: write portfolio.json and recreate ticker dirs regardless of current state
-    await initUserWorkspace(userId, parsed.data);
+    // Idempotent: persist portfolio and open the optional position-guidance window.
+    await saveUserPortfolio(userId, parsed.data);
 
     // Save schedule to profile.json if provided
     if (incomingSchedule) {
@@ -155,14 +183,123 @@ router.post(
       } catch { /* non-fatal */ }
     }
 
-    // Create initial full-report job (stay BOOTSTRAPPING — agent transitions state)
-    const job = await createJob(ws, "full_report");
+    res.status(200).json({
+      state: "INCOMPLETE",
+      nextStep: "position_guidance",
+      guidanceStepPending: true,
+      message:
+        "Portfolio saved. Add optional position guidance or skip to start analysis.",
+    });
+  })
+);
+
+router.get(
+  "/position-guidance",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (_req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const state = await readState(ws.userId);
+
+    let tickers: string[] = [];
+    try {
+      const raw = await fs.readFile(ws.portfolioFile, "utf-8");
+      const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
+      tickers = Array.from(
+        new Set(Object.values(portfolio.accounts).flat().map((position) => position.ticker))
+      ).sort();
+    } catch {
+      tickers = [];
+    }
+
+    res.json({
+      status: state.onboarding.positionGuidanceStatus,
+      tickers,
+      guidance: state.onboarding.positionGuidance,
+    });
+  })
+);
+
+router.post(
+  "/position-guidance/complete",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const parsed = PositionGuidanceCompletionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: parsed.error.errors,
+      });
+      return;
+    }
+
+    let rawPortfolio: string;
+    try {
+      rawPortfolio = await fs.readFile(ws.portfolioFile, "utf-8");
+    } catch {
+      res.status(404).json({ error: "portfolio not found" });
+      return;
+    }
+
+    const portfolio = PortfolioFileSchema.parse(JSON.parse(rawPortfolio));
+    const validTickers = new Set(
+      Object.values(portfolio.accounts).flat().map((position) => position.ticker)
+    );
+    const cleanedGuidance = Object.fromEntries(
+      Object.entries(parsed.data.guidance).filter(([ticker, guidance]) => {
+        if (!validTickers.has(ticker)) return false;
+        return (
+          guidance.thesis.length > 0 ||
+          guidance.horizon !== "unspecified" ||
+          guidance.addOn.length > 0 ||
+          guidance.reduceOn.length > 0 ||
+          guidance.notes.length > 0
+        );
+      })
+    ) as Record<string, PositionGuidance>;
+
+    const currentState = await readState(ws.userId);
+    if (currentState.state === "BOOTSTRAPPING" || currentState.state === "ACTIVE") {
+      res.json({
+        state: currentState.state,
+        guidanceStepPending: false,
+        message: "Analysis has already started.",
+      });
+      return;
+    }
+
+    await writeState(ws.userId, {
+      onboarding: {
+        ...currentState.onboarding,
+        positionGuidanceStatus: parsed.data.skip ? "skipped" : "completed",
+        positionGuidance: cleanedGuidance,
+      },
+    });
+
+    await startUserBootstrap(ws.userId);
+    const job = await createJob(ws, "full_report", undefined, { dispatch: false });
+    const initializedJob = await initializeFullReportJob(ws, job);
+    const agentStatus = await getUserAgentStatus(ws.userId);
+    await reconcileUserHeartbeatCron(
+      ws.userId,
+      agentStatus.configured && shouldUserHeartbeatBeEnabled({
+        state: "BOOTSTRAPPING",
+        restriction: null,
+        eligibilityIssue: null,
+        hasAgentManagedWork: initializedJob.status !== "completed",
+      })
+    );
+    if (initializedJob.status === "running") {
+      await dispatchPendingAgentJobsForUser(ws.userId);
+    }
 
     res.status(200).json({
       state: "BOOTSTRAPPING",
-      jobId: job.id,
-      message:
-        "Full report queued. Analysis will begin shortly.",
+      jobId: initializedJob.id,
+      guidanceStepPending: false,
+      message: "Full report queued. Analysis will begin shortly.",
     });
   })
 );
@@ -177,18 +314,9 @@ router.get(
     const ws = res.locals["workspace"] as UserWorkspace;
     const userId = ws.userId;
 
-    // Read state.json
-    let stateData: {
-      state: string;
-      bootstrapProgress: {
-        total: number;
-        completed: number;
-        completedTickers: string[];
-      } | null;
-    };
+    let stateData: Awaited<ReturnType<typeof readState>>;
     try {
-      const raw = await fs.readFile(ws.stateFile, "utf-8");
-      stateData = JSON.parse(raw);
+      stateData = await readState(userId);
     } catch {
       res.status(500).json({ error: "Cannot read state file" });
       return;
@@ -232,19 +360,34 @@ router.get(
 
     const rateLimits: RateLimits = (profile?.rateLimits as RateLimits) ?? DEFAULT_RATE_LIMITS;
 
-    const agentHealth = await getUserAgentHealth(userId);
+    const [rawAgentHealth, connectivity, notifications] = await Promise.all([
+      getUserAgentHealth(userId),
+      getUserChannelConnectivity(userId),
+      getNotificationPreferences(userId),
+    ]);
+    const hasAgentManagedWork = await hasPendingAgentManagedWork(ws);
+    const agentHealth = classifyUserAgentHealth(rawAgentHealth, {
+      state: stateData.state,
+      restriction: null,
+      eligibilityIssue: stateData.state === "ACTIVE" && !portfolioLoaded ? "portfolio missing" : null,
+      hasAgentManagedWork,
+    });
 
     res.json({
       userId,
       state: stateData.state,
       displayName: profile?.displayName ?? null,
-      telegramChatId: profile?.telegramChatId ?? null,
+      telegramChatId: connectivity.telegram.target ?? profile?.telegramChatId ?? null,
       bootstrapProgress,
       portfolioLoaded,
+      guidanceStepPending: stateData.onboarding?.positionGuidanceStatus === "pending",
+      positionGuidanceCount: Object.keys(stateData.onboarding?.positionGuidance ?? {}).length,
       readyForTrading: stateData.state === "ACTIVE",
       rateLimits,
       schedule: profile?.schedule ?? null,
-      telegramConnected: !!profile?.telegramChatId,
+      notifications,
+      telegramConnected: connectivity.telegram.connected,
+      connectivity,
       agentHealthy: agentHealth.healthy,
     });
   })
@@ -257,39 +400,71 @@ router.post(
   userIsolationMiddleware,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
-    const userId = ws.userId;
-    const { botToken, telegramChatId } = req.body as {
-      botToken?: string;
-      telegramChatId?: string;
-    };
-
-    if (!botToken || !/^\d+:[A-Za-z0-9_-]{35,}$/.test(botToken)) {
-      res.status(400).json({ error: "Invalid bot token format" });
-      return;
-    }
-    if (!telegramChatId || !/^\d+$/.test(telegramChatId)) {
-      res.status(400).json({ error: "Invalid telegram chat ID" });
+    const parsed = TelegramConnectRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.errors });
       return;
     }
 
-    // Update agent config
-    await updateUserTelegram(userId, botToken, telegramChatId);
+    await connectUserTelegramChannel(ws.userId, parsed.data.botToken, parsed.data.telegramChatId);
 
-    // Update profile.json
-    const profilePath = path.join(ws.root, "profile.json");
-    try {
-      let profileData: Record<string, unknown> = {};
-      try {
-        profileData = JSON.parse(await fs.readFile(profilePath, "utf-8"));
-      } catch { /* may not exist */ }
-      profileData.telegramChatId = telegramChatId;
-      await fs.writeFile(profilePath, JSON.stringify(profileData, null, 2), "utf-8");
-    } catch { /* non-fatal */ }
+    res.json({
+      connected: true,
+      channel: "telegram",
+      connectivity: await getUserChannelConnectivity(ws.userId),
+    });
+  })
+);
 
-    // Restart gateway to pick up new config
-    await restartGateway();
+// DELETE /api/onboard/telegram
+router.delete(
+  "/telegram",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (_req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    await disconnectUserTelegramChannel(ws.userId);
+    res.json({
+      connected: false,
+      channel: "telegram",
+      connectivity: await getUserChannelConnectivity(ws.userId),
+    });
+  })
+);
 
-    res.json({ connected: true });
+router.put(
+  "/whatsapp",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const parsed = ConnectWhatsAppRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.errors });
+      return;
+    }
+
+    await connectUserWhatsAppChannel(ws.userId, parsed.data);
+    res.json({
+      connected: true,
+      channel: "whatsapp",
+      connectivity: await getUserChannelConnectivity(ws.userId),
+    });
+  })
+);
+
+router.delete(
+  "/whatsapp",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (_req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    await disconnectUserWhatsAppChannel(ws.userId);
+    res.json({
+      connected: false,
+      channel: "whatsapp",
+      connectivity: await getUserChannelConnectivity(ws.userId),
+    });
   })
 );
 
@@ -362,6 +537,23 @@ router.patch(
     await fs.writeFile(profilePath, JSON.stringify(profileData, null, 2), "utf-8");
 
     res.json({ updated: true, schedule: parsed.data });
+  })
+);
+
+router.patch(
+  "/notifications",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const parsed = NotificationPreferencesUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation failed", details: parsed.error.errors });
+      return;
+    }
+
+    const notifications = await setNotificationPreferences(ws.userId, parsed.data);
+    res.json({ updated: true, notifications });
   })
 );
 

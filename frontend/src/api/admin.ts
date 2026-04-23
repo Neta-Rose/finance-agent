@@ -29,6 +29,28 @@ export interface RateLimits {
   daily_brief: { maxPerPeriod: number; periodHours: number };
   deep_dive: { maxPerPeriod: number; periodHours: number };
   new_ideas: { maxPerPeriod: number; periodHours: number };
+  quick_check: { maxPerPeriod: number; periodHours: number };
+}
+
+export interface TokenBudgetWindow {
+  maxTokens: number;
+  periodHours: number;
+}
+
+export interface TokenBudgets {
+  conversation: TokenBudgetWindow;
+  structured: TokenBudgetWindow;
+}
+
+export interface TokenBudgetUsage {
+  maxTokens: number;
+  periodHours: number;
+  tokensUsed: number;
+  tokensRemaining: number;
+  pctUsed: number;
+  exhausted: boolean;
+  windowStart: string;
+  windowEnd: string;
 }
 
 export interface Schedule {
@@ -48,10 +70,15 @@ export interface UserSummary {
   telegramChatId?: string;
   createdAt: string;
   rateLimits: RateLimits;
+  tokenBudgets: TokenBudgets;
   schedule: Schedule;
   modelProfile: string;
   agentHealth: AgentHealth;
   restriction: "readonly" | "blocked" | "suspended" | null;
+  eligibilityIssue: string | null;
+  integrityValid: boolean;
+  integrityErrors: string[];
+  integrityWarnings: string[];
 }
 
 export interface AdminStatus {
@@ -111,6 +138,13 @@ export const adminUpdateLimits = async (userId: string, limits: Partial<RateLimi
   });
 };
 
+export const adminUpdateTokenBudgets = async (userId: string, tokenBudgets: Partial<TokenBudgets>): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/token-budgets`, {
+    method: "PATCH",
+    body: JSON.stringify(tokenBudgets),
+  });
+};
+
 export const adminAddTelegram = async (userId: string, botToken: string, chatId: string): Promise<void> => {
   await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/telegram`, {
     method: "POST",
@@ -164,8 +198,10 @@ export const adminSetSystemAgentProfile = async (profileName: string): Promise<v
 export interface LlmRequestEvent {
   id: number;
   userId: string;
-  purpose: string | null;
+  purpose: string;
   ticker: string | null;
+  jobId: string | null;
+  sourceClass: "backend_job" | "telegram_command" | "dashboard_action" | "direct_chat" | "unknown_agent_session";
   analyst: string;
   model: string;
   tokensIn: number;
@@ -174,6 +210,8 @@ export interface LlmRequestEvent {
   latencyMs: number;
   status: "success" | "error" | "timeout";
   errorMessage: string | null;
+  attributionSource: string;
+  rejectionReason: string | null;
   timestamp: string;
 }
 
@@ -184,19 +222,34 @@ export interface UserDailySummary {
   totalTokensIn: number;
   totalTokensOut: number;
   totalCostUsd: number;
+  successCount: number;
+  errorCount: number;
+  timeoutCount: number;
+  rejectedCount: number;
+  unattributedCount: number;
 }
 
 export interface UserObservability {
   userId: string;
+  todaySummary: UserDailySummary;
   history: UserDailySummary[];
   recent: LlmRequestEvent[];
+  recentTotal: number;
+  recentLimit: number;
+  recentOffset: number;
+  tokenBudgets: TokenBudgets;
+  budgetUsage: {
+    conversation: TokenBudgetUsage;
+    structured: TokenBudgetUsage;
+  };
 }
 
 export const adminGetUserObservability = async (
-  userId: string
+  userId: string,
+  options?: { limit?: number; offset?: number }
 ): Promise<UserObservability> =>
   adminFetch(
-    `/api/admin/observability/users/${encodeURIComponent(userId)}`
+    `/api/admin/observability/users/${encodeURIComponent(userId)}?limit=${options?.limit ?? 20}&offset=${options?.offset ?? 0}`
   ) as Promise<UserObservability>;
 
 // ── Admin control API ─────────────────────────────────────────────────────────

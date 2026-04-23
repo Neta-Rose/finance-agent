@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { NotificationPreferencesSchema } from "./notifications.js";
+import { WhatsAppConnectionSchema } from "./channels.js";
 
 export const ScheduleSchema = z.object({
   dailyBriefTime: z
@@ -33,13 +35,51 @@ export const OnboardInitSchema = z.object({
 
 export type OnboardInit = z.infer<typeof OnboardInitSchema>;
 
+export const PositionGuidanceHorizonSchema = z.enum([
+  "unspecified",
+  "days",
+  "weeks",
+  "months",
+  "years",
+]);
+
+export const PositionGuidanceSchema = z.object({
+  thesis: z.string().trim().max(400).optional().default(""),
+  horizon: PositionGuidanceHorizonSchema.optional().default("unspecified"),
+  addOn: z.string().trim().max(300).optional().default(""),
+  reduceOn: z.string().trim().max(300).optional().default(""),
+  notes: z.string().trim().max(600).optional().default(""),
+});
+
+export const PositionGuidanceRecordSchema = z.record(
+  z.string().regex(/^[A-Z0-9.]{1,12}$/),
+  PositionGuidanceSchema
+);
+
+export const PositionGuidanceCompletionSchema = z.object({
+  skip: z.boolean().optional().default(false),
+  guidance: PositionGuidanceRecordSchema.optional().default({}),
+});
+
+export type PositionGuidance = z.infer<typeof PositionGuidanceSchema>;
+
 export const ProfileSchema = z.object({
   userId: z.string(),
   displayName: z.string(),
   telegramChatId: z.string().nullable().optional(),
+  channelConnections: z
+    .object({
+      whatsapp: WhatsAppConnectionSchema.nullable().optional(),
+    })
+    .nullable()
+    .optional(),
   schedule: ScheduleSchema.nullable().optional(),
   rateLimits: z.any().optional(),
+  tokenBudgets: z.any().optional(),
+  notifications: NotificationPreferencesSchema.optional(),
   createdAt: z.string().datetime(),
 });
+
+export const NotificationPreferencesUpdateSchema = NotificationPreferencesSchema;
 
 export type Profile = z.infer<typeof ProfileSchema>;
