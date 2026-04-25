@@ -3,25 +3,37 @@ import { promises as fs } from "fs";
 import path from "path";
 import { DataSource } from "typeorm";
 import { ObservabilityRequestEntitySchema } from "./entities/ObservabilityRequestEntity.js";
+import { UserPointsBudgetEntitySchema } from "./entities/UserPointsBudgetEntity.js";
 import { logger } from "../services/logger.js";
 
-const OBSERVABILITY_DATABASE_URL = process.env["OBSERVABILITY_DATABASE_URL"] ?? "";
-const OBSERVABILITY_DDL_PATH =
+const APP_DATABASE_URL =
+  process.env["APP_DATABASE_URL"] ??
+  process.env["OBSERVABILITY_DATABASE_URL"] ??
+  "";
+const APP_DATABASE_DDL_PATH =
+  process.env["APP_DATABASE_DDL_PATH"] ??
   process.env["OBSERVABILITY_DDL_PATH"] ??
-  path.resolve(process.cwd(), "../db/observability_postgres.sql");
+  path.resolve(process.cwd(), "../db/application_postgres.sql");
 
 let dataSource: DataSource | null = null;
 let ddlApplied = false;
 
+export function isApplicationDatabaseConfigured(): boolean {
+  return APP_DATABASE_URL.length > 0;
+}
+
 function buildDataSource(): DataSource {
-  if (!OBSERVABILITY_DATABASE_URL) {
-    throw new Error("OBSERVABILITY_DATABASE_URL is required");
+  if (!APP_DATABASE_URL) {
+    throw new Error("APP_DATABASE_URL is required");
   }
 
   return new DataSource({
     type: "postgres",
-    url: OBSERVABILITY_DATABASE_URL,
-    entities: [ObservabilityRequestEntitySchema],
+    url: APP_DATABASE_URL,
+    entities: [
+      ObservabilityRequestEntitySchema,
+      UserPointsBudgetEntitySchema,
+    ],
     synchronize: false,
     logging: false,
   });
@@ -29,12 +41,12 @@ function buildDataSource(): DataSource {
 
 async function applyDdl(ds: DataSource): Promise<void> {
   if (ddlApplied) return;
-  const ddl = await fs.readFile(OBSERVABILITY_DDL_PATH, "utf-8");
+  const ddl = await fs.readFile(APP_DATABASE_DDL_PATH, "utf-8");
   await ds.query(ddl);
   ddlApplied = true;
 }
 
-export async function getObservabilityDataSource(): Promise<DataSource> {
+export async function getApplicationDataSource(): Promise<DataSource> {
   if (!dataSource) {
     dataSource = buildDataSource();
   }
@@ -42,13 +54,13 @@ export async function getObservabilityDataSource(): Promise<DataSource> {
   if (!dataSource.isInitialized) {
     await dataSource.initialize();
     await applyDdl(dataSource);
-    logger.info("Observability PostgreSQL data source initialized");
+    logger.info("Application PostgreSQL data source initialized");
   }
 
   return dataSource;
 }
 
-export async function closeObservabilityDataSource(): Promise<void> {
+export async function closeApplicationDataSource(): Promise<void> {
   if (dataSource?.isInitialized) {
     await dataSource.destroy();
   }

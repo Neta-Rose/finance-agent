@@ -6,10 +6,10 @@ import pg from "pg";
 const backupPath =
   process.env.OBSERVABILITY_SQLITE_EXPORT_PATH ??
   path.resolve("/root/clawd/data/observability-export.json");
-const databaseUrl = process.env.OBSERVABILITY_DATABASE_URL;
+const databaseUrl = process.env.APP_DATABASE_URL ?? process.env.OBSERVABILITY_DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("OBSERVABILITY_DATABASE_URL is required");
+  throw new Error("APP_DATABASE_URL is required");
 }
 
 const raw = await fs.readFile(backupPath, "utf-8");

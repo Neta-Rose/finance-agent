@@ -506,7 +506,7 @@ test("markDeepDiveJobCancelled records a terminal cancelled state", async () => 
   assert.deepEqual(portfolioState.pendingDeepDives, []);
 });
 
-test("detectDeepDiveExecutionFailureSignal reads analyst budget exhaustion from agent sessions", async () => {
+test("detectDeepDiveExecutionFailureSignal ignores session text without an authoritative rejection record", async () => {
   const ctx = await setupWorkspace("tester-session-budget");
   const job = await writeJob(ctx.ws, new Date(Date.now() - 5_000).toISOString());
   const runningJob = {
@@ -524,12 +524,12 @@ test("detectDeepDiveExecutionFailureSignal reads analyst budget exhaustion from 
   await fs.mkdir(path.dirname(sessionPath), { recursive: true });
   await fs.writeFile(
     sessionPath,
-    `{"message":"${job.id}"}\n{"errorMessage":"429 \\"analyst_budget_exceeded\\""}\n`,
+    `{"message":"${job.id}"}\n{"errorMessage":"429 \\"points_budget_exhausted\\""}\n`,
     "utf-8"
   );
 
   const signal = await ctx.detectDeepDiveExecutionFailureSignal("tester-session-budget", runningJob);
-  assert.match(signal ?? "", /analyst_budget_exceeded/i);
+  assert.equal(signal, null);
 });
 
 test("reconcileFailedDeepDiveJob repairs stale running deep dive state for a failed job", async () => {

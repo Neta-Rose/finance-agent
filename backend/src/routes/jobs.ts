@@ -8,11 +8,16 @@ import { promises as fs } from "fs";
 import path from "path";
 import {
   getDeepDiveJobProgress,
+  initializeDeepDiveJob,
+  markDeepDiveJobCancelled,
 } from "../services/deepDiveService.js";
+import { ensurePointsBudgetAvailable } from "../services/pointsBudgetService.js";
 import {
   getFullReportJobProgress,
 } from "../services/fullReportService.js";
 import { triggerUserJob } from "../services/jobTriggerService.js";
+import { dispatchPendingAgentJobsForUser } from "../services/agentJobDispatcher.js";
+import { updateJob } from "../services/jobService.js";
 
 // ── Progress inference ────────────────────────────────────────────────────────
 
@@ -156,6 +161,14 @@ const VALID_ACTIONS: JobAction[] = [
 
 const JOB_ID_REGEX = /^job_[0-9]{8}_[0-9]{6}_[a-f0-9]{6}$/;
 
+async function removeTriggerIfExists(ws: UserWorkspace, jobId: string): Promise<void> {
+  try {
+    await fs.unlink(path.join(ws.triggersDir, `${jobId}.json`));
+  } catch {
+    // already gone
+  }
+}
+
 router.post(
   "/jobs/trigger",
   triggerLimiter,
@@ -226,6 +239,81 @@ router.get(
       return;
     }
     res.json(job);
+  })
+);
+
+router.delete(
+  "/jobs/:jobId",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const jobId = String(req.params["jobId"] ?? "");
+
+    if (!JOB_ID_REGEX.test(jobId)) {
+      res.status(400).json({ error: "Invalid jobId format" });
+      return;
+    }
+
+    const job = await getJob(ws, jobId);
+    if (job.action !== "deep_dive") {
+      res.status(409).json({ error: "unsupported_job_action", message: "Only deep dives can be cancelled here." });
+      return;
+    }
+    if (job.status === "running") {
+      res.status(409).json({ error: "job_already_running", message: "Running deep dives cannot be cancelled from the user queue." });
+      return;
+    }
+    if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+      res.status(409).json({ error: "job_not_cancellable", message: "This deep dive is no longer cancellable." });
+      return;
+    }
+
+    await removeTriggerIfExists(ws, job.id);
+    const cancelled = await markDeepDiveJobCancelled(ws, job, "Cancelled by user");
+    res.json({ cancelled: true, job: cancelled });
+  })
+);
+
+router.post(
+  "/jobs/:jobId/resume",
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const jobId = String(req.params["jobId"] ?? "");
+
+    if (!JOB_ID_REGEX.test(jobId)) {
+      res.status(400).json({ error: "Invalid jobId format" });
+      return;
+    }
+
+    const job = await getJob(ws, jobId);
+    if (job.action !== "deep_dive") {
+      res.status(409).json({ error: "unsupported_job_action", message: "Only deep dives can be resumed here." });
+      return;
+    }
+    if (job.status !== "paused") {
+      res.status(409).json({ error: "job_not_paused", message: "Only paused deep dives can be resumed." });
+      return;
+    }
+
+    const budgetGate = await ensurePointsBudgetAvailable(ws.userId);
+    if (!budgetGate.allowed) {
+      res.status(409).json({
+        error: "points_budget_exhausted",
+        reason: budgetGate.reason,
+        balance: budgetGate.balance,
+        job,
+        jobId: job.id,
+      });
+      return;
+    }
+
+    const pending = await updateJob(ws, job.id, {
+      status: "pending",
+      error: null,
+      completed_at: null,
+    });
+    await initializeDeepDiveJob(ws, pending);
+    await dispatchPendingAgentJobsForUser(ws.userId);
+    res.json({ resumed: true, job: await getJob(ws, job.id) });
   })
 );
 

@@ -75,7 +75,11 @@ export const ProfileSchema = z.object({
     .optional(),
   schedule: ScheduleSchema.nullable().optional(),
   rateLimits: z.any().optional(),
-  tokenBudgets: z.any().optional(),
+  pointsBudget: z
+    .object({
+      dailyBudgetPoints: z.number().finite().positive(),
+    })
+    .optional(),
   notifications: NotificationPreferencesSchema.optional(),
   createdAt: z.string().datetime(),
 });

@@ -5,6 +5,9 @@ import type { Job, JobAction } from "../types/index.js";
 import { dispatchJob, getJob } from "./jobService.js";
 import { logger } from "./logger.js";
 import { resolveConfiguredPath } from "./paths.js";
+import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
+import { updateJob } from "./jobService.js";
+import { isBudgetAdmittedJob } from "./jobAdmissionService.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 const SCAN_INTERVAL_MS = 15_000;
@@ -81,6 +84,17 @@ export async function dispatchPendingAgentJobsForUser(userId: string): Promise<v
 
   const capacity = USER_AGENT_JOB_CONCURRENCY - activeCount;
   for (const job of queued.slice(0, capacity)) {
+    if (!isBudgetAdmittedJob(job)) {
+      const budgetGate = await ensurePointsBudgetAvailable(userId);
+      if (!budgetGate.allowed) {
+        await updateJob(ws, job.id, {
+          status: "paused",
+          error: budgetGate.reason.slice(0, 490),
+        });
+        logger.info(`Agent dispatcher: paused ${job.action} job ${job.id} for ${userId} — points_budget_exhausted`);
+        continue;
+      }
+    }
     await dispatchJob(ws, job);
     logger.info(`Agent dispatcher: released queued ${job.action} job ${job.id} for ${userId}`);
   }
@@ -126,4 +140,3 @@ export function startAgentJobDispatcher(): void {
     `Agent dispatcher started — concurrency=${USER_AGENT_JOB_CONCURRENCY} scan_interval=${SCAN_INTERVAL_MS / 1000}s`
   );
 }
-

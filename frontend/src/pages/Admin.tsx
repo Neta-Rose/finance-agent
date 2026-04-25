@@ -4,7 +4,6 @@ import {
   adminFetchUsers,
   adminCreateUser,
   adminDeleteUser,
-  adminUpdateLimits,
   adminAddTelegram,
   adminGetStatus,
   adminGetSystemAgent,
@@ -27,11 +26,10 @@ import {
   adminContinueJob,
   adminWakeUser,
   adminKillJob,
-  adminUpdateTokenBudgets,
+  adminUpdatePointsBudget,
   type UserSummary,
   type SystemAgentSummary,
-  type RateLimits,
-  type TokenBudgets,
+  type PointsBudget,
   type AdminStatus,
   type ProfileDefinition,
   type ProfilesRegistry,
@@ -89,121 +87,66 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-// ---- Rate Limits Editor ----
-function RateLimitsEditor({
-  limits,
+function PointsBudgetEditor({
+  budget,
   onSave,
   onCancel,
 }: {
-  limits: RateLimits;
-  onSave: (l: RateLimits) => void;
+  budget: PointsBudget;
+  onSave: (b: PointsBudget) => Promise<void>;
   onCancel: () => void;
 }) {
-  const language = usePreferencesStore((s) => s.language);
-  const [draft, setDraft] = useState<RateLimits>({ ...limits });
+  const [dailyBudgetPoints, setDailyBudgetPoints] = useState<string>(String(budget.dailyBudgetPoints));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const parsedBudget = Number(dailyBudgetPoints);
+  const validBudget = Number.isFinite(parsedBudget) && parsedBudget > 0;
 
-  const update = (key: keyof RateLimits, field: "maxPerPeriod" | "periodHours", val: number) => {
-    setDraft((d) => ({
-      ...d,
-      [key]: { ...d[key], [field]: val },
-    }));
+  const handleSave = async () => {
+    if (!validBudget || saving) {
+      setError("Enter a valid points budget greater than zero.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ dailyBudgetPoints: parsedBudget });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update points budget");
+    } finally {
+      setSaving(false);
+    }
   };
-
-  const rows: Array<{ key: keyof RateLimits; label: string }> = [
-    { key: "full_report", label: t("fullReport", language) },
-    { key: "daily_brief", label: t("dailyBriefLimit", language) },
-    { key: "deep_dive", label: t("deepDiveLimit", language) },
-    { key: "new_ideas", label: t("newIdeasLimit", language) },
-    { key: "quick_check", label: "Quick Check" },
-  ];
 
   return (
     <div className="space-y-3">
-      {rows.map(({ key, label }) => (
-        <div key={key} className="flex items-center gap-2 text-xs">
-          <span className="w-24 text-[var(--color-fg-muted)] shrink-0">{label}</span>
-          <span className="text-[var(--color-fg-subtle)]">{t("adminMax", language)}</span>
-          <input
-            type="number"
-            value={draft[key].maxPerPeriod}
-            min={1}
-            onChange={(e) => update(key, "maxPerPeriod", Number(e.target.value))}
-            className="w-16 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
-          />
-          <span className="text-[var(--color-fg-subtle)]">{t("adminPer", language)}</span>
-          <input
-            type="number"
-            value={draft[key].periodHours}
-            min={1}
-            onChange={(e) => update(key, "periodHours", Number(e.target.value))}
-            className="w-16 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
-          />
-          <span className="text-[var(--color-fg-subtle)]">{t("adminHrs", language)}</span>
-        </div>
-      ))}
-      <div className="flex gap-2 pt-2">
-        <button onClick={onCancel} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-medium text-[var(--color-fg-muted)]">
-          {t("cancel", language)}
-        </button>
-        <button onClick={() => onSave(draft)} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold">
-          {t("save", language)}
-        </button>
+      <div className="space-y-1">
+        <label className="text-xs text-[var(--color-fg-muted)] block">Daily points budget</label>
+        <input
+          type="number"
+          min={0.001}
+          step={0.001}
+          value={dailyBudgetPoints}
+          onChange={(e) => setDailyBudgetPoints(e.target.value)}
+          className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
+        />
+        <p className="text-[10px] text-[var(--color-fg-subtle)]">
+          Users see points only. Spending decreases from real upstream request cost.
+        </p>
       </div>
-    </div>
-  );
-}
-
-function TokenBudgetsEditor({
-  budgets,
-  onSave,
-  onCancel,
-}: {
-  budgets: TokenBudgets;
-  onSave: (b: TokenBudgets) => void;
-  onCancel: () => void;
-}) {
-  const [draft, setDraft] = useState<TokenBudgets>({ ...budgets });
-
-  const update = (key: keyof TokenBudgets, field: "maxTokens" | "periodHours", value: number) => {
-    setDraft((current) => ({
-      ...current,
-      [key]: { ...current[key], [field]: value },
-    }));
-  };
-
-  return (
-    <div className="space-y-3">
-      {(["conversation", "structured"] as const).map((key) => (
-        <div key={key} className="flex items-center gap-2 text-xs">
-          <span className="w-24 text-[var(--color-fg-muted)] shrink-0">
-            {key === "conversation" ? "Conversation" : "Structured"}
-          </span>
-          <span className="text-[var(--color-fg-subtle)]">max</span>
-          <input
-            type="number"
-            min={1000}
-            step={1000}
-            value={draft[key].maxTokens}
-            onChange={(e) => update(key, "maxTokens", Number(e.target.value))}
-            className="w-24 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
-          />
-          <span className="text-[var(--color-fg-subtle)]">tokens /</span>
-          <input
-            type="number"
-            min={1}
-            value={draft[key].periodHours}
-            onChange={(e) => update(key, "periodHours", Number(e.target.value))}
-            className="w-16 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
-          />
-          <span className="text-[var(--color-fg-subtle)]">hrs</span>
-        </div>
-      ))}
+      {error && (
+        <p className="text-[10px] text-[var(--color-accent-red)]">{error}</p>
+      )}
       <div className="flex gap-2 pt-2">
-        <button onClick={onCancel} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-medium text-[var(--color-fg-muted)]">
+        <button onClick={onCancel} disabled={saving} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-medium text-[var(--color-fg-muted)] disabled:opacity-50">
           Cancel
         </button>
-        <button onClick={() => onSave(draft)} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold">
-          Save
+        <button
+          onClick={handleSave}
+          disabled={!validBudget || saving}
+          className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save"}
         </button>
       </div>
     </div>
@@ -686,6 +629,16 @@ function UserActivityBadge({ userId }: { userId: string }) {
   const hasPrev = recentOffset > 0;
   const hasNext = recentOffset + data.recent.length < recentTotal;
   const latestActiveDay = data.history.find((entry) => entry.requestCount > 0);
+  const dailyBudgetPoints = Number.isFinite(data.pointsBudget?.dailyBudgetPoints)
+    ? data.pointsBudget.dailyBudgetPoints
+    : 0;
+  const pointsRemaining = Number.isFinite(data.pointsBalance?.pointsRemaining)
+    ? data.pointsBalance.pointsRemaining
+    : 0;
+  const pointsPctUsed = Number.isFinite(data.pointsBalance?.pctUsed)
+    ? data.pointsBalance.pctUsed
+    : 0;
+  const pointsExhausted = Boolean(data.pointsBalance?.exhausted);
 
   const formatDateTime = (iso: string) =>
     new Date(iso).toLocaleString([], {
@@ -734,14 +687,20 @@ function UserActivityBadge({ userId }: { userId: string }) {
           </span>
         </span>
         <span>
-          <span className="text-[var(--color-fg-subtle)]">Chat budget: </span>
-          <span className={data.budgetUsage.conversation.exhausted ? "text-[var(--color-accent-red)]" : "text-[var(--color-fg-default)]"}>
-            {data.budgetUsage.conversation.pctUsed}%
+          <span className="text-[var(--color-fg-subtle)]">Points used: </span>
+          <span className={pointsExhausted ? "text-[var(--color-accent-red)]" : "text-[var(--color-fg-default)]"}>
+            {pointsPctUsed}%
           </span>
         </span>
         <span>
-          <span className="text-[var(--color-fg-subtle)]">Structured: </span>
-          <span className="text-[var(--color-fg-default)]">{data.budgetUsage.structured.pctUsed}%</span>
+          <span className="text-[var(--color-fg-subtle)]">Budget: </span>
+          <span className="text-[var(--color-fg-default)]">{dailyBudgetPoints.toFixed(3)} pts</span>
+        </span>
+        <span>
+          <span className="text-[var(--color-fg-subtle)]">Remaining: </span>
+          <span className={pointsExhausted ? "text-[var(--color-accent-red)]" : "text-[var(--color-fg-default)]"}>
+            {pointsRemaining.toFixed(3)} pts
+          </span>
         </span>
         {last && (
           <span>
@@ -1479,8 +1438,7 @@ function UserCard({
   user,
   profiles,
   onDelete,
-  onUpdateLimits,
-  onUpdateTokenBudgets,
+  onUpdatePointsBudget,
   onAddTelegram,
   onProfileChanged,
   onControlChanged,
@@ -1489,16 +1447,14 @@ function UserCard({
   user: UserSummary;
   profiles: ProfilesRegistry;
   onDelete: (userId: string) => void;
-  onUpdateLimits: (userId: string, limits: Partial<RateLimits>) => void;
-  onUpdateTokenBudgets: (userId: string, budgets: Partial<TokenBudgets>) => void;
+  onUpdatePointsBudget: (userId: string, budget: PointsBudget) => Promise<void>;
   onAddTelegram: (userId: string, botToken: string, chatId: string) => void;
   onProfileChanged: () => void;
   onControlChanged: () => void;
   onError: (msg: string) => void;
 }) {
   const language = usePreferencesStore((s) => s.language);
-  const [showLimits,    setShowLimits]    = useState(false);
-  const [showTokenBudgets, setShowTokenBudgets] = useState(false);
+  const [showPointsBudget, setShowPointsBudget] = useState(false);
   const [showDelete,    setShowDelete]    = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [showTelegram,  setShowTelegram]  = useState(false);
@@ -1620,15 +1576,10 @@ function UserCard({
           style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
           {user.hasTelegram ? t("adminEditTelegram", language) : t("adminAddTelegram", language)}
         </button>
-        <button onClick={() => setShowLimits(!showLimits)}
+        <button onClick={() => setShowPointsBudget(!showPointsBudget)}
           className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
           style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
-          {t("adminEditLimits", language)}
-        </button>
-        <button onClick={() => setShowTokenBudgets(!showTokenBudgets)}
-          className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
-          style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
-          Edit chat budgets
+          Edit points budget
         </button>
         <button onClick={handleForceLogout} disabled={logoutLoading}
           title="Invalidate all active sessions"
@@ -1668,27 +1619,18 @@ function UserCard({
         </div>
       )}
 
-      {/* Rate Limits */}
-      {showLimits && (
-        <div className="rounded-lg p-3" style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-fg-muted)" }}>{t("adminRateLimitsSection", language)}</p>
-          <RateLimitsEditor
-            limits={user.rateLimits}
-            onSave={(l) => { onUpdateLimits(user.userId, l); setShowLimits(false); }}
-            onCancel={() => setShowLimits(false)}
-          />
-        </div>
-      )}
-
-      {showTokenBudgets && (
+      {showPointsBudget && (
         <div className="rounded-lg p-3" style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
           <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-fg-muted)" }}>
-            Chat and structured token budgets
+            Daily points budget
           </p>
-          <TokenBudgetsEditor
-            budgets={user.tokenBudgets}
-            onSave={(budgets) => { onUpdateTokenBudgets(user.userId, budgets); setShowTokenBudgets(false); }}
-            onCancel={() => setShowTokenBudgets(false)}
+          <PointsBudgetEditor
+            budget={user.pointsBudget}
+            onSave={async (budget) => {
+              await onUpdatePointsBudget(user.userId, budget);
+              setShowPointsBudget(false);
+            }}
+            onCancel={() => setShowPointsBudget(false)}
           />
         </div>
       )}
@@ -1852,24 +1794,14 @@ export function Admin() {
     setUsers((prev) => prev.filter((u) => u.userId !== userId));
   };
 
-  const handleUpdateLimits = async (userId: string, limits: Partial<RateLimits>) => {
-    await adminUpdateLimits(userId, limits);
-    setUsers((prev) => prev.map((u) => u.userId === userId ? { ...u, rateLimits: { ...u.rateLimits, ...limits } } : u));
-  };
-
-  const handleUpdateTokenBudgets = async (userId: string, budgets: Partial<TokenBudgets>) => {
-    await adminUpdateTokenBudgets(userId, budgets);
+  const handleUpdatePointsBudget = async (userId: string, budget: PointsBudget): Promise<void> => {
+    await adminUpdatePointsBudget(userId, budget);
     setUsers((prev) =>
       prev.map((u) =>
         u.userId === userId
           ? {
               ...u,
-              tokenBudgets: {
-                ...u.tokenBudgets,
-                ...budgets,
-                conversation: { ...u.tokenBudgets.conversation, ...(budgets.conversation ?? {}) },
-                structured: { ...u.tokenBudgets.structured, ...(budgets.structured ?? {}) },
-              },
+              pointsBudget: budget,
             }
           : u
       )
@@ -1993,8 +1925,7 @@ export function Admin() {
                 user={u}
                 profiles={profiles}
                 onDelete={handleDelete}
-                onUpdateLimits={handleUpdateLimits}
-                onUpdateTokenBudgets={handleUpdateTokenBudgets}
+                onUpdatePointsBudget={handleUpdatePointsBudget}
                 onAddTelegram={handleAddTelegram}
                 onProfileChanged={load}
                 onControlChanged={load}

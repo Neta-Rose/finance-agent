@@ -8,14 +8,8 @@ export interface RateLimits {
   quick_check: { maxPerPeriod: number; periodHours: number };
 }
 
-export interface TokenBudgetWindow {
-  maxTokens: number;
-  periodHours: number;
-}
-
-export interface TokenBudgets {
-  conversation: TokenBudgetWindow;
-  structured: TokenBudgetWindow;
+export interface PointsBudgetConfig {
+  dailyBudgetPoints: number;
 }
 
 export const DEFAULT_RATE_LIMITS: RateLimits = {
@@ -26,9 +20,8 @@ export const DEFAULT_RATE_LIMITS: RateLimits = {
   quick_check: { maxPerPeriod: 20, periodHours: 24 }, // More frequent since lighter
 };
 
-export const DEFAULT_TOKEN_BUDGETS: TokenBudgets = {
-  conversation: { maxTokens: 20_000, periodHours: 6 },
-  structured: { maxTokens: 250_000, periodHours: 24 },
+export const DEFAULT_POINTS_BUDGET: PointsBudgetConfig = {
+  dailyBudgetPoints: 500,
 };
 
 export type Confidence = "high" | "medium" | "low";
@@ -44,7 +37,7 @@ export type AnalystType =
   | "bull"
   | "bear";
 
-export type JobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type JobStatus = "pending" | "paused" | "running" | "completed" | "failed" | "cancelled";
 
 export type JsonValue =
   | string
@@ -124,6 +117,7 @@ export interface Job {
   action: JobAction;
   ticker: string | null;
   source?: JobSource | null;
+  budget_admitted_at?: string | null;
   status: JobStatus;
   triggered_at: string;
   started_at: string | null;

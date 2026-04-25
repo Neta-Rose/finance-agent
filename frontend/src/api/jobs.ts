@@ -12,3 +12,9 @@ export const triggerJob = async (
  ticker?: string
 ): Promise<TriggerResponse> =>
  (await apiClient.post<TriggerResponse>("/jobs/trigger", { action, ticker })).data;
+
+export const cancelJob = async (jobId: string): Promise<{ cancelled: true; job: Job }> =>
+ (await apiClient.delete<{ cancelled: true; job: Job }>(`/jobs/${jobId}`)).data;
+
+export const resumeJob = async (jobId: string): Promise<{ resumed: true; job: Job }> =>
+ (await apiClient.post<{ resumed: true; job: Job }>(`/jobs/${jobId}/resume`)).data;

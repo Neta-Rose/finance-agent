@@ -22,28 +22,22 @@ import {
   hasPendingTriggerFiles,
   resolveProxyMetadata,
   shouldAllowProxyRequest,
-  estimateCost,
   OPENROUTER_BASE,
   toUpstreamModel,
 } from "../services/llmProxy.js";
 import { eventStore } from "../services/eventStore.js";
 import { logger } from "../services/logger.js";
 import { getSystemControl, getUserControl } from "../services/controlService.js";
-import { buildTokenBudgetUsage, getUserTokenBudgets } from "../services/tokenBudgetService.js";
+import { ensurePointsBudgetAvailable } from "../services/pointsBudgetService.js";
+import { buildWorkspace } from "../middleware/userIsolation.js";
+import { getJob, updateJob } from "../services/jobService.js";
+import { markDeepDiveJobPaused } from "../services/deepDiveService.js";
+import { resolveConfiguredPath } from "../services/paths.js";
+import { isBudgetAdmittedJob } from "../services/jobAdmissionService.js";
 
 const OPENROUTER_KEY = process.env["OPENROUTER_API_KEY"] ?? "";
 const UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-const DEEP_DIVE_ANALYST_BUDGETS: Record<string, number> = {
-  fundamentals: 8,
-  technical: 6,
-  sentiment: 6,
-  macro: 6,
-  risk: 6,
-  bull: 4,
-  bear: 4,
-  advisor: 4,
-  orchestrator: 4,
-};
+const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 
 // Hop-by-hop headers must not be forwarded to the client
 const HOP_BY_HOP = new Set([
@@ -210,6 +204,53 @@ async function logProxyRequest(params: {
   });
 }
 
+async function pauseJobForPointsBudgetExhaustion(
+  userId: string,
+  metadata: ReturnType<typeof resolveProxyMetadata>
+): Promise<void> {
+  if (!metadata.jobId) return;
+
+  try {
+    const ws = buildWorkspace(userId, USERS_DIR);
+    const job = await getJob(ws, metadata.jobId);
+    const reason = "Daily points budget exhausted during execution";
+
+    if (job.status !== "pending" && job.status !== "running") {
+      return;
+    }
+
+    if (job.action === "deep_dive") {
+      await markDeepDiveJobPaused(ws, job, reason);
+      return;
+    }
+
+    await updateJob(ws, job.id, {
+      status: "paused",
+      completed_at: new Date().toISOString(),
+      error: reason,
+    });
+  } catch (err) {
+    logger.warn(`Failed to pause job after points budget exhaustion for ${userId}: ${String(err)}`);
+  }
+}
+
+async function shouldSkipPointsBudgetGate(
+  userId: string,
+  metadata: ReturnType<typeof resolveProxyMetadata>
+): Promise<boolean> {
+  if (!metadata.jobId || metadata.sourceClass === "direct_chat") {
+    return false;
+  }
+
+  try {
+    const ws = buildWorkspace(userId, USERS_DIR);
+    const job = await getJob(ws, metadata.jobId);
+    return job.status === "running" && isBudgetAdmittedJob(job);
+  } catch {
+    return false;
+  }
+}
+
 interface OpenAIResponse {
   id?: string;
   model?: string;
@@ -217,7 +258,41 @@ interface OpenAIResponse {
     message?: { role?: string; content?: string };
     finish_reason?: string;
   }>;
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    cost?: number | string;
+  };
+}
+
+interface OpenRouterUsagePayload {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  cost?: number | string;
+}
+
+function parseUsageCost(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+export function extractOpenRouterUsageMetrics(payload: {
+  usage?: OpenRouterUsagePayload;
+} | null | undefined): {
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+} {
+  const usage = payload?.usage;
+  return {
+    tokensIn: usage?.prompt_tokens ?? 0,
+    tokensOut: usage?.completion_tokens ?? 0,
+    costUsd: parseUsageCost(usage?.cost),
+  };
 }
 
 function openAIToAnthropic(openAI: OpenAIResponse, originalModel: string): Record<string, unknown> {
@@ -239,13 +314,15 @@ function openAIToAnthropic(openAI: OpenAIResponse, originalModel: string): Recor
   };
 }
 
-function parseStreamingUsageFromText(text: string): {
+export function parseStreamingUsageFromText(text: string): {
   tokensIn: number;
   tokensOut: number;
+  costUsd: number;
   errorMessage: string | null;
 } {
   let tokensIn = 0;
   let tokensOut = 0;
+  let costUsd = 0;
   let errorMessage: string | null = null;
 
   for (const rawLine of text.split("\n")) {
@@ -255,13 +332,15 @@ function parseStreamingUsageFromText(text: string): {
 
     try {
       const parsed = JSON.parse(payload) as {
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        usage?: OpenRouterUsagePayload;
         error?: { message?: string };
       };
 
       if (parsed.usage) {
-        tokensIn = parsed.usage.prompt_tokens ?? tokensIn;
-        tokensOut = parsed.usage.completion_tokens ?? tokensOut;
+        const usage = extractOpenRouterUsageMetrics(parsed);
+        tokensIn = usage.tokensIn || tokensIn;
+        tokensOut = usage.tokensOut || tokensOut;
+        costUsd = usage.costUsd || costUsd;
       }
 
       if (!errorMessage && typeof parsed.error?.message === "string") {
@@ -276,7 +355,7 @@ function parseStreamingUsageFromText(text: string): {
     errorMessage = safeSnippet(text);
   }
 
-  return { tokensIn, tokensOut, errorMessage };
+  return { tokensIn, tokensOut, costUsd, errorMessage };
 }
 
 // Convert OpenAI SSE stream → Anthropic SSE stream
@@ -431,71 +510,31 @@ async function handleCompletion(
     return;
   }
 
-  if (metadata.sourceClass === "direct_chat") {
-    const tokenBudgets = await getUserTokenBudgets(userId);
-    const sinceIso = new Date(
-      Date.now() - tokenBudgets.conversation.periodHours * 3600 * 1000
-    ).toISOString();
-    const usageSummary = await eventStore.getTokenUsageSummary({
-      userId,
-      sinceIso,
-      sourceClasses: ["direct_chat"],
-    });
-    const usage = buildTokenBudgetUsage(
-      tokenBudgets.conversation,
-      usageSummary.totalTokensIn + usageSummary.totalTokensOut
-    );
-
-    if (usage.exhausted) {
-      void logProxyRequest({
-        userId,
-        metadata,
-        modelRaw: upstreamModel,
-        tokensIn: 0,
-        tokensOut: 0,
-        costUsd: 0,
-        latencyMs: Date.now() - startTime,
-        status: "error",
-        errorMessage: `rejected: conversation token budget exceeded (${usage.tokensUsed}/${usage.maxTokens})`,
-        rejectionReason: "conversation_token_budget_exceeded",
-      }).catch(() => {});
-      res.status(429).json({
-        error: "conversation_token_budget_exceeded",
-        message: `Conversation usage is at ${usage.pctUsed}% of the current allowance. Try again after the budget window resets or contact admin.`,
-      });
-      return;
-    }
-  }
-
-  if (metadata.purpose === "deep_dive" && metadata.ticker) {
-    const budget = DEEP_DIVE_ANALYST_BUDGETS[metadata.analyst] ?? 6;
-    const recentCount = await eventStore.countRecentRequests({
-      userId,
-      purpose: metadata.purpose,
-      ticker: metadata.ticker,
-      analyst: metadata.analyst,
-      sinceIso: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-    });
-
-    if (recentCount >= budget) {
-      const latencyMs = Date.now() - startTime;
-      void logProxyRequest({
-        userId,
-        metadata,
-        modelRaw: upstreamModel,
-        tokensIn: 0,
-        tokensOut: 0,
-        costUsd: 0,
-        latencyMs,
-        status: "error",
-        errorMessage: `rejected: analyst budget exceeded (${recentCount}/${budget})`,
-        rejectionReason: "analyst_budget_exceeded",
-      }).catch(() => {});
-      res.status(429).json({
-        error: "analyst_budget_exceeded",
-        message: `Deep-dive ${metadata.analyst} request budget exceeded for ${metadata.ticker}.`,
-      });
-      return;
+  if (userId !== "main") {
+    const skipBudgetGate = await shouldSkipPointsBudgetGate(userId, metadata);
+    if (!skipBudgetGate) {
+      const budgetGate = await ensurePointsBudgetAvailable(userId);
+      if (!budgetGate.allowed) {
+        const latencyMs = Date.now() - startTime;
+        void logProxyRequest({
+          userId,
+          metadata,
+          modelRaw: upstreamModel,
+          tokensIn: 0,
+          tokensOut: 0,
+          costUsd: 0,
+          latencyMs,
+          status: "error",
+          errorMessage: "rejected: daily points budget exhausted",
+          rejectionReason: "points_budget_exhausted",
+        }).catch(() => {});
+        await pauseJobForPointsBudgetExhaustion(userId, metadata);
+        res.status(429).json({
+          error: "points_budget_exhausted",
+          message: "Daily points budget exhausted. Try again after the budget window resets or contact admin.",
+        });
+        return;
+      }
     }
   }
 
@@ -512,17 +551,6 @@ async function handleCompletion(
       source_class: metadata.sourceClass,
     },
   };
-
-  if (isStreaming) {
-    const currentStreamOptions =
-      enrichedBody["stream_options"] && typeof enrichedBody["stream_options"] === "object"
-        ? (enrichedBody["stream_options"] as Record<string, unknown>)
-        : {};
-    enrichedBody["stream_options"] = {
-      ...currentStreamOptions,
-      include_usage: true,
-    };
-  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -582,6 +610,7 @@ async function handleCompletion(
       .catch(() => ({
         tokensIn: 0,
         tokensOut: 0,
+        costUsd: 0,
         errorMessage: null,
       }));
 
@@ -593,7 +622,7 @@ async function handleCompletion(
         modelRaw: upstreamModel,
         tokensIn: audit.tokensIn,
         tokensOut: audit.tokensOut,
-        costUsd: estimateCost(upstreamModel, audit.tokensIn, audit.tokensOut),
+        costUsd: audit.costUsd,
         latencyMs: Date.now() - startTime,
         status: upstream.ok ? "success" : "error",
         errorMessage: upstream.ok ? null : audit.errorMessage,
@@ -613,23 +642,26 @@ async function handleCompletion(
     const responseText = await upstream.text();
     let tokensIn = 0;
     let tokensOut = 0;
+    let costUsd = 0;
     let outText = responseText;
 
     if (isAnthropic && upstream.ok) {
       try {
         const openAIResp = JSON.parse(responseText) as OpenAIResponse;
-        tokensIn = openAIResp.usage?.prompt_tokens ?? 0;
-        tokensOut = openAIResp.usage?.completion_tokens ?? 0;
+        const usage = extractOpenRouterUsageMetrics(openAIResp);
+        tokensIn = usage.tokensIn;
+        tokensOut = usage.tokensOut;
+        costUsd = usage.costUsd;
         outText = JSON.stringify(openAIToAnthropic(openAIResp, upstreamModel));
         res.setHeader("content-type", "application/json");
       } catch { /* if conversion fails, pass through raw */ }
     } else {
       try {
-        const json = JSON.parse(responseText) as {
-          usage?: { prompt_tokens?: number; completion_tokens?: number };
-        };
-        tokensIn = json.usage?.prompt_tokens ?? 0;
-        tokensOut = json.usage?.completion_tokens ?? 0;
+        const json = JSON.parse(responseText) as { usage?: OpenRouterUsagePayload };
+        const usage = extractOpenRouterUsageMetrics(json);
+        tokensIn = usage.tokensIn;
+        tokensOut = usage.tokensOut;
+        costUsd = usage.costUsd;
       } catch { /* error body — leave tokens at 0 */ }
     }
 
@@ -639,7 +671,6 @@ async function handleCompletion(
       });
     }
 
-    const costUsd = estimateCost(upstreamModel, tokensIn, tokensOut);
     void logProxyRequest({
       userId,
       metadata,

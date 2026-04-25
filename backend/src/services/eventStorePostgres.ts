@@ -1,5 +1,5 @@
 import type { IEventStore, LlmRequestEvent, RecentActivityPage, TokenUsageSummary, UserDailySummary } from "./eventStore.js";
-import { getObservabilityDataSource, closeObservabilityDataSource } from "../db/observabilityDataSource.js";
+import { getApplicationDataSource, closeApplicationDataSource, isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
 import type { ObservabilityRequestEntity } from "../db/entities/ObservabilityRequestEntity.js";
 
 function toNumber(value: unknown): number {
@@ -57,11 +57,13 @@ function fillMissingDays(userId: string, days: number, rows: UserDailySummary[])
 
 export class PostgresEventStore implements IEventStore {
   async initialize(): Promise<void> {
-    await getObservabilityDataSource();
+    if (!isApplicationDatabaseConfigured()) return;
+    await getApplicationDataSource();
   }
 
   async logRequest(event: LlmRequestEvent): Promise<void> {
-    const ds = await getObservabilityDataSource();
+    if (!isApplicationDatabaseConfigured()) return;
+    const ds = await getApplicationDataSource();
     const repo = ds.getRepository<ObservabilityRequestEntity>("ObservabilityRequest");
     await repo.insert({
       userId: event.userId,
@@ -90,7 +92,8 @@ export class PostgresEventStore implements IEventStore {
     analyst: string;
     sinceIso: string;
   }): Promise<number> {
-    const ds = await getObservabilityDataSource();
+    if (!isApplicationDatabaseConfigured()) return 0;
+    const ds = await getApplicationDataSource();
     const repo = ds.getRepository<ObservabilityRequestEntity>("ObservabilityRequest");
     const qb = repo
       .createQueryBuilder("r")
@@ -105,7 +108,10 @@ export class PostgresEventStore implements IEventStore {
   }
 
   async getRecentActivityPage(userId: string, limit: number, offset: number): Promise<RecentActivityPage> {
-    const ds = await getObservabilityDataSource();
+    if (!isApplicationDatabaseConfigured()) {
+      return { events: [], total: 0, limit, offset };
+    }
+    const ds = await getApplicationDataSource();
     const rows = await ds.query(
       `SELECT *
        FROM llm_requests
@@ -130,7 +136,8 @@ export class PostgresEventStore implements IEventStore {
   }
 
   async getDailySummary(date: string): Promise<UserDailySummary[]> {
-    const ds = await getObservabilityDataSource();
+    if (!isApplicationDatabaseConfigured()) return [];
+    const ds = await getApplicationDataSource();
     const startIso = `${date}T00:00:00.000Z`;
     const end = new Date(startIso);
     end.setUTCDate(end.getUTCDate() + 1);
@@ -173,7 +180,8 @@ export class PostgresEventStore implements IEventStore {
   }
 
   async getUserDailyHistory(userId: string, days: number): Promise<UserDailySummary[]> {
-    const ds = await getObservabilityDataSource();
+    if (!isApplicationDatabaseConfigured()) return fillMissingDays(userId, days, []);
+    const ds = await getApplicationDataSource();
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     start.setUTCDate(start.getUTCDate() - (days - 1));
@@ -220,8 +228,12 @@ export class PostgresEventStore implements IEventStore {
     sinceIso: string;
     sourceClasses?: string[];
     purpose?: string | null;
+    jobId?: string | null;
   }): Promise<TokenUsageSummary> {
-    const ds = await getObservabilityDataSource();
+    if (!isApplicationDatabaseConfigured()) {
+      return { requestCount: 0, totalTokensIn: 0, totalTokensOut: 0, totalCostUsd: 0 };
+    }
+    const ds = await getApplicationDataSource();
     const params: unknown[] = [filters.userId, filters.sinceIso];
     const conditions = [
       `user_id = $1`,
@@ -231,6 +243,11 @@ export class PostgresEventStore implements IEventStore {
     if (filters.purpose) {
       params.push(filters.purpose);
       conditions.push(`purpose = $${params.length}`);
+    }
+
+    if (filters.jobId) {
+      params.push(filters.jobId);
+      conditions.push(`job_id = $${params.length}`);
     }
 
     if (filters.sourceClasses && filters.sourceClasses.length > 0) {
@@ -258,8 +275,36 @@ export class PostgresEventStore implements IEventStore {
     };
   }
 
+  async getLatestJobRejection(filters: {
+    userId: string;
+    jobId: string;
+    sinceIso: string;
+  }): Promise<Pick<LlmRequestEvent, "rejectionReason" | "errorMessage" | "timestamp"> | null> {
+    if (!isApplicationDatabaseConfigured()) return null;
+    const ds = await getApplicationDataSource();
+    const rows = await ds.query(
+      `SELECT rejection_reason, error_message, occurred_at
+         FROM llm_requests
+        WHERE user_id = $1
+          AND job_id = $2
+          AND occurred_at >= $3::timestamptz
+          AND rejection_reason IS NOT NULL
+        ORDER BY occurred_at DESC
+        LIMIT 1`,
+      [filters.userId, filters.jobId, filters.sinceIso]
+    ) as Array<Record<string, unknown>>;
+
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      rejectionReason: (row["rejection_reason"] as string | null) ?? null,
+      errorMessage: (row["error_message"] as string | null) ?? null,
+      timestamp: new Date(String(row["occurred_at"])).toISOString(),
+    };
+  }
+
   async pruneExpiredRows(retentionDays: number): Promise<number> {
-    const ds = await getObservabilityDataSource();
+    const ds = await getApplicationDataSource();
     const rows = await ds.query(
       `DELETE FROM llm_requests
        WHERE occurred_at < (NOW() - ($1::int * INTERVAL '1 day'))
@@ -270,6 +315,6 @@ export class PostgresEventStore implements IEventStore {
   }
 
   async close(): Promise<void> {
-    await closeObservabilityDataSource();
+    await closeApplicationDataSource();
   }
 }

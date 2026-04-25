@@ -3,10 +3,10 @@ import { clsx } from "clsx";
 import { X } from "lucide-react";
 
 const typeStyles = {
- success: "bg-green-500/15 border-green-500/30 text-[var(--color-accent-green)]",
- error: "bg-red-500/15 border-red-500/30 text-[var(--color-accent-red)]",
- warning: "bg-yellow-500/15 border-yellow-500/30 text-[var(--color-accent-yellow)]",
- info: "bg-blue-500/15 border-blue-500/30 text-[var(--color-accent-blue)]",
+ success: "bg-[color-mix(in_srgb,var(--color-accent-green)_15%,transparent)] border-[color-mix(in_srgb,var(--color-accent-green)_30%,transparent)] text-[var(--color-accent-green)]",
+ error: "bg-[color-mix(in_srgb,var(--color-accent-red)_15%,transparent)] border-[color-mix(in_srgb,var(--color-accent-red)_30%,transparent)] text-[var(--color-accent-red)]",
+ warning: "bg-[color-mix(in_srgb,var(--color-accent-yellow)_15%,transparent)] border-[color-mix(in_srgb,var(--color-accent-yellow)_30%,transparent)] text-[var(--color-accent-yellow)]",
+ info: "bg-[color-mix(in_srgb,var(--color-accent-blue)_15%,transparent)] border-[color-mix(in_srgb,var(--color-accent-blue)_30%,transparent)] text-[var(--color-accent-blue)]",
 };
 
 export function ToastContainer() {

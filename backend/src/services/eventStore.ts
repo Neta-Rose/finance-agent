@@ -70,7 +70,13 @@ export interface IEventStore {
     sinceIso: string;
     sourceClasses?: string[];
     purpose?: string | null;
+    jobId?: string | null;
   }): Promise<TokenUsageSummary>;
+  getLatestJobRejection(filters: {
+    userId: string;
+    jobId: string;
+    sinceIso: string;
+  }): Promise<Pick<LlmRequestEvent, "rejectionReason" | "errorMessage" | "timestamp"> | null>;
   pruneExpiredRows(retentionDays: number): Promise<number>;
   close(): Promise<void>;
 }

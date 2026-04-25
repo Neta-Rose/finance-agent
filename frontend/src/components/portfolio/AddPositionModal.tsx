@@ -119,11 +119,13 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
       if (needsDeepDive) {
         try {
           await triggerJob("deep_dive", selected.symbol);
+          await queryClient.invalidateQueries({ queryKey: ["balance"] });
           showToast("Position added — deep dive queued", "success");
         } catch (err: unknown) {
-          const axiosErr = err as { response?: { status?: number } };
-          if (axiosErr.response?.status === 429) {
-            showToast("Position added — deep dive rate limit reached, trigger manually from Controls", "warning");
+          const axiosErr = err as { response?: { status?: number; data?: { reason?: string } } };
+          const reason = axiosErr.response?.data?.reason;
+          if (axiosErr.response?.status === 429 && reason) {
+            showToast(`Position added — ${reason}`, "warning");
           } else {
             showToast("Position added", "success");
           }

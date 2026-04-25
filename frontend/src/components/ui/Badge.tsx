@@ -1,5 +1,7 @@
 import { clsx } from "clsx";
 import type { Verdict, Confidence } from "../../types/api";
+import { tConfidence } from "../../store/i18n";
+import { usePreferencesStore } from "../../store/preferencesStore";
 
 interface VerdictBadgeProps {
  verdict: Verdict | string;
@@ -7,12 +9,12 @@ interface VerdictBadgeProps {
 }
 
 const verdictStyles: Record<string, string> = {
- BUY: "bg-blue-500/15 text-[var(--color-accent-blue)] border border-blue-500/30",
- ADD: "bg-blue-500/15 text-[var(--color-accent-blue)] border border-blue-500/30",
- HOLD: "bg-green-500/15 text-[var(--color-accent-green)] border border-green-500/30",
- REDUCE: "bg-yellow-500/15 text-[var(--color-accent-yellow)] border border-yellow-500/30",
- SELL: "bg-red-500/15 text-[var(--color-accent-red)] border border-red-500/30",
- CLOSE: "bg-red-500/15 text-[var(--color-accent-red)] border border-red-500/30",
+ BUY: "bg-[color-mix(in_srgb,var(--color-accent-blue)_15%,transparent)] text-[var(--color-accent-blue)] border border-[color-mix(in_srgb,var(--color-accent-blue)_30%,transparent)]",
+ ADD: "bg-[color-mix(in_srgb,var(--color-accent-blue)_15%,transparent)] text-[var(--color-accent-blue)] border border-[color-mix(in_srgb,var(--color-accent-blue)_30%,transparent)]",
+ HOLD: "bg-[color-mix(in_srgb,var(--color-accent-green)_15%,transparent)] text-[var(--color-accent-green)] border border-[color-mix(in_srgb,var(--color-accent-green)_30%,transparent)]",
+ REDUCE: "bg-[color-mix(in_srgb,var(--color-accent-yellow)_15%,transparent)] text-[var(--color-accent-yellow)] border border-[color-mix(in_srgb,var(--color-accent-yellow)_30%,transparent)]",
+ SELL: "bg-[color-mix(in_srgb,var(--color-accent-red)_15%,transparent)] text-[var(--color-accent-red)] border border-[color-mix(in_srgb,var(--color-accent-red)_30%,transparent)]",
+ CLOSE: "bg-[color-mix(in_srgb,var(--color-accent-red)_15%,transparent)] text-[var(--color-accent-red)] border border-[color-mix(in_srgb,var(--color-accent-red)_30%,transparent)]",
 };
 
 export function VerdictBadge({ verdict, size = "md" }: VerdictBadgeProps) {
@@ -39,13 +41,14 @@ const confidenceStyles: Record<string, string> = {
 };
 
 export function ConfidenceBadge({ confidence, size = "sm" }: ConfidenceBadgeProps) {
+ const language = usePreferencesStore((s) => s.language);
  return (
  <span className={clsx(
  "font-medium",
  size === "sm" ? "text-[10px]" : "text-xs",
  confidenceStyles[confidence] ?? "text-[var(--color-fg-muted)]"
  )}>
- {confidence}
+ {tConfidence(confidence, language)}
  </span>
  );
 }

@@ -27,6 +27,8 @@ interface PortfolioResponse {
   totalCostILS: number;
   totalPlILS: number;
   totalPlPct: number;
+  totalDayChangeILS: number;
+  totalDayChangePct: number;
   accounts: string[];
   positions: PositionRow[];
 }
@@ -47,6 +49,8 @@ interface PositionRow {
   costILS: number;
   plILS: number;
   plPct: number;
+  dayChangeILS: number;
+  dayChangePct: number;
   weightPct: number;
   priceStale: boolean;
 }
@@ -68,6 +72,8 @@ router.get(
           totalCostILS: 0,
           totalPlILS: 0,
           totalPlPct: 0,
+          totalDayChangeILS: 0,
+          totalDayChangePct: 0,
           accounts: [],
           positions: [],
         });
@@ -110,6 +116,8 @@ router.get(
           avgPriceILS: number;
         }>;
         livePriceILS: number;
+        dayChangeILS: number;
+        dayChangePct: number;
         priceStale: boolean;
       }
     >();
@@ -117,6 +125,9 @@ router.get(
     for (const pos of allPositions) {
       const price = prices.get(pos.ticker);
       const liveILS = price?.priceILS ?? 0;
+      const dayChangeNative = price?.dayChangeNative ?? 0;
+      const dayChangePct = price?.dayChangePct ?? 0;
+      const dayChangeILS = pos.exchange === "TASE" ? dayChangeNative : dayChangeNative * usdIlsRate;
 
       const avgILS =
         pos.exchange === "TASE"
@@ -150,6 +161,8 @@ router.get(
             avgPriceILS: Math.round(avgILS * 100) / 100,
           }],
           livePriceILS: liveILS,
+          dayChangeILS,
+          dayChangePct,
           priceStale: price?.stale ?? true,
         });
       }
@@ -158,14 +171,17 @@ router.get(
     const positions: PositionRow[] = [];
     let totalILS = 0;
     let totalCostILS = 0;
+    let totalDayChangeILS = 0;
 
     for (const [ticker, data] of tickerMap) {
       const currentILS = data.livePriceILS * data.totalShares;
       const plILS = currentILS - data.costILS;
       const plPct = data.costILS > 0 ? (plILS / data.costILS) * 100 : 0;
+      const positionDayChangeILS = data.dayChangeILS * data.totalShares;
 
       totalILS += currentILS;
       totalCostILS += data.costILS;
+      totalDayChangeILS += positionDayChangeILS;
 
       positions.push({
         ticker,
@@ -179,6 +195,8 @@ router.get(
         costILS: Math.round(data.costILS * 100) / 100,
         plILS: Math.round(plILS * 100) / 100,
         plPct: Math.round(plPct * 100) / 100,
+        dayChangeILS: Math.round(positionDayChangeILS * 100) / 100,
+        dayChangePct: Math.round(data.dayChangePct * 100) / 100,
         weightPct: 0,
         priceStale: data.priceStale,
       });
@@ -186,6 +204,8 @@ router.get(
 
     const totalPlILS = totalILS - totalCostILS;
     const totalPlPct = totalCostILS > 0 ? (totalPlILS / totalCostILS) * 100 : 0;
+    const prevTotalILS = totalILS - totalDayChangeILS;
+    const totalDayChangePct = prevTotalILS > 0 ? (totalDayChangeILS / prevTotalILS) * 100 : 0;
 
     for (const pos of positions) {
       pos.weightPct = Math.round((pos.currentILS / totalILS) * 10000) / 100;
@@ -200,6 +220,8 @@ router.get(
       totalCostILS: Math.round(totalCostILS * 100) / 100,
       totalPlILS: Math.round(totalPlILS * 100) / 100,
       totalPlPct: Math.round(totalPlPct * 100) / 100,
+      totalDayChangeILS: Math.round(totalDayChangeILS * 100) / 100,
+      totalDayChangePct: Math.round(totalDayChangePct * 100) / 100,
       accounts: Object.keys(portfolio.accounts),
       positions,
     };

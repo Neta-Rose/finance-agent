@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { useDeferredValue, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   BrainCircuit,
@@ -14,12 +14,14 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../api/client";
+import { cancelJob, resumeJob } from "../api/jobs";
 import { TopBar } from "../components/ui/TopBar";
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
 import type { FeedPageResponse, FeedItem, FeedItemEntry, Job, JobsResponse } from "../types/api";
 import { usePreferencesStore } from "../store/preferencesStore";
-import { t } from "../store/i18n";
+import { t, tConfidence } from "../store/i18n";
+import { useToastStore } from "../store/toastStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,7 +53,7 @@ const FILTERS: Array<{ id: ReportFilter; label: string }> = [
   { id: "all", label: "All" },
   { id: "daily_brief", label: "Daily brief" },
   { id: "deep_dive", label: "Deep dive" },
-  { id: "full_report", label: "Weekly report" },
+  { id: "full_report", label: "Weekly Report" },
   { id: "quick_check", label: "Quick check" },
   { id: "new_ideas", label: "New ideas" },
 ];
@@ -70,7 +72,7 @@ const MODE_META: Record<string, { label: string; icon: ReactElement }> = {
     icon: <BrainCircuit size={12} />,
   },
   full_report: {
-    label: "Weekly report",
+    label: "Weekly Report",
     icon: <FileSearch size={12} />,
   },
   new_ideas: {
@@ -257,11 +259,22 @@ function SourceLinks({ sources }: { sources: unknown }) {
 
 // ─── Active job card ──────────────────────────────────────────────────────────
 
-function ActiveJobCard({ job }: { job: Job }) {
+function ActiveJobCard({
+  job,
+  onCancel,
+  onResume,
+  busy,
+}: {
+  job: Job;
+  onCancel: (job: Job) => void;
+  onResume: (job: Job) => void;
+  busy: boolean;
+}) {
   const meta = modeMeta(job.action);
   const pct = progressPct(job);
   const prog = job.progress;
   const hasChain = prog && prog.totalTickers > 1;
+  const statusLabel = job.status === "pending" ? "queued" : job.status === "paused" ? "paused" : "running";
 
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-4">
@@ -273,7 +286,7 @@ function ActiveJobCard({ job }: { job: Job }) {
               {meta.label}
             </span>
             <span className="rounded-full bg-[var(--color-bg-muted)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--color-fg-subtle)]">
-              {job.status === "pending" ? "queued" : "running"}
+              {statusLabel}
             </span>
           </div>
 
@@ -336,8 +349,31 @@ function ActiveJobCard({ job }: { job: Job }) {
       </div>
 
       <p className="mt-2 text-[10px] text-[var(--color-fg-subtle)]">
-        Started {formatDate(job.started_at ?? job.triggered_at)}
+        {job.status === "paused" ? "Paused" : "Started"} {formatDate(job.started_at ?? job.triggered_at)}
       </p>
+
+      {(job.status === "pending" || job.status === "paused") && job.action === "deep_dive" ? (
+        <div className="mt-3 flex gap-2">
+          {job.status === "paused" ? (
+            <button
+              type="button"
+              onClick={() => onResume(job)}
+              disabled={busy}
+              className="rounded-md bg-[var(--color-accent-blue)] px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+            >
+              Resume
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onCancel(job)}
+            disabled={busy}
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-fg-muted)] disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1100,6 +1136,7 @@ function ReportCard({
   detailsLoading: boolean;
   expandedReportTypes: DetailReportType[];
 }) {
+  const language = usePreferencesStore((s) => s.language);
   const meta = modeMeta(item.mode);
   const entries = Object.values(item.entries);
   const { escalated, positive, onTrack } = groupEntries(entries);
@@ -1163,7 +1200,7 @@ function ReportCard({
                 {selectedEntry.verdict}
               </span>
               <span className={`text-xs font-medium ${CONFIDENCE_COLORS[selectedEntry.confidence] ?? "text-[var(--color-fg-muted)]"}`}>
-                {selectedEntry.confidence}
+                {tConfidence(selectedEntry.confidence, language)}
               </span>
               {selectedEntry.timeframe && selectedEntry.timeframe !== "undefined" ? (
                 <span className="text-[11px] text-[var(--color-fg-subtle)]">· {selectedEntry.timeframe}</span>
@@ -1292,11 +1329,14 @@ function ReportCard({
 
 export function Reports() {
   const language = usePreferencesStore((s) => s.language);
+  const queryClient = useQueryClient();
+  const showToast = useToastStore((s) => s.show);
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<ReportFilter>("all");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search.trim());
   const [jobsExpanded, setJobsExpanded] = useState(false);
+  const [busyJobId, setBusyJobId] = useState<string | null>(null);
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
   const [selectedTickerByBatch, setSelectedTickerByBatch] = useState<Record<string, string>>({});
   const [activeTabByBatch, setActiveTabByBatch] = useState<Record<string, DetailReportType>>({});
@@ -1327,11 +1367,42 @@ export function Reports() {
     () =>
       (jobsData?.jobs ?? []).filter(
         (job) =>
-          (job.status === "pending" || job.status === "running") &&
+          (job.status === "pending" || job.status === "paused" || job.status === "running") &&
           ["deep_dive", "full_report", "daily_brief", "quick_check", "new_ideas"].includes(job.action)
       ),
     [jobsData]
   );
+
+  async function refreshJobs() {
+    await queryClient.invalidateQueries({ queryKey: ["jobs-reports"] });
+    await queryClient.invalidateQueries({ queryKey: ["jobs"] });
+  }
+
+  async function handleCancel(job: Job) {
+    try {
+      setBusyJobId(job.id);
+      await cancelJob(job.id);
+      showToast(`${job.ticker ?? "Deep dive"} cancelled`, "success");
+      await refreshJobs();
+    } catch {
+      showToast("Failed to cancel deep dive", "error");
+    } finally {
+      setBusyJobId(null);
+    }
+  }
+
+  async function handleResume(job: Job) {
+    try {
+      setBusyJobId(job.id);
+      await resumeJob(job.id);
+      showToast(`${job.ticker ?? "Deep dive"} resumed`, "success");
+    } catch {
+      showToast("Not enough balance to resume this deep dive yet", "warning");
+    } finally {
+      await refreshJobs();
+      setBusyJobId(null);
+    }
+  }
 
   const reportItems = useMemo(
     () => (feedData?.items ?? []).filter((item) => item.kind !== "market_news"),
@@ -1428,7 +1499,7 @@ export function Reports() {
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-500" />
                 </span>
                 <span className="text-[11px] font-medium text-[var(--color-fg-muted)]">
-                  {activeJobs.length} job{activeJobs.length !== 1 ? "s" : ""} running
+                  {activeJobs.length} queued job{activeJobs.length !== 1 ? "s" : ""}
                   {activeJobs[0]?.progress?.currentTicker
                     ? ` · ${activeJobs[0].progress.currentTicker}`
                     : activeJobs[0]?.action
@@ -1444,7 +1515,13 @@ export function Reports() {
             {jobsExpanded ? (
               <div className="mt-2 space-y-2">
                 {activeJobs.map((job) => (
-                  <ActiveJobCard key={job.id} job={job} />
+                  <ActiveJobCard
+                    key={job.id}
+                    job={job}
+                    onCancel={handleCancel}
+                    onResume={handleResume}
+                    busy={busyJobId === job.id}
+                  />
                 ))}
               </div>
             ) : null}

@@ -32,7 +32,7 @@ export interface SupportMessageRecord extends SupportMessageCreate {
   createdAt: string;
   status: "open" | "closed";
 }
-export type JobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type JobStatus = "pending" | "paused" | "running" | "completed" | "failed" | "cancelled";
 export type JobAction =
  | "daily_brief" | "full_report" | "deep_dive"
  | "new_ideas" | "quick_check" | "switch_production" | "switch_testing";
@@ -64,6 +64,8 @@ export interface PositionRow {
  costILS: number;
  plILS: number;
  plPct: number;
+ dayChangeILS: number;
+ dayChangePct: number;
  weightPct: number;
  priceStale: boolean;
 }
@@ -75,6 +77,8 @@ export interface PortfolioResponse {
  totalCostILS: number;
  totalPlILS: number;
  totalPlPct: number;
+ totalDayChangeILS: number;
+ totalDayChangePct: number;
  accounts: string[];
  positions: PositionRow[];
 }
@@ -327,9 +331,8 @@ export interface SummaryStripProps {
   totalILS: number;
   totalPlILS: number;
   totalPlPct: number;
-  positionCount: number;
-  winners: number;
-  losers: number;
+  totalDayChangeILS: number;
+  totalDayChangePct: number;
   usdIlsRate: number;
   updatedAt: string;
 }

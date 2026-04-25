@@ -2,11 +2,16 @@ import { promises as fs } from "fs";
 import path from "path";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Job, JsonValue, Confidence, Verdict } from "../types/index.js";
-import { PortfolioFileSchema } from "../schemas/portfolio.js";
 import { validateReportFile, validateStrategyFile } from "./validationService.js";
-import { readState, writeState } from "./stateService.js";
 import { updateJob } from "./jobService.js";
 import { publishNotification } from "./notificationService.js";
+import {
+  isBaselineTrustCovered,
+  listPortfolioTickers,
+  summarizeBaselineCoverage,
+  syncStateToBaselineCoverage,
+} from "./baselineCoverageService.js";
+import type { StrategyTrustLevel } from "./strategyBaselineService.js";
 
 const FULL_REPORT_STEPS = [
   {
@@ -48,6 +53,7 @@ interface FullReportTickerState {
   totalSteps: number;
   currentStep: string | null;
   strategyReady: boolean;
+  baselineTrust: StrategyTrustLevel;
 }
 
 interface FullReportState {
@@ -89,18 +95,16 @@ async function readJsonIfExists<T>(filePath: string): Promise<T | null> {
   }
 }
 
-async function listPortfolioTickers(ws: UserWorkspace): Promise<string[]> {
-  const raw = await fs.readFile(ws.portfolioFile, "utf-8");
-  const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
-  const ordered = Object.values(portfolio.accounts).flat().map((position) => position.ticker);
-  return Array.from(new Set(ordered));
-}
-
 async function scanTicker(
   ws: UserWorkspace,
   ticker: string,
   triggeredAt: string
-): Promise<FullReportTickerState> {
+): Promise<{
+  ticker: string;
+  completedSteps: number;
+  currentStep: string | null;
+  strategyReady: boolean;
+}> {
   const cutoff = new Date(triggeredAt).getTime();
   let completedSteps = 0;
   let currentStep: string | null = null;
@@ -134,13 +138,10 @@ async function scanTicker(
     }
   } catch {}
 
-  const done = completedSteps === FULL_REPORT_STEPS.length && strategyReady;
   return {
     ticker,
-    status: done ? "completed" : "pending",
     completedSteps,
-    totalSteps: FULL_REPORT_STEPS.length,
-    currentStep: done ? null : currentStep,
+    currentStep,
     strategyReady,
   };
 }
@@ -151,9 +152,42 @@ async function buildState(
   tickers: string[]
 ): Promise<FullReportState> {
   const startedAt = job.started_at ?? new Date().toISOString();
-  const tickerStates = await Promise.all(
-    tickers.map((ticker) => scanTicker(ws, ticker, job.triggered_at))
+  const [artifactStates, baselineCoverage] = await Promise.all([
+    Promise.all(tickers.map((ticker) => scanTicker(ws, ticker, job.triggered_at))),
+    summarizeBaselineCoverage(ws, tickers),
+  ]);
+  const baselineByTicker = new Map(
+    baselineCoverage.tickers.map((item) => [item.ticker, item])
   );
+  const tickerStates: FullReportTickerState[] = artifactStates.map((artifactState) => {
+    const baseline = baselineByTicker.get(artifactState.ticker);
+    const baselineTrust = baseline?.trustLevel ?? "invalid";
+    const baselineCovered = isBaselineTrustCovered(baselineTrust);
+    const strategyComplete = artifactState.completedSteps === FULL_REPORT_STEPS.length;
+    const currentStep =
+      artifactState.currentStep ??
+      (artifactState.strategyReady
+        ? baselineCovered
+          ? null
+          : "Baseline validation"
+        : "Strategy validation");
+    const completedSteps =
+      strategyComplete && baselineCovered
+        ? FULL_REPORT_STEPS.length + 1
+        : artifactState.completedSteps;
+    const totalSteps = FULL_REPORT_STEPS.length + 1;
+    const status =
+      strategyComplete && baselineCovered ? "completed" : "pending";
+    return {
+      ticker: artifactState.ticker,
+      status,
+      completedSteps,
+      totalSteps,
+      currentStep: status === "completed" ? null : currentStep,
+      strategyReady: artifactState.strategyReady,
+      baselineTrust,
+    };
+  });
   const completedTickers = tickerStates
     .filter((ticker) => ticker.status === "completed")
     .map((ticker) => ticker.ticker);
@@ -338,26 +372,10 @@ async function updateBootstrapState(
   ws: UserWorkspace,
   state: FullReportState
 ): Promise<void> {
-  const current = await readState(ws.userId);
-  const updates: Parameters<typeof writeState>[1] = {};
-
-  if (current.state === "BOOTSTRAPPING") {
-    updates.bootstrapProgress = {
-      total: state.totalTickers,
-      completed: state.completedTickers.length,
-      completedTickers: state.completedTickers,
-    };
-  }
-
-  if (state.status === "completed" && current.state === "BOOTSTRAPPING") {
-    updates.state = "ACTIVE";
-    updates.lastFullReportAt = state.completedAt ?? current.lastFullReportAt;
-    updates.bootstrapProgress = null;
-  }
-
-  if (Object.keys(updates).length > 0) {
-    await writeState(ws.userId, updates);
-  }
+  await syncStateToBaselineCoverage(ws, {
+    lastFullReportAt: state.status === "completed" ? state.completedAt : null,
+    enqueueBlockingTickers: state.status === "completed",
+  });
 }
 
 export async function initializeFullReportJob(

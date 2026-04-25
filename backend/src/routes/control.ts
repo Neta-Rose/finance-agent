@@ -1,6 +1,7 @@
 // backend/src/routes/control.ts
 import { Router } from "express";
 import { getUserControl, getSystemControl } from "../services/controlService.js";
+import { getUserPointsBalanceSnapshot } from "../services/pointsBudgetService.js";
 
 const router = Router();
 
@@ -22,6 +23,12 @@ router.get("/control", async (_req, res) => {
     systemLockReason: sysCtrl.lockReason,
     systemBroadcast:  sysCtrl.broadcast,
   });
+});
+
+router.get("/balance", async (_req, res) => {
+  const userId = res.locals["userId"] as string;
+  const balance = await getUserPointsBalanceSnapshot(userId);
+  res.json(balance);
 });
 
 export default router;

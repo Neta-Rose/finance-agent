@@ -49,6 +49,8 @@ At the start of work, build context from the product before changing code:
 - Add logs and structured state where behavior is otherwise opaque.
 - Treat admin control and observability as first-class product features.
 - Call out architecture that is too prompt-dependent, too brittle, or too expensive.
+- Prefer database-backed persisted product state over adding new backend-owned state in per-user files when the data is operational, user-facing, cross-session, queryable, or likely to be detached into its own service later.
+- Extend the typed database layer first when relevant; keep user workspace files mainly for agent-local artifacts and prompts that still need to live beside the agents.
 
 ---
 

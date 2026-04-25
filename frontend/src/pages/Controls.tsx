@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle, XCircle } from "lucide-react";
 import { triggerJob, fetchJobs } from "../api/jobs";
 import { TopBar } from "../components/ui/TopBar";
 import { Card } from "../components/ui/Card";
@@ -31,6 +32,7 @@ function ActionCard({
   blockedReason?: string;
 }) {
   const language = usePreferencesStore((s) => s.language);
+  const queryClient = useQueryClient();
   const [tickerSelection, setTickerSelection] = useState<TickerSelection | null>(null);
   const [loading, setLoading] = useState(false);
   const showToast = useToastStore((s) => s.show);
@@ -47,6 +49,7 @@ function ActionCard({
     setLoading(true);
     try {
       const res = await triggerJob(action, tickerRequired ? tickerSelection?.symbol : undefined);
+      void queryClient.invalidateQueries({ queryKey: ["balance"] });
       onTrigger(res.job);
       showToast(`${title} — ${t("jobQueued", language)}`, "success");
       if (tickerRequired) setTickerSelection(null);
@@ -111,7 +114,7 @@ export function Controls() {
   const allJobs = jobsData?.jobs ?? [];
 
   // Jobs that are currently active (pending or running)
-  const activeJobs = allJobs.filter((j) => j.status === "pending" || j.status === "running");
+  const activeJobs = allJobs.filter((j) => j.status === "pending" || j.status === "paused" || j.status === "running");
   // Most recent completed/failed jobs
   const recentHistory = allJobs
     .filter((j) => j.status === "completed" || j.status === "failed")
@@ -183,7 +186,7 @@ export function Controls() {
         {/* Active jobs */}
         {activeJobs.length > 0 && (
           <div className="mt-5 space-y-2">
-            <h2 className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase">
+            <h2 className="text-xs font-semibold text-[var(--color-fg-default)] uppercase border-l-2 border-[var(--color-accent-blue)] pl-2">
               {t("activeJobs", language)} ({activeJobs.length})
             </h2>
             {activeJobs.map((job) => (
@@ -220,7 +223,9 @@ export function Controls() {
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="shrink-0">
-                      {job.status === "completed" ? "✅" : "❌"}
+                      {job.status === "completed"
+                        ? <CheckCircle size={14} className="text-[var(--color-accent-green)]" />
+                        : <XCircle size={14} className="text-[var(--color-accent-red)]" />}
                     </span>
                     <span className="text-xs font-medium text-[var(--color-fg-default)] truncate">
                       {job.action.replace(/_/g, " ")}

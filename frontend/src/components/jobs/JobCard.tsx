@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Clock, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import { fetchJob } from "../../api/jobs";
 import { usePreferencesStore } from "../../store/preferencesStore";
 import { t } from "../../store/i18n";
@@ -11,16 +12,19 @@ interface JobCardProps {
 
 function statusIcon(status: Job["status"]) {
   switch (status) {
-    case "pending":  return <span className="text-base">⏳</span>;
-    case "running":  return <span className="text-base animate-spin inline-block">⟳</span>;
-    case "completed": return <span className="text-base">✅</span>;
-    case "failed":   return <span className="text-base">❌</span>;
+    case "pending":   return <Clock size={14} className="text-[var(--color-fg-muted)] shrink-0" />;
+    case "running":   return <RefreshCw size={14} className="text-[var(--color-accent-blue)] shrink-0 animate-spin" />;
+    case "paused":    return <Clock size={14} className="text-[var(--color-fg-subtle)] shrink-0" />;
+    case "completed": return <CheckCircle size={14} className="text-[var(--color-accent-green)] shrink-0" />;
+    case "failed":    return <XCircle size={14} className="text-[var(--color-accent-red)] shrink-0" />;
+    default:          return <Clock size={14} className="text-[var(--color-fg-muted)] shrink-0" />;
   }
 }
 
 function statusColor(status: Job["status"]) {
   switch (status) {
     case "running":   return "border-l-[var(--color-accent-blue)]";
+    case "paused":    return "border-l-[var(--color-border)]";
     case "completed": return "border-l-[var(--color-accent-green)]";
     case "failed":    return "border-l-[var(--color-accent-red)]";
     default:          return "border-l-[var(--color-border)]";
@@ -78,7 +82,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
   }, [job.id, job.status, onPollComplete]);
 
   useEffect(() => {
-    if (job.status === "pending" || job.status === "running") {
+    if (job.status === "pending" || job.status === "running" || job.status === "paused") {
       const id = setInterval(poll, 10000);
       return () => clearInterval(id);
     }
@@ -200,6 +204,9 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
           )}
           {job.status === "failed" && job.error && (
             <p className="text-xs text-[var(--color-accent-red)]">{job.error}</p>
+          )}
+          {job.status === "paused" && job.error && (
+            <p className="text-xs text-[var(--color-fg-muted)]">{job.error}</p>
           )}
           {prog?.completedTickers && prog.completedTickers.length > 0 && (
             <p className="text-[10px] text-[var(--color-fg-subtle)]">

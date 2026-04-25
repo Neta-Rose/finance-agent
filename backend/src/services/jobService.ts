@@ -113,6 +113,7 @@ export async function createJob(
     action,
     ticker: ticker ?? null,
     source: options?.source ?? null,
+    budget_admitted_at: null,
     status: "pending",
     triggered_at,
     started_at: null,
@@ -192,6 +193,7 @@ export async function getJob(
     action: data["action"] as Job["action"],
     ticker: data["ticker"] as Job["ticker"],
     source: (data["source"] as Job["source"] | undefined) ?? null,
+    budget_admitted_at: (data["budget_admitted_at"] as string | null | undefined) ?? null,
     status: data["status"] as Job["status"],
     triggered_at: data["triggered_at"] as string,
     started_at: data["started_at"] as Job["started_at"],
@@ -231,6 +233,7 @@ export async function listJobs(
           action: d["action"] as Job["action"],
           ticker: d["ticker"] as Job["ticker"],
           source: (d["source"] as Job["source"] | undefined) ?? null,
+          budget_admitted_at: (d["budget_admitted_at"] as string | null | undefined) ?? null,
           status: d["status"] as Job["status"],
           triggered_at: d["triggered_at"] as string,
           started_at: d["started_at"] as Job["started_at"],
@@ -266,7 +269,7 @@ export async function hasPendingAgentManagedWork(
 export async function updateJob(
   workspace: UserWorkspace,
   jobId: string,
-  update: Partial<Pick<Job, "status" | "started_at" | "completed_at" | "result" | "error">>
+  update: Partial<Pick<Job, "status" | "started_at" | "completed_at" | "result" | "error" | "budget_admitted_at">>
 ): Promise<Job> {
   const current = await getJob(workspace, jobId);
 

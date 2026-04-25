@@ -24,36 +24,35 @@ export function PositionRow({
   onClick,
 }: PositionRowProps) {
   const plClass = plColor(position.plPct);
+  const dayClass = plColor(position.dayChangePct ?? 0);
   const stale = position.priceStale;
   const [dragX, setDragX] = useState(0);
   const [swiping, setSwiping] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
-  // Determine color based on job type
   let borderColor = "";
   let bgClass = "";
-  
+
   if (isChecking) {
     if (jobType === 'quick_check') {
-      // Pale yellow for quick check in progress
-      borderColor = "border-[#fef3c7]";
-      bgClass = "bg-[linear-gradient(135deg,rgba(254,243,199,0.16),rgba(254,243,199,0.05))]";
+      borderColor = "border-[var(--color-accent-yellow)]";
+      bgClass = "bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-accent-yellow)_16%,transparent),color-mix(in_srgb,var(--color-accent-yellow)_5%,transparent))]";
     } else {
-      // Orange for deep dive in progress
-      borderColor = "border-[#f97316]";
-      bgClass = "bg-[linear-gradient(135deg,rgba(249,115,22,0.16),rgba(249,115,22,0.05))]";
+      borderColor = "border-[var(--color-accent-orange)]";
+      bgClass = "bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-accent-orange)_16%,transparent),color-mix(in_srgb,var(--color-accent-orange)_5%,transparent))]";
     }
   } else if (hasAlert) {
-    // Existing alert style
-    borderColor = "border-[rgba(245,158,11,0.35)]";
-    bgClass = "bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(239,68,68,0.06))] shadow-[0_0_0_1px_rgba(245,158,11,0.12),0_0_22px_rgba(245,158,11,0.12)]";
+    borderColor = "border-[color-mix(in_srgb,var(--color-accent-yellow)_35%,transparent)]";
+    bgClass = "bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-accent-yellow)_14%,transparent),color-mix(in_srgb,var(--color-accent-red)_6%,transparent))] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent-yellow)_12%,transparent),0_0_22px_color-mix(in_srgb,var(--color-accent-yellow)_12%,transparent)]";
   }
-  
+
   const mobileCardClass = `${borderColor} ${bgClass}`;
   const desktopRowClass = isChecking
-    ? (jobType === 'quick_check' ? "bg-[rgba(254,243,199,0.08)]" : "bg-[rgba(249,115,22,0.08)]")
+    ? (jobType === 'quick_check'
+        ? "bg-[color-mix(in_srgb,var(--color-accent-yellow)_8%,transparent)]"
+        : "bg-[color-mix(in_srgb,var(--color-accent-orange)_8%,transparent)]")
     : hasAlert
-    ? "bg-[rgba(245,158,11,0.08)]"
+    ? "bg-[color-mix(in_srgb,var(--color-accent-yellow)_8%,transparent)]"
     : "hover:bg-[var(--color-bg-muted)]";
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -85,13 +84,16 @@ export function PositionRow({
     if (shouldTrigger) onQuickCheck();
   };
 
+  const dayChangePct = position.dayChangePct ?? 0;
+  const hasDayChange = dayChangePct !== 0;
+
   return (
     <>
       {/* Mobile card */}
       <div className="md:hidden">
         <div className="relative overflow-hidden rounded-lg">
           {onQuickCheck && (
-            <div className="absolute inset-0 flex items-center pl-4 bg-[linear-gradient(90deg,rgba(234,179,8,0.25),rgba(234,179,8,0.05))] border border-[rgba(234,179,8,0.25)] rounded-lg">
+            <div className="absolute inset-0 flex items-center pl-4 bg-[linear-gradient(90deg,color-mix(in_srgb,var(--color-accent-yellow)_25%,transparent),color-mix(in_srgb,var(--color-accent-yellow)_5%,transparent))] border border-[color-mix(in_srgb,var(--color-accent-yellow)_25%,transparent)] rounded-lg">
               <div>
                 <p className="text-[11px] font-semibold text-[var(--color-accent-yellow)]">Swipe right to run quick check</p>
                 <p className="text-[10px] text-[var(--color-fg-subtle)]">Queues a focused review on this asset</p>
@@ -117,14 +119,17 @@ export function PositionRow({
                   </span>
                   {verdict && <VerdictBadge verdict={verdict.verdict} size="sm" />}
                   {isChecking && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${jobType === 'quick_check' ? 'bg-[rgba(254,243,199,0.18)] text-[#d97706]' : 'bg-[rgba(249,115,22,0.18)] text-[#ea580c]'}`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      jobType === 'quick_check'
+                        ? 'bg-[color-mix(in_srgb,var(--color-accent-yellow)_18%,transparent)] text-[var(--color-accent-yellow)]'
+                        : 'bg-[color-mix(in_srgb,var(--color-accent-orange)_18%,transparent)] text-[var(--color-accent-orange)]'
+                    }`}>
                       {jobType === 'quick_check' ? 'quick check' : 'deep analysis'}
                     </span>
                   )}
                   {!isChecking && hasAlert && (
                     <span
-                      className="text-[10px] px-1 py-0.5 rounded font-medium"
-                      style={{ background: "rgba(245,158,11,0.16)", color: "rgb(245,158,11)" }}
+                      className="text-[10px] px-1 py-0.5 rounded font-medium bg-[color-mix(in_srgb,var(--color-accent-yellow)_16%,transparent)] text-[var(--color-accent-yellow)]"
                       title="Needs attention"
                     >
                       !
@@ -132,16 +137,30 @@ export function PositionRow({
                   )}
                   {stale && <span className="text-[10px]" title="Price may be stale">⚠️</span>}
                 </div>
-                <span className={`text-sm font-semibold shrink-0 ${plClass}`}>
-                  {formatPct(position.plPct)}
-                </span>
+                {/* Today's change as primary top-right metric */}
+                <div className="text-right shrink-0">
+                  {hasDayChange ? (
+                    <>
+                      <span className={`text-sm font-semibold tabular-nums ${dayClass}`}>
+                        {dayChangePct >= 0 ? "+" : ""}{dayChangePct.toFixed(2)}%
+                      </span>
+                      <p className="text-[10px] text-[var(--color-fg-subtle)] tabular-nums">
+                        day
+                      </p>
+                    </>
+                  ) : (
+                    <span className={`text-sm font-semibold tabular-nums ${plClass}`}>
+                      {formatPct(position.plPct)}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2 text-[11px] text-[var(--color-fg-muted)]">
-                <span>{formatILS(position.currentILS)}</span>
+                <span className="tabular-nums">{formatILS(position.currentILS)}</span>
                 <span>·</span>
-                <span>{position.shares} shares</span>
+                <span className={`tabular-nums ${plClass}`}>{formatPct(position.plPct)} P/L</span>
                 <span>·</span>
-                <span>{(position.weightPct ?? 0).toFixed(1)}%</span>
+                <span className="tabular-nums">{(position.weightPct ?? 0).toFixed(1)}%</span>
               </div>
             </Card>
           </div>
@@ -160,25 +179,30 @@ export function PositionRow({
               {position.exchange}
             </span>
             {isChecking && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${jobType === 'quick_check' ? 'bg-[rgba(254,243,199,0.18)] text-[#d97706]' : 'bg-[rgba(249,115,22,0.18)] text-[#ea580c]'}`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                jobType === 'quick_check'
+                  ? 'bg-[color-mix(in_srgb,var(--color-accent-yellow)_18%,transparent)] text-[var(--color-accent-yellow)]'
+                  : 'bg-[color-mix(in_srgb,var(--color-accent-orange)_18%,transparent)] text-[var(--color-accent-orange)]'
+              }`}>
                 {jobType === 'quick_check' ? 'quick check' : 'deep analysis'}
               </span>
             )}
             {!isChecking && hasAlert && (
-              <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-[rgba(245,158,11,0.16)] text-[rgb(245,158,11)]">
+              <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-[color-mix(in_srgb,var(--color-accent-yellow)_16%,transparent)] text-[var(--color-accent-yellow)]">
                 !
               </span>
             )}
             {stale && <span className="text-[10px]" title="Price may be stale">⚠️</span>}
           </div>
         </td>
-        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{position.shares}</td>
-        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{formatILS(position.avgPriceILS)}</td>
-        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-default)] text-right">{formatILS(position.livePriceILS)}</td>
-        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-default)] text-right font-medium">{formatILS(position.currentILS)}</td>
-        <td className={`px-3 py-2.5 text-sm text-right font-semibold ${plClass}`}>{formatPct(position.plPct)}</td>
-        <td className={`px-3 py-2.5 text-sm text-right ${plClass}`}>{formatILS(position.plILS)}</td>
-        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{(position.weightPct ?? 0).toFixed(1)}%</td>
+        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-default)] tabular-nums text-right">{formatILS(position.livePriceILS)}</td>
+        <td className={`px-3 py-2.5 text-sm tabular-nums text-right font-semibold ${hasDayChange ? dayClass : "text-[var(--color-fg-subtle)]"}`}>
+          {hasDayChange ? `${dayChangePct >= 0 ? "+" : ""}${dayChangePct.toFixed(2)}%` : "—"}
+        </td>
+        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-default)] tabular-nums text-right font-medium">{formatILS(position.currentILS)}</td>
+        <td className={`px-3 py-2.5 text-sm tabular-nums text-right font-semibold ${plClass}`}>{formatPct(position.plPct)}</td>
+        <td className={`px-3 py-2.5 text-sm tabular-nums text-right ${plClass}`}>{formatILS(position.plILS)}</td>
+        <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] tabular-nums text-right">{(position.weightPct ?? 0).toFixed(1)}%</td>
         <td className="px-3 py-2.5">
           {verdict && <VerdictBadge verdict={verdict.verdict} size="sm" />}
         </td>

@@ -15,7 +15,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TopBar } from "../components/ui/TopBar";
 import { Card } from "../components/ui/Card";
-import { User, Lock, Clock, Bot, BarChart2, LogOut, ChevronRight, X, Sun, Moon, Monitor, Bell, MessageCircle } from "lucide-react";
+import { User, Lock, Clock, Bot, BarChart2, LogOut, ChevronRight, ChevronDown, X, Sun, Moon, Monitor, Bell, MessageCircle } from "lucide-react";
 import type { NotificationPreferences } from "../types/api";
 
 const DAY_KEYS: Array<{ value: string; key: TranslationKey }> = [
@@ -302,7 +302,7 @@ export function Settings() {
         {/* Account */}
         <section>
           <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <User size={12} /> {t("account", lang).toUpperCase()}
+            <User size={15} /> {t("account", lang).toUpperCase()}
           </h3>
           <Card className="p-4">
             <div className="flex items-center justify-between">
@@ -317,7 +317,7 @@ export function Settings() {
         {/* Appearance */}
         <section>
           <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <Sun size={12} /> {t("appearance", lang).toUpperCase()}
+            <Sun size={15} /> {t("appearance", lang).toUpperCase()}
           </h3>
           <Card className="p-4 space-y-4">
             {/* Theme */}
@@ -373,7 +373,7 @@ export function Settings() {
         {/* Security */}
         <section>
           <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <Lock size={12} /> {t("security", lang).toUpperCase()}
+            <Lock size={15} /> {t("security", lang).toUpperCase()}
           </h3>
           <Card className="p-0 divide-y divide-[var(--color-border)]">
             {!showPasswordForm ? (
@@ -419,7 +419,7 @@ export function Settings() {
         {/* Schedule */}
         <section>
           <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <Clock size={12} /> {t("schedule", lang).toUpperCase()}
+            <Clock size={15} /> {t("schedule", lang).toUpperCase()}
           </h3>
           {!showScheduleForm ? (
             <Card className="p-4 space-y-2">
@@ -458,9 +458,12 @@ export function Settings() {
               </div>
               <div>
                 <label className={labelCls}>{t("weeklyResearch", lang)}</label>
-                <select value={schedule.weeklyResearchDay} onChange={(e) => setSchedule(s => ({ ...s, weeklyResearchDay: e.target.value }))} className={inputCls}>
-                  {DAY_KEYS.map(d => <option key={d.value} value={d.value}>{t(d.key, lang)}</option>)}
-                </select>
+                <div className="relative">
+                  <select value={schedule.weeklyResearchDay} onChange={(e) => setSchedule(s => ({ ...s, weeklyResearchDay: e.target.value }))} className={inputCls}>
+                    {DAY_KEYS.map(d => <option key={d.value} value={d.value}>{t(d.key, lang)}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+                </div>
               </div>
               <div>
                 <label className={labelCls}>{t("weeklyResearch", lang)}</label>
@@ -468,9 +471,12 @@ export function Settings() {
               </div>
               <div>
                 <label className={labelCls}>{t("timezone", lang)}</label>
-                <select value={schedule.timezone} onChange={(e) => setSchedule(s => ({ ...s, timezone: e.target.value }))} className={inputCls}>
-                  {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                </select>
+                <div className="relative">
+                  <select value={schedule.timezone} onChange={(e) => setSchedule(s => ({ ...s, timezone: e.target.value }))} className={inputCls}>
+                    {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+                </div>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setShowScheduleForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-semibold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
@@ -485,7 +491,7 @@ export function Settings() {
         {/* Telegram */}
         <section>
           <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <Bot size={12} /> {t("telegram", lang).toUpperCase()}
+            <Bot size={15} /> {t("telegram", lang).toUpperCase()}
           </h3>
           {!showTelegramForm ? (
             <Card className="p-4 space-y-3">
@@ -560,7 +566,7 @@ export function Settings() {
 
         <section>
           <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <MessageCircle size={12} /> {t("whatsapp", lang).toUpperCase()}
+            <MessageCircle size={15} /> {t("whatsapp", lang).toUpperCase()}
           </h3>
           {!showWhatsAppForm ? (
             <Card className="p-4 space-y-3">
@@ -639,26 +645,29 @@ export function Settings() {
 
         <section>
           <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <Bell size={12} /> {t("notifications", lang).toUpperCase()}
+            <Bell size={15} /> {t("notifications", lang).toUpperCase()}
           </h3>
           <Card className="p-4 space-y-4">
             <div>
               <label className={labelCls}>{t("primaryChannel", lang)}</label>
-              <select
-                value={notifications.primaryChannel}
-                onChange={(e) =>
-                  setNotifications((current) => ({
-                    ...current,
-                    primaryChannel: e.target.value as NotificationPreferences["primaryChannel"],
-                  }))
-                }
-                className={inputCls}
-              >
-                {telegramConnected && <option value="telegram">{t("telegram", lang)}</option>}
-                {whatsappConnected && <option value="whatsapp">{t("whatsapp", lang)}</option>}
-                <option value="web">{t("webChannel", lang)}</option>
-                <option value="none">{t("noAlerts", lang)}</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={notifications.primaryChannel}
+                  onChange={(e) =>
+                    setNotifications((current) => ({
+                      ...current,
+                      primaryChannel: e.target.value as NotificationPreferences["primaryChannel"],
+                    }))
+                  }
+                  className={inputCls}
+                >
+                  {telegramConnected && <option value="telegram">{t("telegram", lang)}</option>}
+                  {whatsappConnected && <option value="whatsapp">{t("whatsapp", lang)}</option>}
+                  <option value="web">{t("webChannel", lang)}</option>
+                  <option value="none">{t("noAlerts", lang)}</option>
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -727,26 +736,27 @@ export function Settings() {
         {/* Rate Limits */}
         <section>
           <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <BarChart2 size={12} /> {t("rateLimits", lang).toUpperCase()}
+            <BarChart2 size={15} /> {t("rateLimits", lang).toUpperCase()}
+            <Lock size={12} className="ml-auto text-[var(--color-fg-subtle)]" />
           </h3>
           <Card className="p-4 space-y-2">
             {rateLimits ? (
               <>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--color-fg-muted)]">{t("fullReport", lang)}</span>
-                  <span className="text-[var(--color-fg-default)] font-medium">{rateLimits.full_report.maxPerPeriod} {t("perWeek", lang)}</span>
+                  <span className="tabular-nums text-[var(--color-fg-muted)]">{rateLimits.full_report.maxPerPeriod} {t("perWeek", lang)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--color-fg-muted)]">{t("dailyBriefLimit", lang)}</span>
-                  <span className="text-[var(--color-fg-default)] font-medium">{rateLimits.daily_brief.maxPerPeriod} {t("perDay", lang)}</span>
+                  <span className="tabular-nums text-[var(--color-fg-muted)]">{rateLimits.daily_brief.maxPerPeriod} {t("perDay", lang)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--color-fg-muted)]">{t("deepDiveLimit", lang)}</span>
-                  <span className="text-[var(--color-fg-default)] font-medium">{rateLimits.deep_dive.maxPerPeriod} {t("perDay", lang)}</span>
+                  <span className="tabular-nums text-[var(--color-fg-muted)]">{rateLimits.deep_dive.maxPerPeriod} {t("perDay", lang)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--color-fg-muted)]">{t("newIdeasLimit", lang)}</span>
-                  <span className="text-[var(--color-fg-default)] font-medium">{rateLimits.new_ideas.maxPerPeriod} {t("perWeek", lang)}</span>
+                  <span className="tabular-nums text-[var(--color-fg-muted)]">{rateLimits.new_ideas.maxPerPeriod} {t("perWeek", lang)}</span>
                 </div>
               </>
             ) : (

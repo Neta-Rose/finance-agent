@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { fetchStrategy } from "../../api/strategies";
 import { triggerJob } from "../../api/jobs";
@@ -144,6 +144,7 @@ function StrategyContent({ strategy }: { strategy: StrategyRow }) {
 export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProps) {
   const language = usePreferencesStore((s) => s.language);
   const showToast = useToastStore((s) => s.show);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["strategy", ticker],
@@ -155,10 +156,12 @@ export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProp
     if (!ticker) return;
     try {
       await triggerJob("deep_dive", ticker);
+      await queryClient.invalidateQueries({ queryKey: ["balance"] });
       showToast(`${t("jobDeepDiveTitle", language)} — ${ticker} ${t("jobQueued", language)}`, "success");
       onDeepDive?.(ticker);
-    } catch {
-      showToast(t("jobFailed", language), "error");
+    } catch (error) {
+      const apiError = error as { response?: { data?: { reason?: string; error?: string } } };
+      showToast(apiError.response?.data?.reason ?? t("jobFailed", language), "error");
     }
   };
 

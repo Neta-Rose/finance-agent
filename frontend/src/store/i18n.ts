@@ -42,12 +42,14 @@ export type TranslationKey =
   // Portfolio
   | "portfolio" | "errorLoadPortfolio" | "emptyPortfolio" | "addPosition"
   | "colTicker" | "colShares" | "colAvgPrice" | "colLivePrice" | "colValue"
-  | "colPlPct" | "colPl" | "colWeight" | "colVerdict"
+  | "colPlPct" | "colPl" | "colWeight" | "colVerdict" | "colDayPct"
   | "shares" | "avgBuyPrice" | "livePrice" | "currentValue" | "costBasis" | "weight" | "accounts"
   | "priceStale" | "jobsRunning" | "editPosition" | "priceHistory"
   | "saveChanges" | "noChartData"
   // Summary strip
-  | "totalValue" | "totalPL" | "positions" | "usdIls" | "updatedAt"
+  | "totalValue" | "totalPL" | "today" | "positions" | "usdIls" | "updatedAt"
+  // Portfolio empty account
+  | "emptyAccount"
   // Strategies
   | "strategies" | "errorLoadStrategies" | "emptyStrategies" | "noStrategyMatches"
   | "searchTicker" | "filterAll" | "expiredCatalyst" | "strategyTabPortfolio" | "strategyTabNonPortfolio"
@@ -300,12 +302,15 @@ export const translations: Translations = {
     priceHistory: "Price History",
     saveChanges: "Save Changes",
     noChartData: "No chart data available",
+    colDayPct: "Day %",
     // Summary strip
     totalValue: "Total Value",
     totalPL: "Total P/L",
+    today: "Today",
     positions: "Positions",
     usdIls: "USD/ILS",
     updatedAt: "Updated",
+    emptyAccount: "No positions. Use '+ Add Position' above or remove this account.",
     // Strategies
     strategies: "Strategies",
     errorLoadStrategies: "Failed to load strategies",
@@ -336,7 +341,7 @@ export const translations: Translations = {
     jobDailyDesc: "Run today's portfolio brief",
     jobFullTitle: "Full Report",
     jobFullDesc: "Analyze all positions",
-    jobWeeklyTitle: "Weekly report",
+    jobWeeklyTitle: "Weekly Report",
     jobWeeklyDesc: "Full portfolio review with richer weekly context",
     jobWeeklyBlockedReason: "This is visible for roadmap clarity, but weekly report is currently blocked while the full portfolio review is being rebuilt.",
     jobDeepDiveTitle: "Deep Dive",
@@ -718,6 +723,7 @@ export const translations: Translations = {
     colPl: "ר/ה ₪",
     colWeight: "משקל",
     colVerdict: "המלצה",
+    colDayPct: "שינוי %",
     shares: "כמות מניות",
     avgBuyPrice: "מחיר ממוצע",
     livePrice: "מחיר חי",
@@ -734,9 +740,11 @@ export const translations: Translations = {
     // Summary strip
     totalValue: "ערך כולל",
     totalPL: "ר/ה כולל",
+    today: "היום",
     positions: "פוזיציות",
     usdIls: "דולר/שקל",
     updatedAt: "עודכן",
+    emptyAccount: "אין פוזיציות. השתמשו ב'+ הוסף פוזיציה' למעלה, או הסירו את החשבון.",
     // Strategies
     strategies: "אסטרטגיות",
     errorLoadStrategies: "טעינת האסטרטגיות נכשלה",

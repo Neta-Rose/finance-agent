@@ -13,8 +13,6 @@ async function adminFetch(path: string, opts?: RequestInit) {
     headers: { ...adminHeaders(), ...opts?.headers },
   });
   if (res.status === 401) {
-    sessionStorage.removeItem("admin_key");
-    window.location.href = "/admin";
     throw new Error("Unauthorized");
   }
   if (!res.ok) {
@@ -32,21 +30,14 @@ export interface RateLimits {
   quick_check: { maxPerPeriod: number; periodHours: number };
 }
 
-export interface TokenBudgetWindow {
-  maxTokens: number;
-  periodHours: number;
+export interface PointsBudget {
+  dailyBudgetPoints: number;
 }
 
-export interface TokenBudgets {
-  conversation: TokenBudgetWindow;
-  structured: TokenBudgetWindow;
-}
-
-export interface TokenBudgetUsage {
-  maxTokens: number;
-  periodHours: number;
-  tokensUsed: number;
-  tokensRemaining: number;
+export interface PointsBalance {
+  dailyBudgetPoints: number;
+  pointsUsed: number;
+  pointsRemaining: number;
   pctUsed: number;
   exhausted: boolean;
   windowStart: string;
@@ -70,7 +61,7 @@ export interface UserSummary {
   telegramChatId?: string;
   createdAt: string;
   rateLimits: RateLimits;
-  tokenBudgets: TokenBudgets;
+  pointsBudget: PointsBudget;
   schedule: Schedule;
   modelProfile: string;
   agentHealth: AgentHealth;
@@ -110,8 +101,78 @@ export type ProfilesRegistry = Record<string, ProfileDefinition>;
 
 export type { AgentHealth };
 
+const DEFAULT_POINTS_BUDGET_VALUE = 500;
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function roundPoints(value: number): number {
+  return Math.round(value * 1_000) / 1_000;
+}
+
+function normalizePointsBudget(input: unknown): PointsBudget {
+  const budget = input as { dailyBudgetPoints?: unknown } | null | undefined;
+  const dailyBudgetPoints = toFiniteNumber(budget?.dailyBudgetPoints, DEFAULT_POINTS_BUDGET_VALUE);
+  return {
+    dailyBudgetPoints: roundPoints(
+      dailyBudgetPoints > 0 ? dailyBudgetPoints : DEFAULT_POINTS_BUDGET_VALUE
+    ),
+  };
+}
+
+function normalizePointsBalance(input: unknown, budget: PointsBudget): PointsBalance {
+  const balance = input as {
+    dailyBudgetPoints?: unknown;
+    pointsUsed?: unknown;
+    pointsRemaining?: unknown;
+    pctUsed?: unknown;
+    exhausted?: unknown;
+    windowStart?: unknown;
+    windowEnd?: unknown;
+  } | null | undefined;
+  const dailyBudgetPoints = toFiniteNumber(balance?.dailyBudgetPoints, budget.dailyBudgetPoints);
+  const pointsUsed = Math.max(0, roundPoints(toFiniteNumber(balance?.pointsUsed, 0)));
+  const remainingFallback = Math.max(0, roundPoints(dailyBudgetPoints - pointsUsed));
+  const pointsRemaining = Math.max(
+    0,
+    roundPoints(toFiniteNumber(balance?.pointsRemaining, remainingFallback))
+  );
+  const pctUsed = Math.max(
+    0,
+    Math.min(999, Math.round(toFiniteNumber(balance?.pctUsed, dailyBudgetPoints > 0 ? (pointsUsed / dailyBudgetPoints) * 100 : 0)))
+  );
+  const exhausted =
+    typeof balance?.exhausted === "boolean" ? balance.exhausted : pointsRemaining <= 0;
+
+  return {
+    dailyBudgetPoints: roundPoints(dailyBudgetPoints),
+    pointsUsed,
+    pointsRemaining,
+    pctUsed,
+    exhausted,
+    windowStart: typeof balance?.windowStart === "string" ? balance.windowStart : "",
+    windowEnd: typeof balance?.windowEnd === "string" ? balance.windowEnd : "",
+  };
+}
+
+function normalizeUserSummary(user: UserSummary & { tokenBudgets?: unknown }): UserSummary {
+  return {
+    ...user,
+    pointsBudget: normalizePointsBudget(user.pointsBudget),
+  };
+}
+
 export const adminFetchUsers = async (): Promise<{ users: UserSummary[] }> =>
-  adminFetch("/api/admin/users");
+  adminFetch("/api/admin/users").then((payload) => {
+    const users = Array.isArray(payload?.users)
+      ? payload.users.map((user: unknown) =>
+          normalizeUserSummary(user as UserSummary & { tokenBudgets?: unknown })
+        )
+      : [];
+    return { users };
+  });
 
 export interface CreateUserPayload {
   userId: string;
@@ -131,17 +192,10 @@ export const adminDeleteUser = async (userId: string): Promise<void> => {
   await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}`, { method: "DELETE" });
 };
 
-export const adminUpdateLimits = async (userId: string, limits: Partial<RateLimits>): Promise<void> => {
-  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/limits`, {
+export const adminUpdatePointsBudget = async (userId: string, pointsBudget: Partial<PointsBudget>): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/points-budget`, {
     method: "PATCH",
-    body: JSON.stringify(limits),
-  });
-};
-
-export const adminUpdateTokenBudgets = async (userId: string, tokenBudgets: Partial<TokenBudgets>): Promise<void> => {
-  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/token-budgets`, {
-    method: "PATCH",
-    body: JSON.stringify(tokenBudgets),
+    body: JSON.stringify(pointsBudget),
   });
 };
 
@@ -237,11 +291,8 @@ export interface UserObservability {
   recentTotal: number;
   recentLimit: number;
   recentOffset: number;
-  tokenBudgets: TokenBudgets;
-  budgetUsage: {
-    conversation: TokenBudgetUsage;
-    structured: TokenBudgetUsage;
-  };
+  pointsBudget: PointsBudget;
+  pointsBalance: PointsBalance;
 }
 
 export const adminGetUserObservability = async (
@@ -250,7 +301,17 @@ export const adminGetUserObservability = async (
 ): Promise<UserObservability> =>
   adminFetch(
     `/api/admin/observability/users/${encodeURIComponent(userId)}?limit=${options?.limit ?? 20}&offset=${options?.offset ?? 0}`
-  ) as Promise<UserObservability>;
+  ).then((payload) => {
+    const pointsBudget = normalizePointsBudget(payload?.pointsBudget);
+    const pointsBalance = normalizePointsBalance(payload?.pointsBalance, pointsBudget);
+    return {
+      ...(payload as UserObservability),
+      history: Array.isArray(payload?.history) ? payload.history : [],
+      recent: Array.isArray(payload?.recent) ? payload.recent : [],
+      pointsBudget,
+      pointsBalance,
+    };
+  });
 
 // ── Admin control API ─────────────────────────────────────────────────────────
 

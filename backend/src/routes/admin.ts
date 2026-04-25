@@ -26,8 +26,8 @@ import {
   getSystemAgentProfileStatus,
   setSystemAgentProfile,
 } from "../services/profileService.js";
-import type { RateLimits, TokenBudgets } from "../types/index.js";
-import { DEFAULT_TOKEN_BUDGETS } from "../types/index.js";
+import type { PointsBudgetConfig, RateLimits } from "../types/index.js";
+import { DEFAULT_POINTS_BUDGET } from "../types/index.js";
 import type { ProfileDefinition } from "../schemas/profile.js";
 import { eventStore } from "../services/eventStore.js";
 import {
@@ -47,10 +47,10 @@ import { listSupportMessages } from "../services/supportService.js";
 import { getActiveUserEligibility, readState } from "../services/stateService.js";
 import { markDeepDiveJobCancelled } from "../services/deepDiveService.js";
 import {
-  getUserTokenBudgets,
-  setUserTokenBudgets,
-  buildTokenBudgetUsage,
-} from "../services/tokenBudgetService.js";
+  getUserPointsBalanceSnapshot,
+  getUserPointsBudget,
+  setUserPointsBudget,
+} from "../services/pointsBudgetService.js";
 import {
   classifySystemAgentHealth,
   classifyUserAgentHealth,
@@ -84,6 +84,27 @@ function handler(fn: AdminHandler) {
       next(e);
     }
   };
+}
+
+async function patchUserPointsBudget(req: Request, res: Response): Promise<void> {
+  const userId = req.params.userId as string;
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const updates: Partial<PointsBudgetConfig> = {};
+  if (typeof body["dailyBudgetPoints"] !== "undefined") {
+    updates.dailyBudgetPoints = Number(body["dailyBudgetPoints"]);
+  }
+
+  try {
+    const pointsBudget = await setUserPointsBudget(userId, updates);
+    res.json({ userId, pointsBudget });
+  } catch (err) {
+    res.status(404).json({ error: err instanceof Error ? err.message : "User not found" });
+  }
 }
 
 router.get(
@@ -124,9 +145,6 @@ router.get(
           new_ideas: { maxPerPeriod: 2, periodHours: 168 },
           quick_check: { maxPerPeriod: 20, periodHours: 24 },
         };
-        const tokenBudgets: TokenBudgets = {
-          ...DEFAULT_TOKEN_BUDGETS,
-        };
 
         try {
           const profile = JSON.parse(await fs.readFile(profilePath, "utf-8"));
@@ -134,13 +152,14 @@ router.get(
           createdAt = profile.createdAt ?? "";
           if (profile.schedule) Object.assign(schedule, profile.schedule);
           if (profile.rateLimits) Object.assign(rateLimits, profile.rateLimits);
-          if (profile.tokenBudgets?.conversation) {
-            Object.assign(tokenBudgets.conversation, profile.tokenBudgets.conversation);
-          }
-          if (profile.tokenBudgets?.structured) {
-            Object.assign(tokenBudgets.structured, profile.tokenBudgets.structured);
-          }
         } catch { /* no profile */ }
+
+        let pointsBudget: PointsBudgetConfig = { ...DEFAULT_POINTS_BUDGET };
+        try {
+          pointsBudget = await getUserPointsBudget(userId);
+        } catch {
+          pointsBudget = { ...DEFAULT_POINTS_BUDGET };
+        }
 
         let state = "UNKNOWN";
         try {
@@ -183,7 +202,7 @@ router.get(
           createdAt,
           rateLimits,
           schedule,
-          tokenBudgets,
+          pointsBudget,
           modelProfile: profileStatus.name,
           profileBroken: profileStatus.broken,
           profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
@@ -225,7 +244,12 @@ router.post(
       new_ideas: { maxPerPeriod: 2, periodHours: 168 },
       quick_check: { maxPerPeriod: 20, periodHours: 24 },
     };
-    const tokenBudgets = (body.tokenBudgets as TokenBudgets) ?? DEFAULT_TOKEN_BUDGETS;
+    const pointsBudget = {
+      dailyBudgetPoints: Number(
+        (body.pointsBudget as Partial<PointsBudgetConfig> | undefined)?.dailyBudgetPoints ??
+          DEFAULT_POINTS_BUDGET.dailyBudgetPoints
+      ),
+    };
 
     if (!/^[a-zA-Z0-9-]{4,32}$/.test(userId)) {
       res.status(400).json({ error: "userId must be 4-32 alphanumeric or hyphens" });
@@ -251,10 +275,10 @@ router.post(
       telegramChatId: telegramChatId ?? null,
       schedule,
       rateLimits,
-      tokenBudgets,
       createdAt: new Date().toISOString(),
     };
     await fs.writeFile(path.join(ws.root, "profile.json"), JSON.stringify(profile, null, 2), "utf-8");
+    await setUserPointsBudget(userId, pointsBudget);
 
     try {
       if (botToken && telegramChatId) {
@@ -351,20 +375,16 @@ router.patch(
   })
 );
 
-// PATCH /api/admin/users/:userId/token-budgets
+// PATCH /api/admin/users/:userId/points-budget
+router.patch(
+  "/users/:userId/points-budget",
+  handler(patchUserPointsBudget)
+);
+
+// Legacy compatibility during mixed frontend/backend deploy states.
 router.patch(
   "/users/:userId/token-budgets",
-  handler(async (req, res) => {
-    const userId = req.params.userId as string;
-    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
-    const updates = req.body as Partial<TokenBudgets>;
-    try {
-      const tokenBudgets = await setUserTokenBudgets(userId, updates);
-      res.json({ userId, tokenBudgets });
-    } catch (err) {
-      res.status(404).json({ error: err instanceof Error ? err.message : "User not found" });
-    }
-  })
+  handler(patchUserPointsBudget)
 );
 
 // POST /api/admin/users/:userId/telegram
@@ -572,28 +592,10 @@ router.get(
     const limit = Math.min(Math.max(Number(req.query["limit"] ?? 20), 1), 100);
     const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
     const now = new Date();
-    const tokenBudgets = await getUserTokenBudgets(userId);
-    const conversationSinceIso = new Date(
-      now.getTime() - tokenBudgets.conversation.periodHours * 3600 * 1000
-    ).toISOString();
-    const structuredSinceIso = new Date(
-      now.getTime() - tokenBudgets.structured.periodHours * 3600 * 1000
-    ).toISOString();
+    const pointsBudget = await getUserPointsBudget(userId);
     const [history, recentPage] = await Promise.all([
       eventStore.getUserDailyHistory(userId, 7),
       eventStore.getRecentActivityPage(userId, limit, offset),
-    ]);
-    const [conversationUsageSummary, structuredUsageSummary] = await Promise.all([
-      eventStore.getTokenUsageSummary({
-        userId,
-        sinceIso: conversationSinceIso,
-        sourceClasses: ["direct_chat"],
-      }),
-      eventStore.getTokenUsageSummary({
-        userId,
-        sinceIso: structuredSinceIso,
-        sourceClasses: ["backend_job", "telegram_command", "dashboard_action"],
-      }),
     ]);
     const today = new Date().toISOString().slice(0, 10);
     const todaySummary =
@@ -610,6 +612,7 @@ router.get(
         rejectedCount: 0,
         unattributedCount: 0,
       };
+    const balance = await getUserPointsBalanceSnapshot(userId, now);
     res.json({
       userId,
       todaySummary,
@@ -618,19 +621,8 @@ router.get(
       recentTotal: recentPage.total,
       recentLimit: recentPage.limit,
       recentOffset: recentPage.offset,
-      tokenBudgets,
-      budgetUsage: {
-        conversation: buildTokenBudgetUsage(
-          tokenBudgets.conversation,
-          conversationUsageSummary.totalTokensIn + conversationUsageSummary.totalTokensOut,
-          now
-        ),
-        structured: buildTokenBudgetUsage(
-          tokenBudgets.structured,
-          structuredUsageSummary.totalTokensIn + structuredUsageSummary.totalTokensOut,
-          now
-        ),
-      },
+      pointsBudget,
+      pointsBalance: balance,
     });
   })
 );

@@ -14,6 +14,8 @@ import { initializeFullReportJob } from "./fullReportService.js";
 import { runNewIdeasJob } from "./newIdeasService.js";
 import { dispatchPendingAgentJobsForUser } from "./agentJobDispatcher.js";
 import { buildStrategyMetadata } from "./strategyBaselineService.js";
+import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
+import { requiresBudgetAdmission } from "./jobAdmissionService.js";
 
 const FUTURE_FEATURE_ACTIONS = new Set<JobAction>(["full_report", "new_ideas"]);
 
@@ -27,6 +29,17 @@ export interface TriggerUserJobParams {
 export interface TriggerUserJobResult {
   statusCode: number;
   body: Record<string, unknown>;
+}
+
+async function pauseJobForBudgetExhaustion(
+  ws: UserWorkspace,
+  job: Job,
+  reason: string
+): Promise<Job> {
+  return updateJob(ws, job.id, {
+    status: "paused",
+    error: reason.slice(0, 490),
+  });
 }
 
 function futureFeatureMessage(action: "full_report" | "new_ideas"): string {
@@ -144,7 +157,7 @@ async function findActiveDuplicateJob(
   return (
     jobs.find((job) => {
       if (job.action !== action) return false;
-      if (job.status !== "pending" && job.status !== "running") return false;
+      if (job.status !== "pending" && job.status !== "paused" && job.status !== "running") return false;
       if (action === "deep_dive" || action === "quick_check") {
         return job.ticker === (ticker ?? null);
       }
@@ -270,6 +283,26 @@ export async function triggerUserJob(
   }
 
   const job = await createJob(ws, action, ticker, { dispatch: false, source });
+  const budgetGate = await ensurePointsBudgetAvailable(ws.userId);
+  if (!budgetGate.allowed) {
+    const paused = await pauseJobForBudgetExhaustion(ws, job, budgetGate.reason);
+    return {
+      statusCode: 202,
+      body: {
+        error: "points_budget_exhausted",
+        reason: budgetGate.reason,
+        balance: budgetGate.balance.pointsRemaining,
+        paused: true,
+        jobId: paused.id,
+        job: paused,
+      },
+    };
+  }
+  if (requiresBudgetAdmission(job)) {
+    await updateJob(ws, job.id, {
+      budget_admitted_at: new Date().toISOString(),
+    });
+  }
 
   if (action === "quick_check" && ticker) {
     const completed = await runQuickCheckJob(ws, ticker, job);

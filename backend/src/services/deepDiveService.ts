@@ -7,6 +7,8 @@ import { readState, writeState } from "./stateService.js";
 import { updateJob } from "./jobService.js";
 import { logger } from "./logger.js";
 import { publishNotification } from "./notificationService.js";
+import { eventStore } from "./eventStore.js";
+import { syncStateToBaselineCoverage } from "./baselineCoverageService.js";
 
 export const DEEP_DIVE_STEPS = [
   {
@@ -69,7 +71,7 @@ export interface DeepDiveState {
   version: 1;
   ticker: string;
   jobId: string;
-  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  status: "pending" | "paused" | "running" | "completed" | "failed" | "cancelled";
   triggeredAt: string;
   startedAt: string;
   dispatchedAt: string | null;
@@ -101,8 +103,6 @@ interface StrategySnapshot {
   timeframe: string;
 }
 
-const OPENCLAW_AGENT_ROOT = process.env["OPENCLAW_AGENTS_DIR"] ?? "/root/.openclaw/agents";
-
 function deepDiveStatePath(ws: UserWorkspace, ticker: string): string {
   return path.join(ws.reportsDir, ticker, "deep_dive_state.json");
 }
@@ -114,46 +114,6 @@ async function readJsonIfExists<T>(filePath: string): Promise<T | null> {
   } catch {
     return null;
   }
-}
-
-async function findDeepDiveSessionFailureSignal(
-  userId: string,
-  jobId: string
-): Promise<"analyst_budget_exceeded" | "rate_limit" | null> {
-  const sessionsDir = path.join(OPENCLAW_AGENT_ROOT, userId, "sessions");
-  let sessionFiles: Array<{ name: string; mtimeMs: number }> = [];
-  try {
-    const entries = await fs.readdir(sessionsDir, { withFileTypes: true });
-    const candidates = await Promise.all(
-      entries
-        .filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"))
-        .map(async (entry) => {
-          const fullPath = path.join(sessionsDir, entry.name);
-          const stat = await fs.stat(fullPath);
-          return { name: fullPath, mtimeMs: stat.mtimeMs };
-        })
-    );
-    sessionFiles = candidates.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 6);
-  } catch {
-    return null;
-  }
-
-  for (const session of sessionFiles) {
-    try {
-      const raw = await fs.readFile(session.name, "utf-8");
-      if (!raw.includes(jobId)) continue;
-      if (raw.includes("analyst_budget_exceeded")) {
-        return "analyst_budget_exceeded";
-      }
-      if (raw.includes("rate_limit") || raw.includes('429 "rate_limit"')) {
-        return "rate_limit";
-      }
-    } catch {
-      // ignore unreadable sessions
-    }
-  }
-
-  return null;
 }
 
 async function appendDeepDiveBatch(
@@ -337,6 +297,9 @@ function deriveDeepDiveStatus(job: Job, scan: StepScanResult): DeepDiveState["st
   if (job.status === "cancelled") {
     return "cancelled";
   }
+  if (job.status === "paused") {
+    return "paused";
+  }
   if (job.status === "failed") {
     return "failed";
   }
@@ -396,7 +359,7 @@ async function buildDeepDiveState(ws: UserWorkspace, job: Job): Promise<DeepDive
     strategyReady: scan.strategyReady,
     lastProgressAt: scan.lastProgressAt,
     failureReason:
-      status === "failed" || status === "cancelled"
+      status === "failed" || status === "cancelled" || status === "paused"
         ? job.error ?? null
         : null,
     steps: decorateStepsForStatus(scan.steps, status),
@@ -586,6 +549,11 @@ export async function reconcileDeepDiveJob(
   });
 
   await syncPendingDeepDiveState(ws, job.ticker, true);
+  try {
+    await syncStateToBaselineCoverage(ws);
+  } catch (err) {
+    logger.warn(`Deep dive completed but baseline state sync failed for ${ws.userId}/${job.ticker}: ${String(err)}`);
+  }
   await appendDeepDiveBatch(ws, completedJob, job.ticker, strategy);
   return completedJob;
 }
@@ -672,6 +640,38 @@ export async function markDeepDiveJobCancelled(
   });
 }
 
+export async function markDeepDiveJobPaused(
+  ws: UserWorkspace,
+  job: Job,
+  reason: string
+): Promise<Job> {
+  if (job.action !== "deep_dive" || !job.ticker) {
+    return updateJob(ws, job.id, {
+      status: "paused",
+      error: reason.slice(0, 490),
+    });
+  }
+
+  const state = await buildDeepDiveState(ws, {
+    ...job,
+    status: "paused",
+    error: reason,
+  });
+  await writeDeepDiveState(ws, job.ticker, state);
+  await syncPendingDeepDiveState(ws, job.ticker, false);
+
+  try {
+    await fs.unlink(path.join(ws.triggersDir, `${job.id}.json`));
+  } catch {
+    // trigger may already be gone
+  }
+
+  return updateJob(ws, job.id, {
+    status: "paused",
+    error: reason.slice(0, 490),
+  });
+}
+
 export async function detectDeepDiveExecutionFailureSignal(
   userId: string,
   job: Job
@@ -680,11 +680,15 @@ export async function detectDeepDiveExecutionFailureSignal(
     return null;
   }
 
-  const signal = await findDeepDiveSessionFailureSignal(userId, job.id);
-  if (signal === "analyst_budget_exceeded") {
-    return "Failed before any deep-dive artifact was written — analyst_budget_exceeded";
+  const rejection = await eventStore.getLatestJobRejection({
+    userId,
+    jobId: job.id,
+    sinceIso: job.started_at,
+  });
+  if (rejection?.rejectionReason === "points_budget_exhausted") {
+    return "Deep dive paused because the daily points budget was exhausted";
   }
-  if (signal === "rate_limit") {
+  if (rejection?.rejectionReason === "rate_limit") {
     return "Failed before any deep-dive artifact was written — rate_limit";
   }
   return null;

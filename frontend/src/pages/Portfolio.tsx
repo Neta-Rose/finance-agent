@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, FolderPlus, Layers3 } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers3 } from "lucide-react";
 import {
   fetchPortfolio,
   fetchVerdicts,
@@ -206,17 +206,9 @@ export function Portfolio() {
     return set;
   }, [verdictsData]);
 
-  const { winners, losers } = useMemo(() => {
-    if (!portfolio) return { winners: 0, losers: 0 };
-    return {
-      winners: portfolio.positions.filter((position) => position.plPct > 0).length,
-      losers: portfolio.positions.filter((position) => position.plPct < 0).length,
-    };
-  }, [portfolio]);
-
   const activeJobs = useMemo(() => {
     if (!jobsData?.jobs) return [];
-    return jobsData.jobs.filter((job) => job.status === "pending" || job.status === "running");
+    return jobsData.jobs.filter((job) => job.status === "pending" || job.status === "paused" || job.status === "running");
   }, [jobsData]);
 
   const activeTickerChecks = useMemo(() => {
@@ -254,6 +246,12 @@ export function Portfolio() {
     const exchangeByTicker = new Map(
       portfolio.positions.map((position) => [position.ticker, position.exchange])
     );
+    const dayChangePctByTicker = new Map(
+      portfolio.positions.map((position) => [position.ticker, position.dayChangePct ?? 0])
+    );
+    const dayChangeILSByTicker = new Map(
+      portfolio.positions.map((position) => [position.ticker, position.dayChangeILS ?? 0])
+    );
 
     const accountMap = new Map<string, AccountSummary>();
     for (const position of portfolio.positions) {
@@ -285,6 +283,8 @@ export function Portfolio() {
           costILS,
           plILS,
           plPct,
+          dayChangeILS: Math.round((dayChangeILSByTicker.get(position.ticker) ?? 0) * breakdown.shares * 100) / 100,
+          dayChangePct: dayChangePctByTicker.get(position.ticker) ?? 0,
           weightPct: 0,
           priceStale: staleByTicker.get(position.ticker) ?? position.priceStale,
         });
@@ -367,7 +367,6 @@ export function Portfolio() {
       queryClient.invalidateQueries({ queryKey: ["jobs"] }),
       queryClient.invalidateQueries({ queryKey: ["verdicts"] }),
     ]);
-    refetch();
   };
 
   const handleCreateAccount = async (name: string) => {
@@ -423,6 +422,7 @@ export function Portfolio() {
     try {
       await triggerJob("quick_check", ticker);
       showToast(`Quick check queued for ${ticker}`, "success");
+      await queryClient.invalidateQueries({ queryKey: ["balance"] });
       await refreshPortfolio();
     } catch (error) {
       const apiError = error as { response?: { data?: { error?: string; reason?: string } } };
@@ -468,15 +468,6 @@ export function Portfolio() {
         greeting={getGreeting(onboardStatus?.displayName, language)}
         onRefresh={refetch}
         refreshing={isFetching}
-        right={(
-          <button
-            onClick={() => setAccountManagerOpen(true)}
-            className="p-2 rounded-lg text-[var(--color-fg-muted)] active:bg-[var(--color-bg-muted)]"
-            title="Manage accounts"
-          >
-            <FolderPlus size={16} />
-          </button>
-        )}
       />
 
       {activeJobs.length > 0 && (
@@ -498,9 +489,8 @@ export function Portfolio() {
         totalILS={portfolio.totalILS ?? 0}
         totalPlILS={portfolio.totalPlILS ?? 0}
         totalPlPct={portfolio.totalPlPct ?? 0}
-        positionCount={portfolio.positions.length}
-        winners={winners}
-        losers={losers}
+        totalDayChangeILS={portfolio.totalDayChangeILS ?? 0}
+        totalDayChangePct={portfolio.totalDayChangePct ?? 0}
         usdIlsRate={portfolio.usdIlsRate ?? 0}
         updatedAt={portfolio.updatedAt}
       />
@@ -539,43 +529,13 @@ export function Portfolio() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="hidden sm:grid grid-cols-3 gap-2">
-                      <div className="rounded-xl bg-[var(--color-bg-subtle)]/70 px-3 py-2 min-w-[92px]">
-                        <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase tracking-wider">Value</p>
-                        <p className="text-sm font-semibold text-[var(--color-fg-default)]">{formatILS(account.totalILS)}</p>
-                      </div>
-                      <div className="rounded-xl bg-[var(--color-bg-subtle)]/70 px-3 py-2 min-w-[92px]">
-                        <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase tracking-wider">P/L</p>
-                        <p className={`text-sm font-semibold ${account.totalPlILS >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
-                          {formatILS(account.totalPlILS)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-[var(--color-bg-subtle)]/70 px-3 py-2 min-w-[92px]">
-                        <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase tracking-wider">P/L %</p>
-                        <p className={`text-sm font-semibold ${account.totalPlPct >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
-                          {account.totalPlPct.toFixed(2)}%
-                        </p>
-                      </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{formatILS(account.totalILS)}</p>
+                      <p className={`text-xs tabular-nums ${account.totalPlPct >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
+                        {account.totalPlPct >= 0 ? "+" : ""}{account.totalPlPct.toFixed(2)}%
+                      </p>
                     </div>
                     {expanded ? <ChevronUp size={18} className="text-[var(--color-fg-muted)]" /> : <ChevronDown size={18} className="text-[var(--color-fg-muted)]" />}
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 mt-4 sm:hidden">
-                  <div className="rounded-xl bg-[var(--color-bg-subtle)]/70 px-3 py-2">
-                    <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase tracking-wider">Value</p>
-                    <p className="text-sm font-semibold text-[var(--color-fg-default)]">{formatILS(account.totalILS)}</p>
-                  </div>
-                  <div className="rounded-xl bg-[var(--color-bg-subtle)]/70 px-3 py-2">
-                    <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase tracking-wider">P/L</p>
-                    <p className={`text-sm font-semibold ${account.totalPlILS >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
-                      {formatILS(account.totalPlILS)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-[var(--color-bg-subtle)]/70 px-3 py-2">
-                    <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase tracking-wider">P/L %</p>
-                    <p className={`text-sm font-semibold ${account.totalPlPct >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
-                      {account.totalPlPct.toFixed(2)}%
-                    </p>
                   </div>
                 </div>
               </button>
@@ -583,7 +543,7 @@ export function Portfolio() {
               {expanded && (
                 account.positions.length === 0 ? (
                   <div className="px-4 py-5 text-sm text-[var(--color-fg-subtle)]">
-                    Empty account. Add positions from the main action above or remove the account.
+                    {t("emptyAccount", language)}
                   </div>
                 ) : (
                   <>
@@ -606,7 +566,7 @@ export function Portfolio() {
                       <table className="w-full">
                         <thead>
                           <tr className="border-b border-[var(--color-border)]">
-                            {[t("colTicker", language), t("colShares", language), t("colAvgPrice", language), t("colLivePrice", language), t("colValue", language), t("colPlPct", language), t("colPl", language), t("colWeight", language), t("colVerdict", language)].map((header) => (
+                            {[t("colTicker", language), t("colLivePrice", language), t("colDayPct", language), t("colValue", language), t("colPlPct", language), t("colPl", language), t("colWeight", language), t("colVerdict", language)].map((header) => (
                               <th key={`${account.name}:${header}`} className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase">
                                 {header}
                               </th>
@@ -683,7 +643,7 @@ export function Portfolio() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[var(--color-border)]">
-                    {[t("colTicker", language), t("colShares", language), t("colAvgPrice", language), t("colLivePrice", language), t("colValue", language), t("colPlPct", language), t("colPl", language), t("colWeight", language), t("colVerdict", language)].map((header) => (
+                    {[t("colTicker", language), t("colLivePrice", language), t("colDayPct", language), t("colValue", language), t("colPlPct", language), t("colPl", language), t("colWeight", language), t("colVerdict", language)].map((header) => (
                       <th key={header} className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase">
                         {header}
                       </th>

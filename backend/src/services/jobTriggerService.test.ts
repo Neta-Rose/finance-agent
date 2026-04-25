@@ -52,6 +52,7 @@ async function setupUser(userId: string, rateLimits?: unknown) {
         displayName: userId,
         createdAt: new Date().toISOString(),
         rateLimits,
+        pointsBudget: { dailyBudgetPoints: 500 },
       },
       null,
       2
@@ -128,4 +129,51 @@ test("dashboard action returns existing duplicate running deep dive", async () =
 
   assert.equal(result.statusCode, 200);
   assert.equal(result.body["jobId"], existingJob.id);
+});
+
+test("dashboard action returns existing duplicate paused deep dive", async () => {
+  const ws = await setupUser("paused-user");
+
+  const existingJob = {
+    id: "job_paused",
+    action: "deep_dive",
+    ticker: "ONDS",
+    source: "dashboard_action",
+    status: "paused",
+    triggered_at: new Date().toISOString(),
+    started_at: null,
+    completed_at: null,
+    result: null,
+    error: "Needs more balance to start",
+  };
+  await fs.writeFile(ws.jobFile(existingJob.id), JSON.stringify(existingJob, null, 2), "utf-8");
+
+  const result = await triggerUserJob({
+    workspace: ws,
+    action: "deep_dive",
+    ticker: "ONDS",
+    source: "dashboard_action",
+  });
+
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body["jobId"], existingJob.id);
+});
+
+test("deep dive jobs are stamped as budget-admitted after passing start-gate checks", async () => {
+  const ws = await setupUser("budget-admission");
+
+  const result = await triggerUserJob({
+    workspace: ws,
+    action: "deep_dive",
+    ticker: "TSM",
+    source: "dashboard_action",
+  });
+
+  assert.equal(result.statusCode, 201);
+  const raw = JSON.parse(await fs.readFile(ws.jobFile(result.body["jobId"] as string), "utf-8")) as {
+    budget_admitted_at?: string | null;
+    action: string;
+  };
+  assert.equal(raw.action, "deep_dive");
+  assert.match(raw.budget_admitted_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
 });

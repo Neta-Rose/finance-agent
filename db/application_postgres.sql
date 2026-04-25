@@ -32,3 +32,13 @@ CREATE INDEX IF NOT EXISTS idx_llm_requests_user_purpose_ticker_analyst_occurred
 
 CREATE INDEX IF NOT EXISTS idx_llm_requests_user_job_occurred_at
   ON llm_requests (user_id, job_id, occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS user_points_budgets (
+  user_id VARCHAR(128) PRIMARY KEY,
+  daily_budget_points NUMERIC(18, 6) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_points_budgets_updated_at
+  ON user_points_budgets (updated_at DESC);

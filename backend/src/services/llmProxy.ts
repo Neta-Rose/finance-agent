@@ -291,39 +291,3 @@ export function shouldAllowProxyRequest(
   }
   return true;
 }
-
-// ── Model cost table (USD per 1M tokens) ─────────────────────────────────────
-
-const MODEL_COSTS: Record<string, { in: number; out: number }> = {
-  "deepseek/deepseek-v3":                    { in: 0.27,  out: 1.10  },
-  "deepseek/deepseek-r1":                    { in: 0.55,  out: 2.19  },
-  "deepseek/deepseek-chat":                  { in: 0.14,  out: 0.28  },
-  "google/gemini-2.5-flash-lite":            { in: 0.10,  out: 0.40  },
-  "google/gemini-2.5-flash":                { in: 0.25,  out: 1.00  },
-  "google/gemini-flash-1.5":                { in: 0.075, out: 0.30  },
-  "meta-llama/llama-3.3-70b-instruct:free": { in: 0,     out: 0     },
-  "google/gemma-3-27b-it:free":             { in: 0,     out: 0     },
-  "qwen/qwen3.6-plus":                      { in: 0.50,  out: 1.50  },
-  "minimax/minimax-01":                      { in: 0.20,  out: 1.10  },
-  "anthropic/claude-opus-4":                { in: 15,    out: 75    },
-  "anthropic/claude-sonnet-4":             { in: 3,     out: 15    },
-};
-
-export function estimateCost(
-  model: string,
-  tokensIn: number,
-  tokensOut: number
-): number {
-  // MODEL_COSTS keys are bare "vendor/model" without provider prefix.
-  // Try direct lookup first (handles correctly-stripped keys from OpenClaw routing).
-  // Fall back to stripping a leading "openrouter/" prefix (defensive, in case some
-  // path sends the full model string).
-  const key = MODEL_COSTS[model]
-    ? model
-    : model.startsWith("openrouter/")
-    ? model.slice("openrouter/".length)
-    : model;
-  const p = MODEL_COSTS[key];
-  if (!p) return 0;
-  return (tokensIn / 1_000_000) * p.in + (tokensOut / 1_000_000) * p.out;
-}

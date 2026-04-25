@@ -17,6 +17,8 @@ export interface PriceResult {
   exchange: Exchange;
   priceILS: number;
   priceNative: number;
+  dayChangeNative: number;
+  dayChangePct: number;
   currency: string;
   source: string;
   fetchedAt: string;
@@ -72,16 +74,22 @@ async function getPriceFromYF(
     throw new PriceFetchError(ticker, `No price data for ${yfTicker}`);
   }
 
+  const rawChange = (quote["regularMarketChange"] as number | null | undefined) ?? 0;
+  const rawChangePct = (quote["regularMarketChangePercent"] as number | null | undefined) ?? 0;
+
   let priceNative: number;
   let priceILS: number;
+  let dayChangeNative: number;
   const currency = exchange === "TASE" ? "ILS" : "USD";
 
   if (exchange === "TASE") {
     priceNative = rawPrice / 100; // Yahoo returns agorot → ILS
     priceILS = priceNative;
+    dayChangeNative = rawChange / 100; // agorot → ILS
   } else {
     priceNative = rawPrice;
     priceILS = rawPrice * usdIlsRate;
+    dayChangeNative = rawChange;
   }
 
   return {
@@ -89,6 +97,8 @@ async function getPriceFromYF(
     exchange,
     priceILS,
     priceNative,
+    dayChangeNative,
+    dayChangePct: rawChangePct,
     currency,
     source: "yahoo_finance",
     fetchedAt: new Date().toISOString(),
@@ -123,6 +133,8 @@ export async function getPrice(
       exchange,
       priceILS: 0,
       priceNative: 0,
+      dayChangeNative: 0,
+      dayChangePct: 0,
       currency: exchange === "TASE" ? "ILS" : "USD",
       source: "yahoo_finance",
       fetchedAt: new Date().toISOString(),

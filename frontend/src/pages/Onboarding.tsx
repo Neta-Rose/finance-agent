@@ -53,6 +53,13 @@ const TIMEZONES = [
   { value: "Australia/Sydney", label: "Australia/Sydney (UTC+11)" },
 ];
 
+const GUIDANCE_LIMITS = {
+  thesis: 400,
+  addOn: 300,
+  reduceOn: 300,
+  notes: 600,
+} as const;
+
 interface Account {
   id: string;
   name: string;
@@ -704,10 +711,14 @@ function GuidanceCard({
         <textarea
           value={guidance.thesis}
           onChange={(e) => updateGuidance(ticker, { thesis: e.target.value })}
+          maxLength={GUIDANCE_LIMITS.thesis}
           rows={3}
           className={inputCls}
           placeholder={t("onboardGuidanceThesisPlaceholder", language)}
         />
+        <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">
+          {guidance.thesis.length}/{GUIDANCE_LIMITS.thesis}
+        </p>
       </div>
       <div>
         <label className={labelCls}>{t("onboardGuidanceHorizon", language)}</label>
@@ -728,30 +739,42 @@ function GuidanceCard({
         <textarea
           value={guidance.addOn}
           onChange={(e) => updateGuidance(ticker, { addOn: e.target.value })}
+          maxLength={GUIDANCE_LIMITS.addOn}
           rows={2}
           className={inputCls}
           placeholder={t("onboardGuidanceAddPlaceholder", language)}
         />
+        <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">
+          {guidance.addOn.length}/{GUIDANCE_LIMITS.addOn}
+        </p>
       </div>
       <div>
         <label className={labelCls}>{t("onboardGuidanceReduce", language)}</label>
         <textarea
           value={guidance.reduceOn}
           onChange={(e) => updateGuidance(ticker, { reduceOn: e.target.value })}
+          maxLength={GUIDANCE_LIMITS.reduceOn}
           rows={2}
           className={inputCls}
           placeholder={t("onboardGuidanceReducePlaceholder", language)}
         />
+        <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">
+          {guidance.reduceOn.length}/{GUIDANCE_LIMITS.reduceOn}
+        </p>
       </div>
       <div>
         <label className={labelCls}>{t("onboardGuidanceNotes", language)}</label>
         <textarea
           value={guidance.notes}
           onChange={(e) => updateGuidance(ticker, { notes: e.target.value })}
+          maxLength={GUIDANCE_LIMITS.notes}
           rows={3}
           className={inputCls}
           placeholder={t("onboardGuidanceNotesPlaceholder", language)}
         />
+        <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">
+          {guidance.notes.length}/{GUIDANCE_LIMITS.notes}
+        </p>
       </div>
     </div>
   );
@@ -874,7 +897,31 @@ export function Onboarding() {
       )
     );
 
+  const validateGuidancePayload = (): string | null => {
+    for (const [ticker, guidance] of Object.entries(state.positionGuidance)) {
+      if (guidance.thesis.length > GUIDANCE_LIMITS.thesis) {
+        return `${ticker}: thesis is too long`;
+      }
+      if (guidance.addOn.length > GUIDANCE_LIMITS.addOn) {
+        return `${ticker}: add conditions are too long`;
+      }
+      if (guidance.reduceOn.length > GUIDANCE_LIMITS.reduceOn) {
+        return `${ticker}: reduce conditions are too long`;
+      }
+      if (guidance.notes.length > GUIDANCE_LIMITS.notes) {
+        return `${ticker}: notes are too long`;
+      }
+    }
+    return null;
+  };
+
   const completeGuidanceAndLaunch = async (skip: boolean) => {
+    const guidanceError = skip ? null : validateGuidancePayload();
+    if (guidanceError) {
+      showToast(guidanceError, "error");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await completePositionGuidance({
@@ -882,8 +929,24 @@ export function Onboarding() {
         guidance: skip ? {} : buildGuidancePayload(),
       });
       navigate("/portfolio", { replace: true });
-    } catch {
-      showToast(t("onboardSetupFailed", language), "error");
+    } catch (error) {
+      const maybeAxiosError = error as {
+        response?: {
+          data?: {
+            error?: string;
+            details?: Array<{ path?: Array<string | number>; message?: string }>;
+          };
+        };
+      };
+      const detail = maybeAxiosError.response?.data?.details?.[0];
+      const detailMessage =
+        detail?.message && Array.isArray(detail.path) && detail.path.length > 0
+          ? `${detail.path.join(".")}: ${detail.message}`
+          : detail?.message;
+      showToast(
+        detailMessage || maybeAxiosError.response?.data?.error || t("onboardSetupFailed", language),
+        "error"
+      );
       setSubmitting(false);
     }
   };

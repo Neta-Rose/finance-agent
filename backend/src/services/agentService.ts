@@ -217,7 +217,7 @@ function buildTriggerOnlyCronMessage(userId: string): string {
     `You have pending backend-owned work. Check ${triggersPath}/ for .json trigger files. ` +
     `For each trigger: read it, update jobs/[job_id].json status→running if needed, delete the trigger, ` +
     `and execute only the requested action. ` +
-    `If execution hits analyst_budget_exceeded, budget exhaustion, or repeated provider/rate-limit failure before any report artifact is written, update the matching jobs/[job_id].json status→failed with a short error that includes analyst_budget_exceeded or rate_limit, then stop processing that trigger. ` +
+    `If execution hits points_budget_exhausted, budget exhaustion, or repeated provider/rate-limit failure before any report artifact is written, update the matching jobs/[job_id].json status→paused with a short error that includes points_budget_exhausted or rate_limit, then stop processing that trigger. ` +
     `Do not start scheduled portfolio tasks on your own. ` +
     `Do not run daily briefs, weekly reviews, or exploratory analysis unless a trigger explicitly asks for it. ` +
     `If no triggers are pending, reply exactly HEARTBEAT_OK and stop. ` +
