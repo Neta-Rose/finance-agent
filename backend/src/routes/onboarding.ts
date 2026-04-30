@@ -25,7 +25,7 @@ import {
   saveUserPortfolio,
   startUserBootstrap,
 } from "../services/workspaceService.js";
-import { createJob } from "../services/jobService.js";
+import { createJob, updateJob } from "../services/jobService.js";
 import { hasPendingAgentManagedWork } from "../services/jobService.js";
 import { initializeFullReportJob } from "../services/fullReportService.js";
 import {
@@ -51,8 +51,43 @@ import {
   disconnectUserWhatsAppChannel,
   getUserChannelConnectivity,
 } from "../services/channelService.js";
+import { logger } from "../services/logger.js";
 
 const router = Router();
+
+function kickoffBootstrapLaunch(ws: UserWorkspace, fullReportJob: Awaited<ReturnType<typeof createJob>>): void {
+  setImmediate(() => {
+    void (async () => {
+      try {
+        const initializedJob = await initializeFullReportJob(ws, fullReportJob);
+        const agentStatus = await getUserAgentStatus(ws.userId);
+        await reconcileUserHeartbeatCron(
+          ws.userId,
+          agentStatus.configured && shouldUserHeartbeatBeEnabled({
+            state: "BOOTSTRAPPING",
+            restriction: null,
+            eligibilityIssue: null,
+            hasAgentManagedWork: initializedJob.status !== "completed",
+          })
+        );
+        if (initializedJob.status === "running") {
+          await dispatchPendingAgentJobsForUser(ws.userId);
+        }
+      } catch (err) {
+        logger.error(`Onboarding launch kickoff failed for ${ws.userId}: ${String(err)}`);
+        try {
+          await updateJob(ws, fullReportJob.id, {
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error: "Bootstrap kickoff failed before analysis dispatch",
+          });
+        } catch (updateErr) {
+          logger.error(`Failed to mark bootstrap job ${fullReportJob.id} failed for ${ws.userId}: ${String(updateErr)}`);
+        }
+      }
+    })();
+  });
+}
 
 type AsyncHandler = (
   req: AuthenticatedRequest,
@@ -279,27 +314,17 @@ router.post(
     });
 
     await startUserBootstrap(ws.userId);
-    const job = await createJob(ws, "full_report", undefined, { dispatch: false });
-    const initializedJob = await initializeFullReportJob(ws, job);
-    const agentStatus = await getUserAgentStatus(ws.userId);
-    await reconcileUserHeartbeatCron(
-      ws.userId,
-      agentStatus.configured && shouldUserHeartbeatBeEnabled({
-        state: "BOOTSTRAPPING",
-        restriction: null,
-        eligibilityIssue: null,
-        hasAgentManagedWork: initializedJob.status !== "completed",
-      })
-    );
-    if (initializedJob.status === "running") {
-      await dispatchPendingAgentJobsForUser(ws.userId);
-    }
+    const job = await createJob(ws, "full_report", undefined, {
+      dispatch: false,
+      source: "dashboard_action",
+    });
+    kickoffBootstrapLaunch(ws, job);
 
     res.status(200).json({
       state: "BOOTSTRAPPING",
-      jobId: initializedJob.id,
+      jobId: job.id,
       guidanceStepPending: false,
-      message: "Full report queued. Analysis will begin shortly.",
+      message: "Account launched. Analysis will begin shortly.",
     });
   })
 );

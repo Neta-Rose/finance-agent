@@ -17,7 +17,7 @@ import { buildStrategyMetadata } from "./strategyBaselineService.js";
 import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
 import { requiresBudgetAdmission } from "./jobAdmissionService.js";
 
-const FUTURE_FEATURE_ACTIONS = new Set<JobAction>(["full_report", "new_ideas"]);
+const FUTURE_FEATURE_ACTIONS = new Set<JobAction>(["new_ideas"]);
 
 export interface TriggerUserJobParams {
   workspace: UserWorkspace;
@@ -42,10 +42,7 @@ async function pauseJobForBudgetExhaustion(
   });
 }
 
-function futureFeatureMessage(action: "full_report" | "new_ideas"): string {
-  if (action === "full_report") {
-    return "Weekly report is still being rebuilt. It stays visible for roadmap clarity, but triggering it is currently blocked.";
-  }
+function futureFeatureMessage(): string {
   return "New ideas is visible as a future feature, but triggering it is currently blocked.";
 }
 
@@ -184,7 +181,7 @@ export async function triggerUserJob(
       statusCode: 409,
       body: {
         error: "feature_blocked",
-        reason: futureFeatureMessage(action as "full_report" | "new_ideas"),
+        reason: futureFeatureMessage(),
       },
     };
   }

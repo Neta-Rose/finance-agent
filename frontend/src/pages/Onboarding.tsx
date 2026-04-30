@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { TickerSearch } from "../components/ui/TickerSearch";
 import type { TickerSelection } from "../types/api";
 import { useNavigate } from "react-router-dom";
@@ -845,6 +846,7 @@ export function Onboarding() {
   const showToast = useToastStore((s) => s.show);
   const language = usePreferencesStore((s) => s.language);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [state, setState] = useState<OnboardingState>({
     ...initialState,
@@ -852,7 +854,8 @@ export function Onboarding() {
     accounts: [],
   });
 
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingPortfolio, setSubmittingPortfolio] = useState(false);
+  const [launchingGuidance, setLaunchingGuidance] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -916,18 +919,22 @@ export function Onboarding() {
   };
 
   const completeGuidanceAndLaunch = async (skip: boolean) => {
+    if (launchingGuidance) return;
+
     const guidanceError = skip ? null : validateGuidancePayload();
     if (guidanceError) {
       showToast(guidanceError, "error");
       return;
     }
 
-    setSubmitting(true);
+    setLaunchingGuidance(true);
     try {
       await completePositionGuidance({
         skip,
         guidance: skip ? {} : buildGuidancePayload(),
       });
+      await queryClient.invalidateQueries({ queryKey: ["onboard-status"] });
+      await queryClient.refetchQueries({ queryKey: ["onboard-status"], type: "active" });
       navigate("/portfolio", { replace: true });
     } catch (error) {
       const maybeAxiosError = error as {
@@ -947,7 +954,7 @@ export function Onboarding() {
         detailMessage || maybeAxiosError.response?.data?.error || t("onboardSetupFailed", language),
         "error"
       );
-      setSubmitting(false);
+      setLaunchingGuidance(false);
     }
   };
 
@@ -987,7 +994,7 @@ export function Onboarding() {
   };
 
   const handleSubmit = async () => {
-    setSubmitting(true);
+    setSubmittingPortfolio(true);
     try {
       const accountsPayload: Record<string, Array<{ ticker: string; exchange: string; shares: number; unitAvgBuyPrice: number; unitCurrency: string }>> = {};
       for (const acc of state.accounts) {
@@ -1031,6 +1038,7 @@ export function Onboarding() {
         });
       }
 
+      setSubmittingPortfolio(false);
       setState((current) => ({
         ...current,
         step: 6,
@@ -1044,7 +1052,7 @@ export function Onboarding() {
       }));
     } catch {
       showToast(t("onboardSetupFailed", language), "error");
-      setSubmitting(false);
+      setSubmittingPortfolio(false);
     }
   };
 
@@ -1087,8 +1095,8 @@ export function Onboarding() {
             <BottomBar
               onBack={() => update("step", 4)}
               onNext={handleSubmit}
-              nextLabel={submitting ? t("onboardLaunching", language) : t("onboardContinue", language)}
-              nextDisabled={submitting}
+              nextLabel={submittingPortfolio ? t("onboardLaunching", language) : t("onboardContinue", language)}
+              nextDisabled={submittingPortfolio}
               showBack={true}
             />
           </>
@@ -1101,7 +1109,7 @@ export function Onboarding() {
             onBack={() => update("step", 5)}
             onSkip={() => void completeGuidanceAndLaunch(true)}
             onLaunch={() => void completeGuidanceAndLaunch(false)}
-            submitting={submitting}
+            submitting={launchingGuidance}
           />
         )}
       </div>

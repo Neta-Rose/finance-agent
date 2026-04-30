@@ -1,11 +1,11 @@
 import { Router, type Response, type NextFunction } from "express";
 import { promises as fs } from "fs";
 import path from "path";
-import { StrategySchema } from "../schemas/strategy.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import { guardPath } from "../middleware/userIsolation.js";
 import { readFeedPage, type StoredBatch } from "../services/feedService.js";
+import { loadStrategyFile } from "../services/strategyFileService.js";
 
 const router = Router();
 
@@ -203,18 +203,17 @@ router.get(
     const filePath = ws.strategyFile(ticker);
     guardPath(ws, filePath);
 
-    try {
-      const raw = await fs.readFile(filePath, "utf-8");
-      const parsed = JSON.parse(raw);
-      const validated = StrategySchema.parse(parsed);
-      res.json(validated);
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    const loaded = await loadStrategyFile(filePath, { repair: true, tickerHint: ticker });
+    if (!loaded.valid || !loaded.strategy) {
+      if ((loaded.errors ?? []).some((error) => error.startsWith("File not found:"))) {
         res.status(404).json({ error: "Strategy not found" });
         return;
       }
-      throw err;
+      res.status(422).json({ error: "Strategy is not valid", details: loaded.errors });
+      return;
     }
+
+    res.json(loaded.strategy);
   })
 );
 

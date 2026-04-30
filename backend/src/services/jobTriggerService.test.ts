@@ -177,3 +177,63 @@ test("deep dive jobs are stamped as budget-admitted after passing start-gate che
   assert.equal(raw.action, "deep_dive");
   assert.match(raw.budget_admitted_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
 });
+
+test("full report can be triggered through shared job flow", async () => {
+  const ws = await setupUser("full-report-trigger");
+  await fs.mkdir(path.join(ws.root, "data", "reports"), { recursive: true });
+  await fs.mkdir(path.join(ws.root, "data", "tickers"), { recursive: true });
+  await fs.writeFile(
+    ws.portfolioFile,
+    JSON.stringify(
+      {
+        meta: { currency: "ILS", transactionFeeILS: 0, note: "test" },
+        accounts: {
+          main: [
+            {
+              ticker: "TSM",
+              exchange: "NYSE",
+              shares: 5,
+              unitAvgBuyPrice: 100,
+              unitCurrency: "USD",
+            },
+          ],
+        },
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  );
+  await fs.writeFile(
+    ws.stateFile,
+    JSON.stringify(
+      {
+        userId: ws.userId,
+        state: "BOOTSTRAPPING",
+        lastFullReportAt: null,
+        lastDailyAt: null,
+        pendingDeepDives: [],
+        bootstrapProgress: null,
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  );
+
+  const result = await triggerUserJob({
+    workspace: ws,
+    action: "full_report",
+    source: "dashboard_action",
+  });
+
+  assert.equal(result.statusCode, 201);
+  const jobId = result.body["jobId"];
+  assert.equal(typeof jobId, "string");
+  const raw = JSON.parse(await fs.readFile(ws.jobFile(jobId as string), "utf-8")) as {
+    action: string;
+    budget_admitted_at?: string | null;
+  };
+  assert.equal(raw.action, "full_report");
+  assert.match(raw.budget_admitted_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
+});

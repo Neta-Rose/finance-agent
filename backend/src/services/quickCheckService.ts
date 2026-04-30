@@ -375,8 +375,11 @@ export async function performQuickCheck(
   }
 
   if (strategy.lastDeepDiveAt === null) {
-    signals.push("No recorded deep dive");
-    score -= 25;
+    const metadataSource = strategy.metadata?.source ?? null;
+    if (metadataSource !== "full_report") {
+      signals.push("No recorded deep dive");
+      score -= 25;
+    }
   } else if (strategy.confidence === "low" && !isRecent(strategy.lastDeepDiveAt, 30)) {
     signals.push("Low-confidence strategy is stale");
     score -= 20;

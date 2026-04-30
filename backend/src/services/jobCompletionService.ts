@@ -36,7 +36,12 @@ async function readActiveJobs(userId: string): Promise<Array<Job>> {
         try {
           const raw = await fs.readFile(path.join(workspace.jobsDir, file), "utf-8");
           const job = JSON.parse(raw) as Job;
-          if (job.status !== "pending" && job.status !== "running" && job.status !== "failed") {
+          if (
+            job.status !== "pending" &&
+            job.status !== "running" &&
+            job.status !== "failed" &&
+            !(job.status === "completed" && (job.action === "deep_dive" || job.action === "full_report"))
+          ) {
             return null;
           }
           return job;

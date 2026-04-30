@@ -565,3 +565,89 @@ test("reconcileFailedDeepDiveJob repairs stale running deep dive state for a fai
   const portfolioState = await ctx.readState(ctx.ws.userId);
   assert.deepEqual(portfolioState.pendingDeepDives, []);
 });
+
+test("reconcileDeepDiveJob repairs stale running deep dive state for a completed job with refreshed strategy", async () => {
+  const ctx = await setupWorkspace("tester-completed-repair");
+  const queued = await writeJob(ctx.ws, new Date(Date.now() - 5_000).toISOString());
+
+  await writeJson(
+    path.join(ctx.ws.reportsDir, "TSM", "deep_dive_state.json"),
+    {
+      version: 1,
+      ticker: "TSM",
+      jobId: queued.id,
+      status: "running",
+      triggeredAt: queued.triggered_at,
+      startedAt: queued.triggered_at,
+      dispatchedAt: queued.triggered_at,
+      updatedAt: queued.triggered_at,
+      completedAt: null,
+      completedSteps: 0,
+      totalSteps: 7,
+      currentStep: "Fundamentals",
+      strategyReady: false,
+      lastProgressAt: queued.triggered_at,
+      failureReason: null,
+      steps: [
+        { key: "fundamentals", label: "Fundamentals", filename: "fundamentals.json", status: "running", completedAt: null, detail: null },
+        { key: "technical", label: "Technical Analysis", filename: "technical.json", status: "pending", completedAt: null, detail: null },
+        { key: "sentiment", label: "Sentiment", filename: "sentiment.json", status: "pending", completedAt: null, detail: null },
+        { key: "macro", label: "Macro", filename: "macro.json", status: "pending", completedAt: null, detail: null },
+        { key: "risk", label: "Portfolio Risk", filename: "risk.json", status: "pending", completedAt: null, detail: null },
+        { key: "bull_case", label: "Bull Researcher", filename: "bull_case.json", status: "pending", completedAt: null, detail: null },
+        { key: "bear_case", label: "Bear Researcher", filename: "bear_case.json", status: "pending", completedAt: null, detail: null },
+      ],
+    }
+  );
+  await writeJson(ctx.ws.strategyFile("TSM"), strategyReport());
+
+  const completedJob = await ctx.reconcileDeepDiveJob(ctx.ws, {
+    ...queued,
+    status: "completed",
+    started_at: queued.triggered_at,
+    completed_at: new Date().toISOString(),
+    result: "deep_dive_TSM.json",
+  });
+
+  assert.equal(completedJob.status, "completed");
+  const repairedRaw = await fs.readFile(
+    path.join(ctx.ws.reportsDir, "TSM", "deep_dive_state.json"),
+    "utf-8"
+  );
+  const repaired = JSON.parse(repairedRaw) as {
+    status: string;
+    currentStep: string | null;
+    strategyReady: boolean;
+    completedSteps: number;
+    totalSteps: number;
+  };
+  assert.equal(repaired.status, "completed");
+  assert.equal(repaired.currentStep, null);
+  assert.equal(repaired.strategyReady, true);
+  assert.equal(repaired.completedSteps, repaired.totalSteps);
+
+  const portfolioState = await ctx.readState(ctx.ws.userId);
+  assert.deepEqual(portfolioState.pendingDeepDives, []);
+});
+
+test("reconcileDeepDiveJob does not infer completion from terminal job status without refreshed strategy evidence", async () => {
+  const ctx = await setupWorkspace("tester-completed-no-strategy");
+  const queued = await writeJob(ctx.ws, new Date().toISOString());
+
+  const reconciled = await ctx.reconcileDeepDiveJob(ctx.ws, {
+    ...queued,
+    status: "completed",
+    started_at: queued.triggered_at,
+    completed_at: new Date().toISOString(),
+    result: "deep_dive_TSM.json",
+  });
+
+  assert.equal(reconciled.status, "pending");
+  const stateRaw = await fs.readFile(
+    path.join(ctx.ws.reportsDir, "TSM", "deep_dive_state.json"),
+    "utf-8"
+  );
+  const state = JSON.parse(stateRaw) as { status: string; strategyReady: boolean };
+  assert.notEqual(state.status, "completed");
+  assert.equal(state.strategyReady, false);
+});

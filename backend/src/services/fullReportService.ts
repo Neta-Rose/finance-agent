@@ -11,7 +11,9 @@ import {
   summarizeBaselineCoverage,
   syncStateToBaselineCoverage,
 } from "./baselineCoverageService.js";
-import type { StrategyTrustLevel } from "./strategyBaselineService.js";
+import { buildStrategyMetadata, type StrategyTrustLevel } from "./strategyBaselineService.js";
+import type { Strategy } from "../schemas/index.js";
+import { StrategySchema } from "../schemas/index.js";
 
 const FULL_REPORT_STEPS = [
   {
@@ -48,12 +50,13 @@ const FULL_REPORT_STEPS = [
 
 interface FullReportTickerState {
   ticker: string;
-  status: "pending" | "completed";
+  status: "pending" | "completed" | "failed";
   completedSteps: number;
   totalSteps: number;
   currentStep: string | null;
   strategyReady: boolean;
   baselineTrust: StrategyTrustLevel;
+  failureReason?: string | null;
 }
 
 interface FullReportState {
@@ -66,6 +69,7 @@ interface FullReportState {
   completedAt: string | null;
   totalTickers: number;
   completedTickers: string[];
+  failedTickers: string[];
   remainingTickers: string[];
   currentTicker: string | null;
   currentStep: string | null;
@@ -104,6 +108,8 @@ async function scanTicker(
   completedSteps: number;
   currentStep: string | null;
   strategyReady: boolean;
+  strategyInvalidTerminal: boolean;
+  failureReason: string | null;
 }> {
   const cutoff = new Date(triggeredAt).getTime();
   let completedSteps = 0;
@@ -130,11 +136,17 @@ async function scanTicker(
   }
 
   let strategyReady = false;
+  let strategyInvalidTerminal = false;
+  let failureReason: string | null = null;
   try {
     const stat = await fs.stat(ws.strategyFile(ticker));
     if (stat.mtimeMs >= cutoff) {
       const validation = await validateStrategyFile(ws.strategyFile(ticker));
       strategyReady = validation.valid;
+      if (!validation.valid && completedSteps === FULL_REPORT_STEPS.length) {
+        strategyInvalidTerminal = true;
+        failureReason = validation.errors?.join(". ") || "Strategy validation failed after analyst completion";
+      }
     }
   } catch {}
 
@@ -143,7 +155,54 @@ async function scanTicker(
     completedSteps,
     currentStep,
     strategyReady,
+    strategyInvalidTerminal,
+    failureReason,
   };
+}
+
+function buildValidatedFullReportStrategy(strategy: Strategy): Strategy {
+  const generatedAt = strategy.metadata?.generatedAt ?? strategy.updatedAt;
+  return StrategySchema.parse({
+    ...strategy,
+    updatedAt: new Date().toISOString(),
+    deepDiveTriggeredBy: strategy.deepDiveTriggeredBy ?? "full_report",
+    metadata: buildStrategyMetadata(
+      "full_report",
+      "validated",
+      generatedAt,
+      strategy.metadata?.userGuidanceApplied ?? false
+    ),
+  });
+}
+
+async function promoteFullReportStrategy(
+  ws: UserWorkspace,
+  ticker: string
+): Promise<{ promoted: boolean; strategy: Strategy | null; error: string | null }> {
+  const validation = await validateStrategyFile(ws.strategyFile(ticker));
+  if (!validation.valid || !validation.data) {
+    return {
+      promoted: false,
+      strategy: null,
+      error: validation.errors?.join(". ") || "Strategy validation failed",
+    };
+  }
+
+  try {
+    const promoted = buildValidatedFullReportStrategy(validation.data as Strategy);
+    await fs.writeFile(ws.strategyFile(ticker), JSON.stringify(promoted, null, 2), "utf-8");
+    return {
+      promoted: true,
+      strategy: promoted,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      promoted: false,
+      strategy: null,
+      error: error instanceof Error ? error.message : "Failed to promote full-report strategy",
+    };
+  }
 }
 
 async function buildState(
@@ -164,20 +223,22 @@ async function buildState(
     const baselineTrust = baseline?.trustLevel ?? "invalid";
     const baselineCovered = isBaselineTrustCovered(baselineTrust);
     const strategyComplete = artifactState.completedSteps === FULL_REPORT_STEPS.length;
+    const failed = artifactState.strategyInvalidTerminal;
     const currentStep =
-      artifactState.currentStep ??
-      (artifactState.strategyReady
-        ? baselineCovered
-          ? null
-          : "Baseline validation"
-        : "Strategy validation");
+      failed
+        ? null
+        : artifactState.currentStep ??
+          (artifactState.strategyReady
+            ? baselineCovered
+              ? null
+              : "Baseline validation"
+            : "Strategy validation");
     const completedSteps =
       strategyComplete && baselineCovered
         ? FULL_REPORT_STEPS.length + 1
         : artifactState.completedSteps;
     const totalSteps = FULL_REPORT_STEPS.length + 1;
-    const status =
-      strategyComplete && baselineCovered ? "completed" : "pending";
+    const status = failed ? "failed" : strategyComplete && baselineCovered ? "completed" : "pending";
     return {
       ticker: artifactState.ticker,
       status,
@@ -186,33 +247,49 @@ async function buildState(
       currentStep: status === "completed" ? null : currentStep,
       strategyReady: artifactState.strategyReady,
       baselineTrust,
+      failureReason: failed ? artifactState.failureReason : null,
     };
   });
   const completedTickers = tickerStates
     .filter((ticker) => ticker.status === "completed")
     .map((ticker) => ticker.ticker);
-  const remainingTickers = tickerStates
-    .filter((ticker) => ticker.status !== "completed")
+  const failedTickers = tickerStates
+    .filter((ticker) => ticker.status === "failed")
     .map((ticker) => ticker.ticker);
-  const activeTicker = tickerStates.find((ticker) => ticker.status !== "completed") ?? null;
+  const remainingTickers = tickerStates
+    .filter((ticker) => ticker.status === "pending")
+    .map((ticker) => ticker.ticker);
+  const activeTicker = tickerStates.find((ticker) => ticker.status === "pending") ?? null;
   const completedAt =
     remainingTickers.length === 0 ? new Date().toISOString() : null;
+  const status =
+    remainingTickers.length > 0
+      ? "running"
+      : completedTickers.length > 0
+        ? "completed"
+        : "failed";
+  const failureReason =
+    status === "failed" && failedTickers.length > 0
+      ? `All tickers failed validation or baseline promotion (${failedTickers.join(", ")})`
+      : null;
 
   return {
     version: 1,
     jobId: job.id,
-    status: remainingTickers.length === 0 ? "completed" : "running",
+    status,
     triggeredAt: job.triggered_at,
     startedAt,
     updatedAt: new Date().toISOString(),
     completedAt,
     totalTickers: tickers.length,
     completedTickers,
+    failedTickers,
     remainingTickers,
     currentTicker: activeTicker?.ticker ?? null,
     currentStep: activeTicker?.currentStep ?? null,
     completedSteps: tickerStates.reduce((sum, ticker) => sum + ticker.completedSteps, 0),
     totalSteps: tickerStates.reduce((sum, ticker) => sum + ticker.totalSteps, 0),
+    failureReason,
     tickers: tickerStates,
   };
 }
@@ -241,7 +318,7 @@ async function writeLegacyProgressFile(
         startedAt: state.startedAt,
         totalTickers: state.totalTickers,
         completed: state.completedTickers,
-        failed: [],
+        failed: state.failedTickers,
         remaining: state.remainingTickers,
       },
       null,
@@ -374,7 +451,7 @@ async function updateBootstrapState(
 ): Promise<void> {
   await syncStateToBaselineCoverage(ws, {
     lastFullReportAt: state.status === "completed" ? state.completedAt : null,
-    enqueueBlockingTickers: state.status === "completed",
+    enqueueBlockingTickers: state.status === "completed" || state.status === "failed",
   });
 }
 
@@ -385,23 +462,27 @@ export async function initializeFullReportJob(
   if (job.action !== "full_report") return job;
 
   const tickers = await listPortfolioTickers(ws);
+  for (const ticker of tickers) {
+    await promoteFullReportStrategy(ws, ticker);
+  }
   const state = await buildState(ws, job, tickers);
   await writeFullReportState(ws, state);
   await writeLegacyProgressFile(ws, state);
   await updateBootstrapState(ws, state);
 
   const nextJob = await updateJob(ws, job.id, {
-    status: state.status === "completed" ? "completed" : "pending",
-    started_at: state.status === "completed" ? state.startedAt : null,
+    status: state.status === "completed" ? "completed" : state.status === "failed" ? "failed" : "pending",
+    started_at: state.status === "completed" || state.status === "failed" ? state.startedAt : null,
     completed_at: state.completedAt,
     result:
-      state.status === "completed"
+      state.status === "completed" || state.status === "failed"
         ? ({
             totalTickers: state.totalTickers,
             completedTickers: state.completedTickers.length,
+            failedTickers: state.failedTickers.length,
           } as JsonValue)
         : job.result,
-    error: null,
+    error: state.status === "failed" ? state.failureReason ?? "Full report failed" : null,
   });
 
   if (state.status === "completed") {
@@ -417,12 +498,15 @@ export async function reconcileFullReportJob(
   if (job.action !== "full_report") return job;
 
   const tickers = await listPortfolioTickers(ws);
+  for (const ticker of tickers) {
+    await promoteFullReportStrategy(ws, ticker);
+  }
   const state = await buildState(ws, job, tickers);
   await writeFullReportState(ws, state);
   await writeLegacyProgressFile(ws, state);
   await updateBootstrapState(ws, state);
 
-  if (state.status !== "completed") {
+  if (state.status === "running") {
     if (job.status === "pending") {
       return updateJob(ws, job.id, {
         status: "running",
@@ -433,17 +517,21 @@ export async function reconcileFullReportJob(
     return job;
   }
 
+  const terminalStatus = state.status === "completed" ? "completed" : "failed";
   const completed = await updateJob(ws, job.id, {
-    status: "completed",
+    status: terminalStatus,
     started_at: state.startedAt,
     completed_at: state.completedAt,
     result: {
       totalTickers: state.totalTickers,
       completedTickers: state.completedTickers.length,
+      failedTickers: state.failedTickers.length,
     },
-    error: null,
+    error: state.status === "failed" ? state.failureReason ?? "Full report failed" : null,
   });
-  await appendFullReportBatch(ws, completed, state.completedTickers);
+  if (state.completedTickers.length > 0) {
+    await appendFullReportBatch(ws, completed, state.completedTickers);
+  }
   return completed;
 }
 

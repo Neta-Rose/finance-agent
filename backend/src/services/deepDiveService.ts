@@ -103,6 +103,11 @@ interface StrategySnapshot {
   timeframe: string;
 }
 
+interface CompletionEvidence {
+  strategy: StrategySnapshot | null;
+  strategyUpdatedAt: string | null;
+}
+
 function deepDiveStatePath(ws: UserWorkspace, ticker: string): string {
   return path.join(ws.reportsDir, ticker, "deep_dive_state.json");
 }
@@ -402,6 +407,34 @@ async function readStrategySnapshot(
   };
 }
 
+async function readCompletionEvidence(
+  ws: UserWorkspace,
+  ticker: string,
+  triggeredAt: string
+): Promise<CompletionEvidence> {
+  const strategyPath = ws.strategyFile(ticker);
+  try {
+    const stat = await fs.stat(strategyPath);
+    if (stat.mtimeMs < new Date(triggeredAt).getTime()) {
+      return { strategy: null, strategyUpdatedAt: stat.mtime.toISOString() };
+    }
+    const strategy = await readStrategySnapshot(ws, ticker);
+    if (!strategy) {
+      return { strategy: null, strategyUpdatedAt: stat.mtime.toISOString() };
+    }
+    const validation = await validateStrategyFile(strategyPath);
+    if (!validation.valid) {
+      return { strategy: null, strategyUpdatedAt: stat.mtime.toISOString() };
+    }
+    return {
+      strategy,
+      strategyUpdatedAt: stat.mtime.toISOString(),
+    };
+  } catch {
+    return { strategy: null, strategyUpdatedAt: null };
+  }
+}
+
 async function syncPendingDeepDiveState(
   ws: UserWorkspace,
   ticker: string,
@@ -504,6 +537,59 @@ export async function reconcileDeepDiveJob(
   }
 
   const state = await buildDeepDiveState(ws, job);
+
+  if (job.status === "completed" && state.status !== "completed") {
+    const completion = await readCompletionEvidence(ws, job.ticker, job.triggered_at);
+    if (completion.strategy) {
+      const completedAt = job.completed_at ?? completion.strategyUpdatedAt ?? new Date().toISOString();
+      const completedState: DeepDiveState = {
+        ...state,
+        status: "completed",
+        updatedAt: completedAt,
+        completedAt,
+        completedSteps: state.totalSteps,
+        currentStep: null,
+        strategyReady: true,
+        lastProgressAt: completion.strategyUpdatedAt ?? state.lastProgressAt,
+        failureReason: null,
+      };
+      await writeDeepDiveState(ws, job.ticker, completedState);
+      await syncPendingDeepDiveState(ws, job.ticker, true);
+      try {
+        await syncStateToBaselineCoverage(ws);
+      } catch (err) {
+        logger.warn(`Deep dive terminal repair baseline sync failed for ${ws.userId}/${job.ticker}: ${String(err)}`);
+      }
+      await appendDeepDiveBatch(
+        ws,
+        {
+          ...job,
+          status: "completed",
+          started_at: job.started_at ?? completedState.startedAt,
+          completed_at: completedAt,
+        },
+        job.ticker,
+        completion.strategy
+      );
+      return updateJob(ws, job.id, {
+        status: "completed",
+        started_at: job.started_at ?? completedState.startedAt,
+        completed_at: completedAt,
+        result:
+          typeof job.result === "object" && job.result !== null
+            ? job.result
+            : {
+                ticker: job.ticker,
+                completedSteps: completedState.completedSteps,
+                totalSteps: completedState.totalSteps,
+                strategyReady: true,
+                verdict: completion.strategy.verdict,
+                confidence: completion.strategy.confidence,
+              },
+        error: null,
+      });
+    }
+  }
 
   await writeDeepDiveState(ws, job.ticker, state);
 

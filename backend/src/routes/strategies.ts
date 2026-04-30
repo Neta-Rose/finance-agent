@@ -2,9 +2,9 @@ import { Router, type Response, type NextFunction } from "express";
 import { promises as fs } from "fs";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
-import { StrategySchema } from "../schemas/strategy.js";
 import type { Verdict, Confidence } from "../types/index.js";
 import { PortfolioFileSchema } from "../schemas/portfolio.js";
+import { loadStrategyFile } from "../services/strategyFileService.js";
 
 const router = Router();
 
@@ -81,24 +81,10 @@ router.get(
 
     for (const ticker of tickerDirs) {
       const strategyPath = ws.strategyFile(ticker);
-      let raw: string;
-      try {
-        raw = await fs.readFile(strategyPath, "utf-8");
-      } catch {
-        continue;
-      }
+      const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
+      if (!loaded.valid || !loaded.strategy) continue;
 
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        continue;
-      }
-
-      const result = StrategySchema.safeParse(parsed);
-      if (!result.success) continue;
-
-      const s = result.data;
+      const s = loaded.strategy;
       const hasExpiredCatalysts = (s.catalysts ?? []).some(
         (c) => c.expiresAt !== null && new Date(c.expiresAt) < now
       );
@@ -152,33 +138,17 @@ router.get(
     }
 
     const strategyPath = ws.strategyFile(ticker);
-
-    let raw: string;
-    try {
-      raw = await fs.readFile(strategyPath, "utf-8");
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
+    if (!loaded.valid || !loaded.strategy) {
+      if ((loaded.errors ?? []).some((error) => error.startsWith("File not found:"))) {
         res.status(404).json({ error: "Strategy not found" });
         return;
       }
-      throw err;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      res.status(500).json({ error: "Invalid JSON in strategy file" });
+      res.status(400).json({ error: "Invalid strategy schema", details: loaded.errors });
       return;
     }
 
-    const result = StrategySchema.safeParse(parsed);
-    if (!result.success) {
-      res.status(400).json({ error: "Invalid strategy schema", details: result.error.errors });
-      return;
-    }
-
-    res.json(result.data);
+    res.json(loaded.strategy);
   })
 );
 

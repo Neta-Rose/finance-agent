@@ -6,7 +6,7 @@ import { readConfig } from "./agentService.js";
 import { triggerUserJob } from "./jobTriggerService.js";
 
 const USERS_DIR = process.env.USERS_DIR ?? path.join(process.cwd(), "../users");
-const FUTURE_FEATURE_ACTIONS = new Set(["new_ideas", "full_report"]);
+const FUTURE_FEATURE_ACTIONS = new Set(["new_ideas"]);
 
 export interface TelegramRoute {
   chatId: string;

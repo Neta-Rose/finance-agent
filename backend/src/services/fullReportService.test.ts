@@ -253,6 +253,7 @@ test("reconcileFullReportJob completes bootstrap and updates index", async () =>
   assert.deepEqual(completed.result, {
     totalTickers: 2,
     completedTickers: 2,
+    failedTickers: 0,
   });
 
   const state = await ctx.readState(ctx.ws.userId);
@@ -305,6 +306,106 @@ test("reconcileFullReportJob does not rewrite bootstrap progress for active user
   assert.equal(state.state, "ACTIVE");
   assert.equal(state.bootstrapProgress, null);
   assert.equal(state.lastFullReportAt, "2026-04-10T00:00:00.000Z");
+});
+
+test("reconcileFullReportJob repairs malformed full-report strategy output and completes", async () => {
+  const ctx = await setupWorkspace("full-report-repairable");
+  const job = await writeJob(ctx.ws, new Date(Date.now() - 5_000).toISOString());
+  const started = await ctx.initializeFullReportJob(ctx.ws, job);
+
+  for (const analyst of ["fundamentals", "technical", "sentiment", "macro", "risk"] as const) {
+    await writeJson(path.join(ctx.ws.reportsDir, "TSM", `${analyst}.json`), reportFor("TSM", analyst));
+    await writeJson(path.join(ctx.ws.reportsDir, "NVDA", `${analyst}.json`), reportFor("NVDA", analyst));
+  }
+
+  await writeJson(ctx.ws.strategyFile("TSM"), {
+    ...strategyFor("TSM"),
+    lastDeepDiveAt: null,
+    metadata: {
+      source: "bootstrap_analysis",
+      status: "validated",
+      generatedAt: new Date().toISOString(),
+      userGuidanceApplied: true,
+    },
+    catalysts: ["Scheduled review", "Earnings"],
+  });
+  await writeJson(ctx.ws.strategyFile("NVDA"), strategyFor("NVDA"));
+
+  const completed = await ctx.reconcileFullReportJob(ctx.ws, started);
+  assert.equal(completed.status, "completed");
+  assert.deepEqual(completed.result, {
+    totalTickers: 2,
+    completedTickers: 2,
+    failedTickers: 0,
+  });
+
+  const repairedRaw = JSON.parse(await fs.readFile(ctx.ws.strategyFile("TSM"), "utf-8")) as {
+    metadata?: { source?: string; status?: string; userGuidanceApplied?: boolean };
+    catalysts?: Array<{ description: string; expiresAt: string | null; triggered: boolean }>;
+    deepDiveTriggeredBy?: string | null;
+  };
+  assert.equal(repairedRaw.metadata?.source, "full_report");
+  assert.equal(repairedRaw.metadata?.status, "validated");
+  assert.equal(repairedRaw.metadata?.userGuidanceApplied, true);
+  assert.equal(repairedRaw.deepDiveTriggeredBy, "full_report");
+  assert.deepEqual(repairedRaw.catalysts?.map((item) => item.description), [
+    "Scheduled review",
+    "Earnings",
+  ]);
+});
+
+test("reconcileFullReportJob isolates unrecoverable ticker failure and completes partial batch", async () => {
+  const ctx = await setupWorkspace("full-report-partial");
+  const job = await writeJob(ctx.ws, new Date(Date.now() - 5_000).toISOString());
+  const started = await ctx.initializeFullReportJob(ctx.ws, job);
+
+  for (const analyst of ["fundamentals", "technical", "sentiment", "macro", "risk"] as const) {
+    await writeJson(path.join(ctx.ws.reportsDir, "TSM", `${analyst}.json`), reportFor("TSM", analyst));
+    await writeJson(path.join(ctx.ws.reportsDir, "NVDA", `${analyst}.json`), reportFor("NVDA", analyst));
+  }
+
+  await writeJson(ctx.ws.strategyFile("TSM"), strategyFor("TSM"));
+  await fs.mkdir(path.dirname(ctx.ws.strategyFile("NVDA")), { recursive: true });
+  await fs.writeFile(ctx.ws.strategyFile("NVDA"), "{bad json", "utf-8");
+
+  const completed = await ctx.reconcileFullReportJob(ctx.ws, started);
+  assert.equal(completed.status, "completed");
+  assert.deepEqual(completed.result, {
+    totalTickers: 2,
+    completedTickers: 1,
+    failedTickers: 1,
+  });
+
+  const progress = await ctx.getFullReportJobProgress(ctx.ws, completed);
+  assert.equal(progress?.pct, 92);
+
+  const stateRaw = JSON.parse(
+    await fs.readFile(path.join(ctx.ws.reportsDir, "full_report_state.json"), "utf-8")
+  ) as {
+    status: string;
+    completedTickers: string[];
+    failedTickers: string[];
+    remainingTickers: string[];
+    tickers: Array<{ ticker: string; status: string; failureReason?: string | null }>;
+  };
+  assert.equal(stateRaw.status, "completed");
+  assert.deepEqual(stateRaw.completedTickers, ["TSM"]);
+  assert.deepEqual(stateRaw.failedTickers, ["NVDA"]);
+  assert.deepEqual(stateRaw.remainingTickers, []);
+  assert.equal(stateRaw.tickers.find((item) => item.ticker === "NVDA")?.status, "failed");
+  assert.match(
+    stateRaw.tickers.find((item) => item.ticker === "NVDA")?.failureReason ?? "",
+    /invalid json/i
+  );
+
+  const indexPage = JSON.parse(
+    await fs.readFile(path.join(ctx.ws.reportsDir, "index", "page-001.json"), "utf-8")
+  ) as {
+    batches: Array<{ tickers: string[]; tickerCount: number; entries: Record<string, unknown> }>;
+  };
+  assert.deepEqual(indexPage.batches[0]?.tickers, ["TSM"]);
+  assert.equal(indexPage.batches[0]?.tickerCount, 1);
+  assert.deepEqual(Object.keys(indexPage.batches[0]?.entries ?? {}), ["TSM"]);
 });
 
 test("reconcileFailedFullReportJob marks stale state failed and removes legacy progress", async () => {

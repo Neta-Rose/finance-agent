@@ -35,7 +35,7 @@ export const StrategySchema = z.object({
   verdict: z.enum(["BUY", "ADD", "HOLD", "REDUCE", "SELL", "CLOSE"]),
   confidence: z.enum(["high", "medium", "low"]),
   reasoning: z.string().max(800),
-  timeframe: z.enum(["week", "months", "long_term", "undefined"]),
+  timeframe: z.enum(["week", "months", "years", "long_term", "undefined"]),
   positionSizeILS: z.number(),
   positionWeightPct: z.number(),
   entryConditions: z

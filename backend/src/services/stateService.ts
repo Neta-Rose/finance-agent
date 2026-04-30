@@ -4,6 +4,7 @@ import { logger } from "./logger.js";
 import { PortfolioFileSchema, PortfolioStateSchema } from "../schemas/portfolio.js";
 import type { PortfolioState, PortfolioStateData } from "../types/index.js";
 import { resolveConfiguredPath } from "./paths.js";
+import { loadStrategyFile } from "./strategyFileService.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 
@@ -216,30 +217,28 @@ export async function checkDailyConditions(
 
   for (const ticker of tickerDirs) {
     const strategyPath = path.join(tickersDir, ticker, "strategy.json");
-    let strategy: Record<string, unknown>;
-    try {
-      const raw = await fs.readFile(strategyPath, "utf-8");
-      strategy = JSON.parse(raw);
-    } catch {
+    const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
+    if (!loaded.valid || !loaded.strategy) {
       continue;
     }
+    const strategy = loaded.strategy;
 
-    const catalysts = (strategy["catalysts"] as Array<Record<string, unknown>> | undefined) ?? [];
+    const catalysts = strategy.catalysts ?? [];
     for (const catalyst of catalysts) {
-      const expiresAt = catalyst["expiresAt"] as string | null;
+      const expiresAt = catalyst.expiresAt;
       if (expiresAt && new Date(expiresAt) < now) {
         expiredCatalysts.push({
           ticker,
-          catalyst: catalyst["description"] as string,
+          catalyst: catalyst.description,
           expiredAt: expiresAt,
         });
       }
     }
 
-    const verdict = strategy["verdict"] as string;
+    const verdict = strategy.verdict;
     if (verdict === "HOLD") {
       const hasExpiring = catalysts.some(
-        (c) => c["expiresAt"] !== null && new Date(c["expiresAt"] as string) > now
+        (c) => c.expiresAt !== null && new Date(c.expiresAt) > now
       );
       if (!hasExpiring) {
         pendingDeepDives.push(ticker);

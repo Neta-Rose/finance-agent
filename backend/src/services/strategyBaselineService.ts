@@ -2,16 +2,17 @@ import { promises as fs } from "fs";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import { PortfolioFileSchema } from "../schemas/portfolio.js";
 import {
-  StrategySchema,
   type Strategy,
   type StrategyMetadata,
 } from "../schemas/index.js";
 import type { Exchange } from "../types/index.js";
 import { getPrice, getUsdIlsRate } from "./priceService.js";
+import { loadStrategyFile } from "./strategyFileService.js";
 
 const STALE_DAYS_BY_TIMEFRAME: Record<Strategy["timeframe"], number> = {
   week: 14,
   months: 120,
+  years: 180,
   long_term: 365,
   undefined: 60,
 };
@@ -97,6 +98,8 @@ function isPlaceholderStrategy(strategy: Strategy): boolean {
 
 function classifyTrustLevel(strategy: Strategy, issues: string[]): StrategyTrustLevel {
   const metadata = inferMetadata(strategy);
+  const freshnessAnchor =
+    strategy.lastDeepDiveAt ?? metadata.generatedAt ?? strategy.updatedAt;
 
   if (metadata.status === "provisional" || isPlaceholderStrategy(strategy)) {
     return "provisional";
@@ -106,23 +109,29 @@ function classifyTrustLevel(strategy: Strategy, issues: string[]): StrategyTrust
     issues.push("Strategy has no future-dated catalyst");
   }
 
-  if (strategy.lastDeepDiveAt === null) {
+  if (strategy.lastDeepDiveAt === null && metadata.source !== "full_report") {
     issues.push("Strategy has never recorded a deep dive");
     return "provisional";
   }
 
   const stalenessWindow = STALE_DAYS_BY_TIMEFRAME[strategy.timeframe] ?? 90;
-  if (!isRecent(strategy.updatedAt, stalenessWindow)) {
+  if (!isRecent(freshnessAnchor, stalenessWindow)) {
     issues.push(`Strategy baseline is older than ${stalenessWindow} days`);
     return "stale";
   }
 
-  if (strategy.confidence === "low" && !isRecent(strategy.lastDeepDiveAt, 30)) {
+  if (
+    strategy.confidence === "low" &&
+    !isRecent(strategy.lastDeepDiveAt ?? metadata.generatedAt ?? strategy.updatedAt, 30)
+  ) {
     issues.push("Low-confidence strategy has not been refreshed recently");
     return "stale";
   }
 
-  if (!hasFutureCatalyst(strategy) && !isRecent(strategy.lastDeepDiveAt, 90)) {
+  if (
+    !hasFutureCatalyst(strategy) &&
+    !isRecent(strategy.lastDeepDiveAt ?? metadata.generatedAt ?? strategy.updatedAt, 90)
+  ) {
     issues.push("Strategy lacks forward catalyst coverage and recent deep-dive refresh");
     return "stale";
   }
@@ -199,40 +208,12 @@ export async function assessStrategyBaselineForTicker(
   ticker: string
 ): Promise<StrategyBaselineAssessment> {
   const strategyPath = ws.strategyFile(ticker);
-  let raw: string;
-
-  try {
-    raw = await fs.readFile(strategyPath, "utf-8");
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      return {
-        trustLevel: "invalid",
-        strategy: null,
-        issues: ["Strategy file not found"],
-        isPortfolioTicker: false,
-      };
-    }
-    throw err;
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
+  const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
+  if (!loaded.valid || !loaded.strategy) {
     return {
       trustLevel: "invalid",
       strategy: null,
-      issues: [`Invalid strategy JSON: ${err instanceof Error ? err.message : String(err)}`],
-      isPortfolioTicker: false,
-    };
-  }
-
-  const result = StrategySchema.safeParse(parsed);
-  if (!result.success) {
-    return {
-      trustLevel: "invalid",
-      strategy: null,
-      issues: result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
+      issues: loaded.errors ?? ["Strategy validation failed"],
       isPortfolioTicker: false,
     };
   }
@@ -240,11 +221,11 @@ export async function assessStrategyBaselineForTicker(
   const portfolioPosition = await readPortfolioPosition(ws, ticker);
   const issues: string[] = [];
   const strategy: Strategy = {
-    ...result.data,
-    entryConditions: [...(result.data.entryConditions ?? [])],
-    exitConditions: [...(result.data.exitConditions ?? [])],
-    catalysts: [...(result.data.catalysts ?? [])],
-    metadata: inferMetadata(result.data),
+    ...loaded.strategy,
+    entryConditions: [...(loaded.strategy.entryConditions ?? [])],
+    exitConditions: [...(loaded.strategy.exitConditions ?? [])],
+    catalysts: [...(loaded.strategy.catalysts ?? [])],
+    metadata: inferMetadata(loaded.strategy),
   };
 
   if (!portfolioPosition.found) {

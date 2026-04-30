@@ -59,5 +59,58 @@ test("performQuickCheck degrades invalid strategy baseline without throwing", as
   assert.equal(result.needs_escalation, true);
   assert.equal(result.score, 0);
   assert.equal(result.used_llm, false);
-  assert.ok(result.strategy_health.some((issue) => issue.includes("Invalid strategy JSON")));
+  assert.ok(result.strategy_health.some((issue) => issue.includes("Invalid JSON")));
+});
+
+test("performQuickCheck does not flag missing deep-dive timestamp for validated full-report baseline", async () => {
+  const ctx = await setupWorkspace("quick-check-full-report");
+  await writeJson(ctx.ws.portfolioFile, {
+    meta: { currency: "ILS", transactionFeeILS: 0, note: "test" },
+    accounts: {
+      main: [
+        {
+          ticker: "TSM",
+          exchange: "NYSE",
+          shares: 5,
+          unitAvgBuyPrice: 100,
+          unitCurrency: "USD",
+        },
+      ],
+    },
+  });
+  await writeJson(ctx.ws.strategyFile("TSM"), {
+    ticker: "TSM",
+    updatedAt: new Date().toISOString(),
+    version: 2,
+    verdict: "ADD",
+    confidence: "medium",
+    reasoning: "Validated full-report baseline.",
+    timeframe: "months",
+    positionSizeILS: 1000,
+    positionWeightPct: 10,
+    entryConditions: ["Add on strength"],
+    exitConditions: ["Reduce on thesis break"],
+    catalysts: [
+      {
+        description: "Scheduled review",
+        expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        triggered: false,
+      },
+    ],
+    bullCase: "Execution remains solid.",
+    bearCase: "Macro softens demand.",
+    lastDeepDiveAt: null,
+    deepDiveTriggeredBy: "full_report",
+    metadata: {
+      source: "full_report",
+      status: "validated",
+      generatedAt: new Date().toISOString(),
+      userGuidanceApplied: false,
+    },
+  });
+
+  const result = await ctx.performQuickCheck(ctx.ws, "TSM", { queueDeepDive: false });
+  assert.equal(result.baseline_trust, "valid");
+  assert.ok(!result.signals.includes("No recorded deep dive"));
+  assert.ok(!result.strategy_health.includes("No recorded deep dive"));
 });

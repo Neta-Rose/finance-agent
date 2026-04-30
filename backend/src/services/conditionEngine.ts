@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import { logger } from "./logger.js";
 import { getWorkspace } from "./workspaceService.js";
 import { readState, writeState } from "./stateService.js";
-import { StrategySchema } from "../schemas/strategy.js";
+import { loadStrategyFile } from "./strategyFileService.js";
 
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -79,29 +79,13 @@ export async function runConditionCheck(userId: string): Promise<ConditionReport
 
   for (const ticker of tickerDirs) {
     const strategyPath = ws.strategyFile(ticker);
-    let raw: string;
-    try {
-      raw = await fs.readFile(strategyPath, "utf-8");
-    } catch {
-      errors.push({ ticker, error: "Could not read strategy file" });
+    const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
+    if (!loaded.valid || !loaded.strategy) {
+      errors.push({ ticker, error: loaded.errors?.join("; ") ?? "Strategy validation failed" });
       continue;
     }
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      errors.push({ ticker, error: "Invalid JSON" });
-      continue;
-    }
-
-    const result = StrategySchema.safeParse(parsed);
-    if (!result.success) {
-      errors.push({ ticker, error: `Schema validation failed: ${result.error.errors.map((e) => e.message).join("; ")}` });
-      continue;
-    }
-
-    const s = result.data;
+    const s = loaded.strategy;
 
     const reasons: EscalationReason[] = [];
     const details: string[] = [];
@@ -218,15 +202,12 @@ export async function markCatalystTriggered(
 ): Promise<void> {
   const ws = await getWorkspace(userId);
   const strategyPath = ws.strategyFile(ticker);
-
-  const raw = await fs.readFile(strategyPath, "utf-8");
-  const parsed = JSON.parse(raw);
-  const result = StrategySchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(`Invalid strategy for ${ticker}: ${result.error.errors.map((e) => e.message).join("; ")}`);
+  const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
+  if (!loaded.valid || !loaded.strategy) {
+    throw new Error(`Invalid strategy for ${ticker}: ${(loaded.errors ?? []).join("; ")}`);
   }
 
-  const s = result.data;
+  const s = loaded.strategy;
   let found = false;
 
   for (const cat of s.catalysts ?? []) {

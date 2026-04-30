@@ -7,6 +7,7 @@ import { wakeAgent } from "./agentService.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Job, JobAction, JobSource } from "../types/index.js";
 import { searchTickerContext } from "./explorationService.js";
+import { loadStrategyFile } from "./strategyFileService.js";
 
 async function createAgentBriefing(
   workspace: UserWorkspace,
@@ -36,11 +37,11 @@ async function createAgentBriefing(
     // Try to load strategy.json
     const strategyPath = path.join(workspace.tickersDir, ticker, "strategy.json");
     if (await fileExists(strategyPath)) {
-      const strategyRaw = await fs.readFile(strategyPath, "utf-8");
-      try {
-        briefing.strategy = JSON.parse(strategyRaw);
-      } catch (e) {
-        briefing.strategy_error = "Failed to parse strategy.json";
+      const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
+      if (loaded.valid && loaded.strategy) {
+        briefing.strategy = loaded.strategy;
+      } else {
+        briefing.strategy_error = (loaded.errors ?? ["Failed to parse strategy.json"]).join("; ");
       }
     } else {
       briefing.strategy_error = "File not found";

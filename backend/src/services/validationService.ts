@@ -1,8 +1,8 @@
 import { promises as fs } from "fs";
 import { logger } from "./logger.js";
 import { validateAgentOutput } from "../schemas/index.js";
-import { StrategySchema } from "../schemas/strategy.js";
 import type { AnalystType } from "../types/index.js";
+import { loadStrategyFile } from "./strategyFileService.js";
 
 export interface ValidationResult {
   valid: boolean;
@@ -76,63 +76,44 @@ export async function validateReportFile(
 export async function validateStrategyFile(
   filePath: string
 ): Promise<ValidationResult> {
-  const validatedAt = new Date().toISOString();
-  let parsed: unknown;
-
-  try {
-    const raw = await fs.readFile(filePath, "utf-8");
-    try {
-      parsed = JSON.parse(raw);
-    } catch (parseErr: unknown) {
-      const message = parseErr instanceof Error ? parseErr.message : String(parseErr);
-      return {
-        valid: false,
-        errors: [`Invalid JSON: ${message}`],
-        filePath,
-        validatedAt,
-      };
-    }
-  } catch (readErr: unknown) {
-    const code = (readErr as { code?: string }).code;
-    if (code === "ENOENT") {
-      return {
-        valid: false,
-        errors: [`File not found: ${filePath}`],
-        filePath,
-        validatedAt,
-      };
-    }
-    throw readErr;
-  }
-
-  const result = StrategySchema.safeParse(parsed);
-
-  if (!result.success) {
-    const errors = result.error.errors.map(
-      (e) => `${e.path.join(".")}: ${e.message}`
-    );
-    logger.warn(`validateStrategyFile: INVALID | path=${filePath} | errors=${errors.length}`);
-    return { valid: false, errors, filePath, validatedAt };
+  const result = await loadStrategyFile(filePath, { repair: true });
+  if (!result.valid || !result.strategy) {
+    logger.warn(`validateStrategyFile: INVALID | path=${filePath} | errors=${result.errors?.length ?? 0}`);
+    return {
+      valid: false,
+      errors: result.errors ?? ["Strategy validation failed"],
+      filePath,
+      validatedAt: result.validatedAt,
+    };
   }
 
   const warnings: string[] = [];
   if (
-    result.data.verdict === "HOLD" &&
-    Array.isArray(result.data.catalysts) &&
-    result.data.catalysts.length > 0
+    result.strategy.verdict === "HOLD" &&
+    Array.isArray(result.strategy.catalysts) &&
+    result.strategy.catalysts.length > 0
   ) {
-    const hasExpiring = result.data.catalysts.some((c) => c.expiresAt !== null);
+    const hasExpiring = result.strategy.catalysts.some((c) => c.expiresAt !== null);
     if (!hasExpiring) {
       warnings.push(
         "HOLD verdict with no expiring catalyst — daily check will flag this"
       );
     }
   }
+  if (result.repaired) {
+    warnings.push(...result.repairNotes);
+  }
 
   logger.info(
-    `validateStrategyFile: VALID | path=${filePath} | errors=0 | warnings=${warnings.length}`
+    `validateStrategyFile: VALID | path=${filePath} | repaired=${result.repaired ? "yes" : "no"} | warnings=${warnings.length}`
   );
-  return { valid: true, data: result.data, warnings, filePath, validatedAt };
+  return {
+    valid: true,
+    data: result.strategy,
+    warnings,
+    filePath,
+    validatedAt: result.validatedAt,
+  };
 }
 
 export async function validateJobFile(filePath: string): Promise<ValidationResult> {

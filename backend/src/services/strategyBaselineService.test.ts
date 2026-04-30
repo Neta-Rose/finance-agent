@@ -155,6 +155,43 @@ test("assessStrategyBaselineForTicker marks old validated strategy as stale", as
   assert.ok(result.issues.some((issue) => issue.includes("older than")));
 });
 
+test("assessStrategyBaselineForTicker trusts validated full-report baseline without deep-dive timestamp", async () => {
+  const ctx = await setupWorkspace("strategy-full-report-valid");
+  const now = new Date().toISOString();
+
+  await writeJson(ctx.ws.portfolioFile, portfolioFor("TSM"));
+  await writeJson(ctx.ws.strategyFile("TSM"), {
+    ticker: "TSM",
+    updatedAt: now,
+    version: 2,
+    verdict: "ADD",
+    confidence: "medium",
+    reasoning: "Validated during bootstrap full report.",
+    timeframe: "months",
+    positionSizeILS: 2000,
+    positionWeightPct: 20,
+    entryConditions: ["Add on strength"],
+    exitConditions: ["Reduce on thesis break"],
+    catalysts: [
+      {
+        description: "Scheduled review",
+        expiresAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+        triggered: false,
+      },
+    ],
+    bullCase: "Demand remains intact.",
+    bearCase: "Cycle risk remains.",
+    lastDeepDiveAt: null,
+    deepDiveTriggeredBy: "full_report",
+    metadata: ctx.buildStrategyMetadata("full_report", "validated", now, false),
+  });
+
+  const result = await ctx.assessStrategyBaselineForTicker(ctx.ws, "TSM");
+  assert.equal(result.trustLevel, "valid");
+  assert.equal(result.strategy?.metadata?.source, "full_report");
+  assert.ok(!result.issues.some((issue) => issue.includes("never recorded a deep dive")));
+});
+
 test("assessStrategyBaselineForTicker marks malformed strategy as invalid", async () => {
   const ctx = await setupWorkspace("strategy-invalid");
   await writeJson(ctx.ws.portfolioFile, portfolioFor("TSM"));
@@ -164,5 +201,5 @@ test("assessStrategyBaselineForTicker marks malformed strategy as invalid", asyn
   const result = await ctx.assessStrategyBaselineForTicker(ctx.ws, "TSM");
   assert.equal(result.trustLevel, "invalid");
   assert.equal(result.strategy, null);
-  assert.ok(result.issues.some((issue) => issue.includes("Invalid strategy JSON")));
+  assert.ok(result.issues.some((issue) => issue.includes("Invalid JSON")));
 });

@@ -1,9 +1,9 @@
 import { Router, type Response, type NextFunction } from "express";
 import { promises as fs } from "fs";
-import { StrategySchema } from "../schemas/strategy.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Verdict, Confidence } from "../types/index.js";
+import { loadStrategyFile } from "../services/strategyFileService.js";
 
 const router = Router();
 
@@ -66,26 +66,12 @@ router.get(
 
     for (const ticker of tickerDirs) {
       const strategyPath = ws.strategyFile(ticker);
-      let raw: string;
-      try {
-        raw = await fs.readFile(strategyPath, "utf-8");
-      } catch {
+      const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
+      if (!loaded.valid || !loaded.strategy) {
         continue;
       }
 
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        continue;
-      }
-
-      const result = StrategySchema.safeParse(parsed);
-      if (!result.success) {
-        continue;
-      }
-
-      const s = result.data;
+      const s = loaded.strategy;
 
       const hasExpiredCatalysts = (s.catalysts ?? []).some(
         (c) => c.expiresAt !== null && new Date(c.expiresAt) < now
