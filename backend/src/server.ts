@@ -20,6 +20,7 @@ import {
   shouldUserHeartbeatBeEnabled,
 } from "./services/startupService.js";
 import { getActiveUserEligibility, repairActiveUserState, readState } from "./services/stateService.js";
+import { reconcilePausedJobStates } from "./services/jobStateReconciler.js";
 import { getUserControl } from "./services/controlService.js";
 import {
   listWorkspaceUserIds,
@@ -73,6 +74,8 @@ async function reconcileStartupOperationalState(): Promise<void> {
 
     for (const userId of userIds) {
       await repairActiveUserState(userId);
+      const workspace = buildWorkspace(userId, USERS_DIR);
+      await reconcilePausedJobStates(workspace);
       const workspaceReconciliation = await reconcileWorkspaceIntegrity(userId);
       if (workspaceReconciliation.changed) {
         workspaceRepairs += 1;
@@ -81,7 +84,6 @@ async function reconcileStartupOperationalState(): Promise<void> {
       const state = await readState(userId);
       const userCtrl = await getUserControl(userId);
       const agentStatus = await getUserAgentStatus(userId);
-      const workspace = buildWorkspace(userId, USERS_DIR);
       const hasAgentManagedWork = await hasPendingAgentManagedWork(workspace);
       const eligibility = state.state === "ACTIVE"
         ? await getActiveUserEligibility(userId)
