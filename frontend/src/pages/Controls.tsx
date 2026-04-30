@@ -5,6 +5,7 @@ import { triggerJob, fetchJobs } from "../api/jobs";
 import { TopBar } from "../components/ui/TopBar";
 import { Card } from "../components/ui/Card";
 import { JobCard } from "../components/jobs/JobCard";
+import { SupersededJobBanner } from "../components/jobs/SupersededJobBanner";
 import { Spinner } from "../components/ui/Spinner";
 import { useToastStore } from "../store/toastStore";
 import { usePreferencesStore } from "../store/preferencesStore";
@@ -146,6 +147,8 @@ export function Controls() {
       />
 
       <div className="px-4 pt-3 pb-4">
+        <SupersededJobBanner jobs={allJobs} />
+
         {/* Action grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <ActionCard
