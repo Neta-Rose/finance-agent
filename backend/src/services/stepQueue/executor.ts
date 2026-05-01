@@ -38,6 +38,17 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function mutationRows<T extends Record<string, unknown>>(result: unknown): T[] {
+  if (
+    Array.isArray(result) &&
+    Array.isArray(result[0]) &&
+    (typeof result[1] === "number" || result.length === 2)
+  ) {
+    return result[0] as T[];
+  }
+  return Array.isArray(result) ? result as T[] : [];
+}
+
 function mapClaimedStep(row: Record<string, unknown>): ClaimedStepWorkItem {
   const kind = String(row["kind"]);
   if (!isStepKind(kind)) {
@@ -99,7 +110,7 @@ export async function claimNextPendingStep(
   ds: DataSource,
   ownerLockId = randomUUID()
 ): Promise<ClaimedStepWorkItem | null> {
-  const rows = await ds.query(
+  const result = await ds.query(
     `WITH next_step AS (
        SELECT s.id
        FROM step_work_items s
@@ -121,9 +132,9 @@ export async function claimNextPendingStep(
         AND t.id = s.ticker_work_item_id
       RETURNING s.*, t.ticker`,
     [ownerLockId]
-  ) as Record<string, unknown>[];
+  );
 
-  const row = rows[0];
+  const row = mutationRows<Record<string, unknown>>(result)[0];
   if (!row) return null;
   const step = mapClaimedStep(row);
   await recordLifecycle(ds, {
@@ -234,7 +245,7 @@ async function markStepFailed(
 
 export async function sweepAbandonedRunningSteps(ds: DataSource, now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - lockTtlMs()).toISOString();
-  const rows = await ds.query(
+  const result = await ds.query(
     `UPDATE step_work_items
         SET status = 'pending',
             owner_lock_id = NULL,
@@ -243,7 +254,8 @@ export async function sweepAbandonedRunningSteps(ds: DataSource, now = new Date(
         AND started_at < $1::timestamptz
       RETURNING id, attempts`,
     [cutoff]
-  ) as Array<{ id: string; attempts: number }>;
+  );
+  const rows = mutationRows<{ id: string; attempts: number } & Record<string, unknown>>(result);
 
   await Promise.all(
     rows.map((row) =>

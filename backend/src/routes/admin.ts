@@ -89,6 +89,17 @@ function handler(fn: AdminHandler) {
   };
 }
 
+function mutationRows<T extends Record<string, unknown>>(result: unknown): T[] {
+  if (
+    Array.isArray(result) &&
+    Array.isArray(result[0]) &&
+    (typeof result[1] === "number" || result.length === 2)
+  ) {
+    return result[0] as T[];
+  }
+  return Array.isArray(result) ? result as T[] : [];
+}
+
 async function patchUserPointsBudget(req: Request, res: Response): Promise<void> {
   const userId = req.params.userId as string;
   if (!userId) {
@@ -754,7 +765,7 @@ router.put(
     const fallback = typeof body.fallback === "string" && body.fallback.trim() ? body.fallback.trim() : null;
     const updatedBy = String(body.updatedBy ?? "admin").slice(0, 128);
     const ds = await getApplicationDataSource();
-    const rows = await ds.query(
+    const result = await ds.query(
       `INSERT INTO model_tier_assignments (tier, step_kind, model, fallback, updated_at, updated_by)
        VALUES ($1, $2, $3, $4, NOW(), $5)
        ON CONFLICT (tier, step_kind)
@@ -764,7 +775,8 @@ router.put(
                      updated_by = EXCLUDED.updated_by
        RETURNING *`,
       [tier, stepKind, model, fallback, updatedBy]
-    ) as Array<Record<string, unknown>>;
+    );
+    const rows = mutationRows<Record<string, unknown>>(result);
     res.json({ assignment: rows[0] });
   })
 );
