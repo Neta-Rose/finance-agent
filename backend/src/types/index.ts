@@ -37,7 +37,7 @@ export type AnalystType =
   | "bull"
   | "bear";
 
-export type JobStatus = "pending" | "paused" | "running" | "completed" | "failed" | "cancelled";
+export type JobStatus = "pending" | "paused" | "running" | "completed" | "failed" | "cancelled" | "superseded";
 
 export type JsonValue =
   | string

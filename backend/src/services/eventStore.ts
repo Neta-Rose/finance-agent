@@ -6,6 +6,7 @@ export interface LlmRequestEvent {
   purpose: string;
   ticker: string | null;
   jobId: string | null;
+  stepId?: string | null;
   sourceClass: "backend_job" | "telegram_command" | "dashboard_action" | "direct_chat" | "unknown_agent_session";
   analyst: string;          // fundamentals|technical|sentiment|macro|risk|bull|bear|orchestrator
   model: string;

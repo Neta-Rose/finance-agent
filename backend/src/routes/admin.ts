@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { promises as fs } from "fs";
 import path from "path";
+import { isApplicationDatabaseConfigured, getApplicationDataSource } from "../db/applicationDataSource.js";
 import {
   addUserAgent,
   removeUserAgent,
@@ -56,6 +57,8 @@ import {
   classifyUserAgentHealth,
   shouldUserHeartbeatBeEnabled,
 } from "../services/startupService.js";
+import { MODEL_TIERS, STEP_KINDS } from "../services/stepQueue/types.js";
+import type { ModelTier, StepKind } from "../services/stepQueue/types.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "";
@@ -640,6 +643,158 @@ router.get(
       days.map((date) => eventStore.getDailySummary(date))
     );
     res.json({ days: days.map((date, i) => ({ date, users: summaries[i] })) });
+  })
+);
+
+// ── Step queue admin routes ─────────────────────────────────────────────────
+
+function requireStepQueueDatabase(res: Response): boolean {
+  if (isApplicationDatabaseConfigured()) return true;
+  res.status(503).json({ error: "application_database_unavailable" });
+  return false;
+}
+
+router.get(
+  "/step-queue/jobs",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const limit = Math.min(Math.max(Number(req.query["limit"] ?? 50), 1), 200);
+    const userId = typeof req.query["userId"] === "string" ? req.query["userId"] : null;
+    const status = typeof req.query["status"] === "string" ? req.query["status"] : null;
+    const params: unknown[] = [];
+    const where: string[] = [];
+    if (userId) {
+      params.push(userId);
+      where.push(`j.user_id = $${params.length}`);
+    }
+    if (status) {
+      params.push(status);
+      where.push(`j.status = $${params.length}`);
+    }
+    params.push(limit);
+    const ds = await getApplicationDataSource();
+    const rows = await ds.query(
+      `SELECT
+         j.*,
+         COUNT(DISTINCT t.id)::int AS ticker_count,
+         COUNT(s.id)::int AS step_count,
+         SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END)::int AS completed_steps,
+         SUM(CASE WHEN s.status = 'failed' THEN 1 ELSE 0 END)::int AS failed_steps
+       FROM jobs j
+       LEFT JOIN ticker_work_items t ON t.job_id = j.id
+       LEFT JOIN step_work_items s ON s.job_id = j.id
+       ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
+       GROUP BY j.id
+       ORDER BY j.triggered_at DESC
+       LIMIT $${params.length}`,
+      params
+    ) as Array<Record<string, unknown>>;
+    res.json({ jobs: rows });
+  })
+);
+
+router.get(
+  "/step-queue/jobs/:jobId",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const jobId = req.params.jobId as string;
+    const ds = await getApplicationDataSource();
+    const jobs = await ds.query(`SELECT * FROM jobs WHERE id = $1`, [jobId]) as Array<Record<string, unknown>>;
+    const job = jobs[0];
+    if (!job) {
+      res.status(404).json({ error: "job_not_found" });
+      return;
+    }
+    const [tickers, steps, events] = await Promise.all([
+      ds.query(`SELECT * FROM ticker_work_items WHERE job_id = $1 ORDER BY position ASC`, [jobId]),
+      ds.query(`SELECT * FROM step_work_items WHERE job_id = $1 ORDER BY created_at ASC`, [jobId]),
+      ds.query(
+        `SELECT e.*
+           FROM step_lifecycle_events e
+           JOIN step_work_items s ON s.id = e.step_id
+          WHERE s.job_id = $1
+          ORDER BY e.occurred_at ASC`,
+        [jobId]
+      ),
+    ]);
+    res.json({ job, tickers, steps, events });
+  })
+);
+
+router.get(
+  "/step-queue/models",
+  handler(async (_req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const ds = await getApplicationDataSource();
+    const rows = await ds.query(
+      `SELECT tier, step_kind, model, fallback, updated_at, updated_by
+         FROM model_tier_assignments
+        ORDER BY tier, step_kind`
+    ) as Array<Record<string, unknown>>;
+    res.json({ tiers: MODEL_TIERS, stepKinds: STEP_KINDS, assignments: rows });
+  })
+);
+
+router.put(
+  "/step-queue/models/:tier/:stepKind",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const tier = req.params.tier as ModelTier;
+    const stepKind = req.params.stepKind as StepKind;
+    if (!(MODEL_TIERS as readonly string[]).includes(tier) || !(STEP_KINDS as readonly string[]).includes(stepKind)) {
+      res.status(400).json({ error: "invalid_tier_or_step_kind" });
+      return;
+    }
+    const body = req.body as { model?: string; fallback?: string | null; updatedBy?: string };
+    const model = String(body.model ?? "").trim();
+    if (!model) {
+      res.status(400).json({ error: "model required" });
+      return;
+    }
+    const fallback = typeof body.fallback === "string" && body.fallback.trim() ? body.fallback.trim() : null;
+    const updatedBy = String(body.updatedBy ?? "admin").slice(0, 128);
+    const ds = await getApplicationDataSource();
+    const rows = await ds.query(
+      `INSERT INTO model_tier_assignments (tier, step_kind, model, fallback, updated_at, updated_by)
+       VALUES ($1, $2, $3, $4, NOW(), $5)
+       ON CONFLICT (tier, step_kind)
+       DO UPDATE SET model = EXCLUDED.model,
+                     fallback = EXCLUDED.fallback,
+                     updated_at = NOW(),
+                     updated_by = EXCLUDED.updated_by
+       RETURNING *`,
+      [tier, stepKind, model, fallback, updatedBy]
+    ) as Array<Record<string, unknown>>;
+    res.json({ assignment: rows[0] });
+  })
+);
+
+router.get(
+  "/step-queue/cost",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const days = Math.min(Math.max(Number(req.query["days"] ?? 7), 1), 90);
+    const ds = await getApplicationDataSource();
+    const rows = await ds.query(
+      `SELECT
+         user_id,
+         ticker,
+         analyst AS step_kind,
+         to_char(occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day,
+         COUNT(*)::int AS request_count,
+         COALESCE(SUM(tokens_in), 0)::int AS tokens_in,
+         COALESCE(SUM(tokens_out), 0)::int AS tokens_out,
+         COALESCE(ROUND(SUM(cost_usd), 6), 0) AS cost_usd,
+         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END)::int AS success_count,
+         SUM(CASE WHEN status <> 'success' THEN 1 ELSE 0 END)::int AS error_count
+       FROM llm_requests
+       WHERE purpose = 'step_queue'
+         AND occurred_at >= NOW() - ($1::int * INTERVAL '1 day')
+       GROUP BY user_id, ticker, analyst, day
+       ORDER BY day DESC, cost_usd DESC`,
+      [days]
+    ) as Array<Record<string, unknown>>;
+    res.json({ days, rows });
   })
 );
 

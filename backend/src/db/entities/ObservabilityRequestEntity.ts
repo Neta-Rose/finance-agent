@@ -6,6 +6,7 @@ export interface ObservabilityRequestEntity {
   purpose: string;
   ticker: string | null;
   jobId: string | null;
+  stepId: string | null;
   sourceClass: string;
   analyst: string;
   model: string;
@@ -43,6 +44,11 @@ export const ObservabilityRequestEntitySchema = new EntitySchema<ObservabilityRe
     jobId: {
       name: "job_id",
       type: "varchar",
+      nullable: true,
+    },
+    stepId: {
+      name: "step_id",
+      type: "uuid",
       nullable: true,
     },
     sourceClass: {

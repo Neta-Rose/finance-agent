@@ -16,6 +16,9 @@ import { dispatchPendingAgentJobsForUser } from "./agentJobDispatcher.js";
 import { buildStrategyMetadata } from "./strategyBaselineService.js";
 import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
 import { requiresBudgetAdmission } from "./jobAdmissionService.js";
+import { isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
+import { admitStepQueueJob } from "./stepQueue/admission.js";
+import { isStepQueueEnabledForUser } from "./stepQueue/featureFlag.js";
 
 const FUTURE_FEATURE_ACTIONS = new Set<JobAction>(["new_ideas"]);
 
@@ -276,6 +279,49 @@ export async function triggerUserJob(
     return {
       statusCode: 200,
       body: { jobId: duplicate.id, job: duplicate },
+    };
+  }
+
+  if ((action === "deep_dive" || action === "full_report") && await isStepQueueEnabledForUser(ws.userId)) {
+    if (!isApplicationDatabaseConfigured()) {
+      return {
+        statusCode: 503,
+        body: {
+          error: "step_queue_database_unavailable",
+          reason: "Step queue is enabled for this user but APP_DATABASE_URL is not configured.",
+        },
+      };
+    }
+
+    const budgetGate = await ensurePointsBudgetAvailable(ws.userId);
+    if (!budgetGate.allowed) {
+      return {
+        statusCode: 202,
+        body: {
+          error: "points_budget_exhausted",
+          reason: budgetGate.reason,
+          balance: budgetGate.balance.pointsRemaining,
+          paused: true,
+        },
+      };
+    }
+
+    const admitted = await admitStepQueueJob({
+      workspace: ws,
+      action,
+      ticker,
+      source,
+      budgetAdmittedAt: requiresBudgetAdmission({ action }) ? new Date() : null,
+    });
+    return {
+      statusCode: 201,
+      body: {
+        jobId: admitted.jobId,
+        stepQueue: true,
+        tickerCount: admitted.tickerCount,
+        stepCount: admitted.stepCount,
+        modelTier: admitted.modelTier,
+      },
     };
   }
 

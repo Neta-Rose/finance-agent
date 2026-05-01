@@ -32,6 +32,7 @@ import {
   pruneExpiredObservabilityRows,
   startObservabilityRetentionLoop,
 } from "./services/observabilityRetentionService.js";
+import { startStepQueueExecutor } from "./services/stepQueue/executor.js";
 
 const PORT = parseInt(process.env["PORT"] ?? "8081", 10);
 const USERS_DIR = process.env["USERS_DIR"] ?? "/root/clawd/users";
@@ -121,6 +122,7 @@ async function bootstrap(): Promise<void> {
     startDailyScheduler();
     startAgentJobDispatcher();
     startObservabilityRetentionLoop();
+    startStepQueueExecutor();
     setImmediate(() => {
       void reconcileStartupRuntime();
       void reconcileStartupOperationalState();

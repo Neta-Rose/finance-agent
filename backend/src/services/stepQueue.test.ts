@@ -1,0 +1,184 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import { promises as fs } from "node:fs";
+import type { UserWorkspace } from "../middleware/userIsolation.js";
+import type { ClaimedStepWorkItem } from "./stepQueue/types.js";
+
+const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), "step-queue-"));
+const usersDir = path.join(testRoot, "users");
+process.env["USERS_DIR"] = usersDir;
+delete process.env["USE_STEP_QUEUE"];
+delete process.env["USE_STEP_QUEUE_USERS"];
+
+const [{ buildWorkspace }, { expandStepQueueJob }, { isStepQueueServiceEnabled, isStepQueueEnabledForUser }, { handlerFor, registeredStepKinds }] =
+  await Promise.all([
+    import("../middleware/userIsolation.js"),
+    import("./stepQueue/expansion.js"),
+    import("./stepQueue/featureFlag.js"),
+    import("./stepQueue/handlers.js"),
+  ]);
+
+async function writeJson(filePath: string, value: unknown): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf-8");
+}
+
+async function setupWorkspace(userId: string): Promise<UserWorkspace> {
+  const ws = buildWorkspace(userId, usersDir);
+  await fs.mkdir(ws.root, { recursive: true });
+  await fs.mkdir(ws.tickersDir, { recursive: true });
+  await fs.mkdir(ws.reportsDir, { recursive: true });
+  await fs.writeFile(ws.userMdFile, "Risk tolerance: medium\n", "utf-8");
+  await writeJson(ws.portfolioFile, {
+    meta: { currency: "ILS", transactionFeeILS: 5, note: "" },
+    accounts: {
+      main: [
+        { ticker: "AAPL", exchange: "NASDAQ", shares: 1, unitAvgBuyPrice: 100, unitCurrency: "USD" },
+        { ticker: "MSFT", exchange: "NASDAQ", shares: 1, unitAvgBuyPrice: 100, unitCurrency: "USD" },
+      ],
+    },
+  });
+  return ws;
+}
+
+function validStrategy(ticker: string, lastDeepDiveAt: string | null): Record<string, unknown> {
+  return {
+    ticker,
+    updatedAt: "2026-04-30T00:00:00.000Z",
+    version: 1,
+    verdict: "BUY",
+    confidence: "medium",
+    reasoning: "Valid strategy fixture.",
+    timeframe: "months",
+    positionSizeILS: 1000,
+    positionWeightPct: 10,
+    entryConditions: [],
+    exitConditions: [],
+    catalysts: [],
+    bullCase: null,
+    bearCase: null,
+    lastDeepDiveAt,
+    deepDiveTriggeredBy: "fixture",
+  };
+}
+
+function claimedStep(kind: ClaimedStepWorkItem["kind"], ticker: string): ClaimedStepWorkItem {
+  return {
+    id: "00000000-0000-4000-8000-000000000001",
+    tickerWorkItemId: "00000000-0000-4000-8000-000000000002",
+    jobId: "job_test",
+    userId: "queue-user",
+    ticker,
+    kind,
+    status: "running",
+    attempts: 1,
+    modelTierUsed: "balanced",
+    costAccruedCents: 0,
+    inputArtifactPaths: [],
+    outputArtifactPath: null,
+    lastError: null,
+    ownerLockId: "00000000-0000-4000-8000-000000000003",
+    startedAt: new Date("2026-05-01T00:00:00.000Z"),
+    completedAt: null,
+    createdAt: new Date("2026-05-01T00:00:00.000Z"),
+  };
+}
+
+test("step queue feature flags default off", async () => {
+  assert.equal(isStepQueueServiceEnabled(), false);
+  assert.equal(await isStepQueueEnabledForUser("missing-user"), false);
+});
+
+test("full_report expansion mixes light pass and full deep dive per ticker", async () => {
+  const ws = await setupWorkspace("expansion-mixed");
+  await writeJson(ws.strategyFile("AAPL"), validStrategy("AAPL", "2026-04-01T00:00:00.000Z"));
+
+  const expanded = await expandStepQueueJob(ws, { action: "full_report" });
+
+  assert.equal(expanded.tickers.length, 2);
+  assert.deepEqual(expanded.tickers[0]?.stepKinds, [
+    "analyst.fundamentals",
+    "analyst.technical",
+    "analyst.sentiment",
+    "analyst.macro",
+    "analyst.risk",
+  ]);
+  assert.equal(expanded.tickers[0]?.fullDeepDive, false);
+  assert.equal(expanded.tickers[1]?.ticker, "MSFT");
+  assert.equal(expanded.tickers[1]?.stepKinds.length, 7);
+  assert.equal(expanded.tickers[1]?.fullDeepDive, true);
+});
+
+test("deep_dive expansion always creates seven steps for the requested ticker", async () => {
+  const ws = await setupWorkspace("expansion-deep-dive");
+  await writeJson(ws.strategyFile("AAPL"), validStrategy("AAPL", "2026-04-01T00:00:00.000Z"));
+
+  const expanded = await expandStepQueueJob(ws, { action: "deep_dive", ticker: "AAPL" });
+
+  assert.equal(expanded.tickers.length, 1);
+  assert.equal(expanded.tickers[0]?.ticker, "AAPL");
+  assert.equal(expanded.tickers[0]?.stepKinds.length, 7);
+  assert.equal(expanded.tickers[0]?.fullDeepDive, true);
+});
+
+test("escalation tickers force full deep dive during full_report expansion", async () => {
+  const ws = await setupWorkspace("expansion-escalated");
+  await writeJson(ws.strategyFile("AAPL"), validStrategy("AAPL", "2026-04-01T00:00:00.000Z"));
+  await writeJson(ws.strategyFile("MSFT"), validStrategy("MSFT", "2026-04-01T00:00:00.000Z"));
+
+  const expanded = await expandStepQueueJob(ws, {
+    action: "full_report",
+    escalationTickers: new Set(["MSFT"]),
+  });
+
+  assert.equal(expanded.tickers[0]?.stepKinds.length, 5);
+  assert.equal(expanded.tickers[1]?.stepKinds.length, 7);
+});
+
+test("handler registry exposes all seven step handlers", () => {
+  assert.deepEqual(registeredStepKinds().sort(), [
+    "analyst.fundamentals",
+    "analyst.macro",
+    "analyst.risk",
+    "analyst.sentiment",
+    "analyst.technical",
+    "debate",
+    "synthesis",
+  ]);
+});
+
+test("technical handler validates and persists deterministic artifact", async () => {
+  const ws = await setupWorkspace("handler-technical");
+  const step = claimedStep("analyst.technical", "AAPL");
+  const handler = handlerFor("analyst.technical");
+  const inputs = await handler.gatherInputs(step, ws);
+  const prompt = handler.buildPrompt(inputs, "balanced");
+  const raw = await handler.call(prompt, { tier: "balanced", primary: "stub", fallback: null }, step, inputs);
+  const validated = handler.validate(raw, prompt.schema);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+
+  const artifactPath = await handler.persistArtifact(validated.artifact, ws, step);
+  const artifact = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { analyst?: string; ticker?: string };
+  assert.equal(artifact.analyst, "technical");
+  assert.equal(artifact.ticker, "AAPL");
+});
+
+test("risk handler validates and persists deterministic artifact", async () => {
+  const ws = await setupWorkspace("handler-risk");
+  const step = claimedStep("analyst.risk", "AAPL");
+  const handler = handlerFor("analyst.risk");
+  const inputs = await handler.gatherInputs(step, ws);
+  const prompt = handler.buildPrompt(inputs, "balanced");
+  const raw = await handler.call(prompt, { tier: "balanced", primary: "stub", fallback: null }, step, inputs);
+  const validated = handler.validate(raw, prompt.schema);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+
+  const artifactPath = await handler.persistArtifact(validated.artifact, ws, step);
+  const artifact = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string; analyst?: string };
+  assert.equal(artifact.ticker, "AAPL");
+  assert.equal(artifact.analyst, "risk");
+});

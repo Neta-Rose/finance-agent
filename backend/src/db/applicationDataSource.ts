@@ -2,7 +2,12 @@ import "reflect-metadata";
 import { promises as fs } from "fs";
 import path from "path";
 import { DataSource } from "typeorm";
+import { JobEntitySchema } from "./entities/JobEntity.js";
+import { ModelTierAssignmentEntitySchema } from "./entities/ModelTierAssignmentEntity.js";
 import { ObservabilityRequestEntitySchema } from "./entities/ObservabilityRequestEntity.js";
+import { StepLifecycleEventEntitySchema } from "./entities/StepLifecycleEventEntity.js";
+import { StepWorkItemEntitySchema } from "./entities/StepWorkItemEntity.js";
+import { TickerWorkItemEntitySchema } from "./entities/TickerWorkItemEntity.js";
 import { UserPointsBudgetEntitySchema } from "./entities/UserPointsBudgetEntity.js";
 import { logger } from "../services/logger.js";
 
@@ -31,7 +36,12 @@ function buildDataSource(): DataSource {
     type: "postgres",
     url: APP_DATABASE_URL,
     entities: [
+      JobEntitySchema,
+      ModelTierAssignmentEntitySchema,
       ObservabilityRequestEntitySchema,
+      StepLifecycleEventEntitySchema,
+      StepWorkItemEntitySchema,
+      TickerWorkItemEntitySchema,
       UserPointsBudgetEntitySchema,
     ],
     synchronize: false,
