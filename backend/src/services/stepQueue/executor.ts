@@ -115,9 +115,45 @@ export async function claimNextPendingStep(
        SELECT s.id
        FROM step_work_items s
        JOIN jobs j ON j.id = s.job_id
+       JOIN ticker_work_items t ON t.id = s.ticker_work_item_id
        WHERE s.status = 'pending'
          AND j.status = 'running'
-       ORDER BY s.created_at ASC
+         AND (
+           s.kind LIKE 'analyst.%'
+           OR (
+             s.kind = 'debate'
+             AND NOT EXISTS (
+               SELECT 1
+               FROM step_work_items dep
+               WHERE dep.ticker_work_item_id = s.ticker_work_item_id
+                 AND dep.kind LIKE 'analyst.%'
+                 AND dep.status <> 'completed'
+             )
+           )
+           OR (
+             s.kind = 'synthesis'
+             AND EXISTS (
+               SELECT 1
+               FROM step_work_items dep
+               WHERE dep.ticker_work_item_id = s.ticker_work_item_id
+                 AND dep.kind = 'debate'
+                 AND dep.status = 'completed'
+             )
+           )
+         )
+       ORDER BY
+         t.position ASC,
+         CASE s.kind
+           WHEN 'analyst.fundamentals' THEN 1
+           WHEN 'analyst.technical' THEN 2
+           WHEN 'analyst.sentiment' THEN 3
+           WHEN 'analyst.macro' THEN 4
+           WHEN 'analyst.risk' THEN 5
+           WHEN 'debate' THEN 6
+           WHEN 'synthesis' THEN 7
+           ELSE 99
+         END,
+         s.created_at ASC
        LIMIT 1
        FOR UPDATE SKIP LOCKED
      )

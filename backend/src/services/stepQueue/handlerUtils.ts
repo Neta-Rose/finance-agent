@@ -149,6 +149,7 @@ export function makePromptHandler<T>(config: {
   gatherData: (step: ClaimedStepWorkItem, ws: UserWorkspace) => Promise<Record<string, unknown>>;
   artifactPath: (artifact: T, ws: UserWorkspace, step: ClaimedStepWorkItem) => Promise<string>;
   buildUserPrompt: (inputs: StepInputs) => string;
+  normalizeRaw?: (raw: unknown, inputs?: StepInputs) => unknown;
 }): StepHandler<T> {
   return {
     kind: config.kind,
@@ -175,8 +176,8 @@ export function makePromptHandler<T>(config: {
       if (!step) throw new Error(`Step context is required for ${config.kind}`);
       return callStepLlm(step, prompt, model, config.analyst);
     },
-    validate(raw) {
-      return validateWithSchema(config.schema, raw);
+    validate(raw, _schema) {
+      return validateWithSchema(config.schema, config.normalizeRaw ? config.normalizeRaw(raw) : raw);
     },
     persistArtifact: config.artifactPath,
   };
