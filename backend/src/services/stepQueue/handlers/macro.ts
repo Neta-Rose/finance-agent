@@ -12,6 +12,41 @@ export const macroHandler = makePromptHandler({
     const macroNews = await searchExaCached(`${step.ticker} sector macro rates currency market regime`, 4);
     return { ...common, macroNews };
   },
+  async callRaw(inputs) {
+    const position = inputs.data["position"] as { exchange?: string } | null;
+    const usdIlsRate = typeof inputs.data["usdIlsRate"] === "number" ? inputs.data["usdIlsRate"] : 3.7;
+    const macroNews = Array.isArray(inputs.data["macroNews"])
+      ? inputs.data["macroNews"] as Array<{ url?: string }>
+      : [];
+    return {
+      ticker: inputs.step.ticker,
+      generatedAt: new Date().toISOString(),
+      analyst: "macro",
+      rateEnvironment: {
+        relevantBank: position?.exchange === "TASE" ? "Bank of Israel" : "Federal Reserve",
+        currentRate: null,
+        direction: "holding",
+        relevance: "neutral",
+      },
+      sectorPerformance: {
+        sectorName: "unknown",
+        performanceVsMarket30d: null,
+        trend: "in-line",
+      },
+      currency: {
+        usdIls: usdIlsRate,
+        trend: "stable",
+        impactOnPosition: "neutral",
+      },
+      geopolitical: {
+        relevantFactor: null,
+        riskLevel: "none",
+      },
+      marketRegime: "mixed",
+      macroView: "Deterministic macro snapshot. PR 4 test keeps this step LLM-free to control cost; richer macro interpretation can be reintroduced after observed reliability improves.",
+      sources: macroNews.map((item) => item.url).filter((url): url is string => typeof url === "string" && url.startsWith("http")).slice(0, 4),
+    };
+  },
   artifactPath: persistReportArtifact("macro"),
   buildUserPrompt(inputs) {
     return [
