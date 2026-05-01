@@ -185,8 +185,8 @@ export function makePromptHandler<T>(config: {
       }
       return callStepLlm(step, prompt, model, config.analyst);
     },
-    validate(raw, _schema) {
-      return validateWithSchema(config.schema, config.normalizeRaw ? config.normalizeRaw(raw) : raw);
+    validate(raw, _schema, inputs) {
+      return validateWithSchema(config.schema, config.normalizeRaw ? config.normalizeRaw(raw, inputs) : raw);
     },
     persistArtifact: config.artifactPath,
   };

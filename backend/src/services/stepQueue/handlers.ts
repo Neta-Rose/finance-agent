@@ -36,7 +36,7 @@ export interface StepHandler<TArtifact = unknown> {
     step?: ClaimedStepWorkItem,
     inputs?: StepInputs
   ): Promise<unknown>;
-  validate(raw: unknown, schema: z.ZodType<TArtifact>): ValidationResult<TArtifact>;
+  validate(raw: unknown, schema: z.ZodType<TArtifact>, inputs?: StepInputs): ValidationResult<TArtifact>;
   persistArtifact(artifact: TArtifact, ws: UserWorkspace, step: ClaimedStepWorkItem): Promise<string>;
 }
 

@@ -12,12 +12,12 @@ export const fundamentalsHandler = makePromptHandler({
   schemaName: "FundamentalsReportSchema",
   gatherData: gatherCommonInputs,
   artifactPath: persistReportArtifact("fundamentals"),
-  normalizeRaw(raw) {
+  normalizeRaw(raw, inputs) {
     const obj = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
     const valuation = obj["valuation"] && typeof obj["valuation"] === "object" ? obj["valuation"] as Record<string, unknown> : {};
     const consensus = obj["analystConsensus"] && typeof obj["analystConsensus"] === "object" ? obj["analystConsensus"] as Record<string, unknown> : {};
     return {
-      ticker: obj["ticker"],
+      ticker: typeof obj["ticker"] === "string" ? obj["ticker"] : inputs?.step.ticker,
       generatedAt: typeof obj["generatedAt"] === "string" ? obj["generatedAt"] : new Date().toISOString(),
       analyst: "fundamentals",
       earnings: {

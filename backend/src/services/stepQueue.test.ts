@@ -220,6 +220,21 @@ test("risk handler validates and persists deterministic artifact", async () => {
   assert.equal(artifact.analyst, "risk");
 });
 
+test("fundamentals normalizer recovers missing ticker from step inputs", async () => {
+  const ws = await setupWorkspace("handler-fundamentals-normalize");
+  const step = claimedStep("analyst.fundamentals", "AAPL");
+  const handler = handlerFor("analyst.fundamentals");
+  const inputs = {
+    ...deterministicInputs(step, ws),
+    data: { position: null, price: null, currentStrategy: null, userProfile: null },
+  };
+  const prompt = handler.buildPrompt(inputs, "cheap");
+  const validated = handler.validate({ sources: ["https://finance.yahoo.com/"] }, prompt.schema, inputs);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+  assert.equal((validated.artifact as { ticker?: string }).ticker, "AAPL");
+});
+
 test("debate handler validates and persists deterministic artifact", async () => {
   const ws = await setupWorkspace("handler-debate");
   const step = claimedStep("debate", "AAPL");

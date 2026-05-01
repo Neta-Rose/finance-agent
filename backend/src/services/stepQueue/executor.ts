@@ -315,7 +315,7 @@ async function executeClaimedStep(ds: DataSource, step: ClaimedStepWorkItem): Pr
   const inputs = await handler.gatherInputs(step, ws);
   const prompt = handler.buildPrompt(inputs, model.tier);
   const raw = await handler.call(prompt, model, step, inputs);
-  const validation = handler.validate(raw, prompt.schema);
+  const validation = handler.validate(raw, prompt.schema, inputs);
   if (!validation.ok) {
     throw validation.error;
   }
