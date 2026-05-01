@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
+import type { StepInputs } from "./stepQueue/handlers.js";
 import type { ClaimedStepWorkItem } from "./stepQueue/types.js";
 
 const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), "step-queue-"));
@@ -83,6 +84,42 @@ function claimedStep(kind: ClaimedStepWorkItem["kind"], ticker: string): Claimed
     startedAt: new Date("2026-05-01T00:00:00.000Z"),
     completedAt: null,
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
+  };
+}
+
+function deterministicInputs(step: ClaimedStepWorkItem, ws: UserWorkspace): StepInputs {
+  return {
+    step,
+    workspace: ws,
+    gatheredAt: "2026-05-01T00:00:00.000Z",
+    data: {
+      price: { priceNative: 123, priceILS: 455, currency: "USD" },
+      analystArtifacts: {
+        fundamentals: {
+          fundamentalView: "Revenue trend is stable but valuation evidence is incomplete.",
+          sources: ["https://finance.yahoo.com/quote/AAPL"],
+        },
+        technical: {
+          technicalView: "Price trend is neutral versus recent moving averages.",
+          sources: ["https://finance.yahoo.com/quote/AAPL/history"],
+        },
+        sentiment: {
+          sentimentView: "No strong sentiment shift was detected.",
+          sources: ["https://example.com/news/aapl"],
+        },
+        macro: {
+          macroView: "Macro context is mixed and should not drive a high-conviction call.",
+          sources: ["https://example.com/macro/aapl"],
+        },
+        risk: {
+          positionValueILS: 1000,
+          portfolioWeightPct: 12,
+          plPct: -8,
+          riskFacts: "Weight 12.0%, P/L -8.0%, total shares 1.",
+          sources: ["https://finance.yahoo.com/quote/AAPL"],
+        },
+      },
+    },
   };
 }
 
@@ -181,4 +218,45 @@ test("risk handler validates and persists deterministic artifact", async () => {
   const artifact = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string; analyst?: string };
   assert.equal(artifact.ticker, "AAPL");
   assert.equal(artifact.analyst, "risk");
+});
+
+test("debate handler validates and persists deterministic artifact", async () => {
+  const ws = await setupWorkspace("handler-debate");
+  const step = claimedStep("debate", "AAPL");
+  const handler = handlerFor("debate");
+  const inputs = deterministicInputs(step, ws);
+  const prompt = handler.buildPrompt(inputs, "cheap");
+  const raw = await handler.call(prompt, { tier: "cheap", primary: "stub", fallback: null }, step, inputs);
+  const validated = handler.validate(raw, prompt.schema);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+
+  const artifactPath = await handler.persistArtifact(validated.artifact, ws, step);
+  const artifact = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string; analyst?: string };
+  assert.equal(artifact.ticker, "AAPL");
+  assert.equal(artifact.analyst, "debate");
+});
+
+test("synthesis handler validates and persists deterministic strategy", async () => {
+  const ws = await setupWorkspace("handler-synthesis");
+  const step = claimedStep("synthesis", "AAPL");
+  const handler = handlerFor("synthesis");
+  const inputs = deterministicInputs(step, ws);
+  inputs.data["debate"] = {
+    bullFinalVerdict: "HOLD",
+    bearFinalVerdict: "HOLD",
+    keyDisagreement: "Whether the evidence is enough for a confident add.",
+    synthesisGuidance: "Keep the output provisional until richer evidence exists.",
+  };
+  const prompt = handler.buildPrompt(inputs, "cheap");
+  const raw = await handler.call(prompt, { tier: "cheap", primary: "stub", fallback: null }, step, inputs);
+  const validated = handler.validate(raw, prompt.schema);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+
+  const artifactPath = await handler.persistArtifact(validated.artifact, ws, step);
+  const artifact = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string; metadata?: { status?: string } };
+  assert.equal(artifactPath, ws.strategyFile("AAPL"));
+  assert.equal(artifact.ticker, "AAPL");
+  assert.equal(artifact.metadata?.status, "provisional");
 });
