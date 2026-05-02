@@ -195,6 +195,13 @@ export interface StepQueueCostRow {
   error_count: number;
 }
 
+export interface StepQueueCostResponse {
+  days: number | null;
+  from: string;
+  to: string;
+  rows: StepQueueCostRow[];
+}
+
 const DEFAULT_POINTS_BUDGET_VALUE = 500;
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
@@ -389,6 +396,12 @@ export interface UserObservability {
   pointsBalance: PointsBalance;
 }
 
+export interface ObservabilityRangeSummary {
+  from: string;
+  to: string;
+  users: UserDailySummary[];
+}
+
 export const adminGetUserObservability = async (
   userId: string,
   options?: { limit?: number; offset?: number }
@@ -409,6 +422,11 @@ export const adminGetUserObservability = async (
 
 export const adminGetObservabilitySummary = async (): Promise<{ date: string; users: UserDailySummary[] }> =>
   adminFetch("/api/admin/observability/summary") as Promise<{ date: string; users: UserDailySummary[] }>;
+
+export const adminGetObservabilityRange = async (from: string, to: string): Promise<ObservabilityRangeSummary> => {
+  const params = new URLSearchParams({ from, to });
+  return adminFetch(`/api/admin/observability/range?${params.toString()}`) as Promise<ObservabilityRangeSummary>;
+};
 
 // ── Admin control API ─────────────────────────────────────────────────────────
 
@@ -460,8 +478,9 @@ export const adminKillJob = async (userId: string, jobId: string): Promise<void>
   await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs/${encodeURIComponent(jobId)}/kill`, { method: "POST" });
 };
 
-export const adminListStepQueueJobs = async (limit = 20): Promise<StepQueueJobSummary[]> => {
+export const adminListStepQueueJobs = async (limit = 20, userId?: string): Promise<StepQueueJobSummary[]> => {
   const params = new URLSearchParams({ limit: String(limit) });
+  if (userId) params.set("userId", userId);
   const d = await adminFetch(`/api/admin/step-queue/jobs?${params.toString()}`) as { jobs: StepQueueJobSummary[] };
   return d.jobs;
 };
@@ -469,8 +488,16 @@ export const adminListStepQueueJobs = async (limit = 20): Promise<StepQueueJobSu
 export const adminGetStepQueueJob = async (jobId: string): Promise<StepQueueJobDetail> =>
   adminFetch(`/api/admin/step-queue/jobs/${encodeURIComponent(jobId)}`) as Promise<StepQueueJobDetail>;
 
-export const adminGetStepQueueCost = async (days = 7): Promise<{ days: number; rows: StepQueueCostRow[] }> =>
-  adminFetch(`/api/admin/step-queue/cost?days=${encodeURIComponent(String(days))}`) as Promise<{ days: number; rows: StepQueueCostRow[] }>;
+export const adminGetStepQueueCost = async (
+  range: number | { from: string; to: string } = 7
+): Promise<StepQueueCostResponse> => {
+  const params = new URLSearchParams(
+    typeof range === "number"
+      ? { days: String(range) }
+      : { from: range.from, to: range.to }
+  );
+  return adminFetch(`/api/admin/step-queue/cost?${params.toString()}`) as Promise<StepQueueCostResponse>;
+};
 
 export const adminGetStepQueueModels = async (): Promise<StepQueueModelsResponse> =>
   adminFetch("/api/admin/step-queue/models") as Promise<StepQueueModelsResponse>;

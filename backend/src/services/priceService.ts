@@ -3,6 +3,8 @@ import type { Exchange } from "../types/index.js";
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const FX_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const PRICE_FETCH_TIMEOUT_MS = Number(process.env["PRICE_FETCH_TIMEOUT_MS"] ?? "8000");
+const FX_FETCH_TIMEOUT_MS = Number(process.env["FX_FETCH_TIMEOUT_MS"] ?? "5000");
 
 // YahooFinance v3: createYahooFinance returns the class, need to instantiate
 const yf = new YahooFinance();
@@ -35,6 +37,20 @@ export class PriceFetchError extends Error {
   }
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new PriceFetchError(label, "Price fetch timed out")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export async function getUsdIlsRate(): Promise<number> {
   const now = Date.now();
   if (now - fxCache.ts < FX_CACHE_TTL_MS && fxCache.rate > 0) {
@@ -42,9 +58,12 @@ export async function getUsdIlsRate(): Promise<number> {
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FX_FETCH_TIMEOUT_MS);
     const res = await fetch(
-      "https://api.frankfurter.app/latest?from=USD&to=ILS"
-    );
+      "https://api.frankfurter.app/latest?from=USD&to=ILS",
+      { signal: controller.signal }
+    ).finally(() => clearTimeout(timeoutId));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { rates?: { ILS?: number } };
     const rate = data.rates?.ILS;
@@ -67,7 +86,7 @@ async function getPriceFromYF(
 ): Promise<PriceResult> {
   const yfTicker = exchange === "TASE" && !ticker.endsWith(".TA") ? `${ticker}.TA` : ticker;
 
-  const quote = await yf.quote(yfTicker);
+  const quote = await withTimeout(yf.quote(yfTicker), PRICE_FETCH_TIMEOUT_MS, yfTicker);
   const rawPrice = quote["regularMarketPrice"];
 
   if (rawPrice === undefined || rawPrice === null) {

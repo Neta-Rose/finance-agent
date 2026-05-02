@@ -43,6 +43,72 @@ function SingleBanner({
   );
 }
 
+function BroadcastModal({
+  text,
+  type,
+  dismissible,
+  onDismiss,
+}: {
+  text: string;
+  type: Banner["type"];
+  dismissible: boolean;
+  onDismiss: () => void;
+}) {
+  const s = BANNER_STYLES[type];
+  const title =
+    type === "error"
+      ? "Important system notice"
+      : type === "warning"
+        ? "System warning"
+        : "System update";
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="system-broadcast-title"
+        className="w-full max-w-md rounded-2xl border p-5 shadow-2xl"
+        style={{
+          background: "var(--color-bg-subtle)",
+          borderColor: s.border,
+          color: "var(--color-fg-default)",
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg"
+            style={{ background: s.bg, color: s.text, border: `1px solid ${s.border}` }}
+          >
+            {s.icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="system-broadcast-title" className="text-sm font-bold">
+              {title}
+            </h2>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6" style={{ color: "var(--color-fg-muted)" }}>
+              {text}
+            </p>
+          </div>
+        </div>
+        {dismissible && (
+          <button
+            onClick={onDismiss}
+            className="mt-5 w-full rounded-xl px-4 py-2 text-sm font-semibold"
+            style={{ background: s.text, color: "white" }}
+          >
+            I understand
+          </button>
+        )}
+        {!dismissible && (
+          <p className="mt-5 rounded-xl px-3 py-2 text-center text-xs font-medium" style={{ background: s.bg, color: s.text }}>
+            This message is pinned by the administrator.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ControlBanner({ state }: { state: ControlState }) {
   const [dismissedSystem,      setDismissedSystem]      = useState(false);
   const [dismissedRestriction, setDismissedRestriction] = useState(false);
@@ -73,39 +139,43 @@ export function ControlBanner({ state }: { state: ControlState }) {
   if (!showSys && !showLock && !showRestriction && !showUserBanner) return null;
 
   return (
-    <div className="sticky top-0 z-50">
+    <>
       {showSys && (
-        <SingleBanner
+        <BroadcastModal
           text={sysBroadcast!.text}
           type={sysBroadcast!.type}
           dismissible={sysBroadcast!.dismissible}
           onDismiss={() => setDismissedSystem(true)}
         />
       )}
-      {showLock && (
-        <SingleBanner
-          text={state.systemLockReason || "System is temporarily locked. No new jobs can be triggered."}
-          type="error"
-          dismissible={false}
-          onDismiss={() => {}}
-        />
+      {(showLock || showRestriction || showUserBanner) && (
+        <div className="sticky top-0 z-50">
+          {showLock && (
+            <SingleBanner
+              text={state.systemLockReason || "System is temporarily locked. No new jobs can be triggered."}
+              type="error"
+              dismissible={false}
+              onDismiss={() => {}}
+            />
+          )}
+          {showRestriction && (
+            <SingleBanner
+              text={restrictionText}
+              type={restrictionType}
+              dismissible={true}
+              onDismiss={() => setDismissedRestriction(true)}
+            />
+          )}
+          {showUserBanner && (
+            <SingleBanner
+              text={userBanner!.text}
+              type={userBanner!.type}
+              dismissible={userBanner!.dismissible}
+              onDismiss={() => setDismissedUserBanner(true)}
+            />
+          )}
+        </div>
       )}
-      {showRestriction && (
-        <SingleBanner
-          text={restrictionText}
-          type={restrictionType}
-          dismissible={true}
-          onDismiss={() => setDismissedRestriction(true)}
-        />
-      )}
-      {showUserBanner && (
-        <SingleBanner
-          text={userBanner!.text}
-          type={userBanner!.type}
-          dismissible={userBanner!.dismissible}
-          onDismiss={() => setDismissedUserBanner(true)}
-        />
-      )}
-    </div>
+    </>
   );
 }

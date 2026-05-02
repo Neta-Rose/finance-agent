@@ -20,7 +20,7 @@ export interface ModelTierAssignment {
   fallback: string | null;
 }
 
-const DEFAULT_ASSIGNMENTS: Record<ModelTier, Record<StepKind, string>> = {
+export const DEFAULT_MODEL_TIER_ASSIGNMENTS: Record<ModelTier, Record<StepKind, string>> = {
   free: {
     "analyst.fundamentals": "google/gemma-3-27b-it:free",
     "analyst.technical": "google/gemma-3-27b-it:free",
@@ -102,7 +102,20 @@ export async function resolveStepModel(ds: DataSource, userId: string, stepKind:
   return resolveAssignedModel(userId, {
     tier,
     stepKind,
-    model: row?.model ?? DEFAULT_ASSIGNMENTS[tier][stepKind],
+    model: row?.model ?? DEFAULT_MODEL_TIER_ASSIGNMENTS[tier][stepKind],
     fallback: row?.fallback ?? null,
   });
+}
+
+export async function ensureDefaultModelTierAssignments(ds: DataSource): Promise<void> {
+  for (const tier of MODEL_TIERS) {
+    for (const [stepKind, model] of Object.entries(DEFAULT_MODEL_TIER_ASSIGNMENTS[tier]) as Array<[StepKind, string]>) {
+      await ds.query(
+        `INSERT INTO model_tier_assignments (tier, step_kind, model, fallback, updated_at, updated_by)
+         VALUES ($1, $2, $3, NULL, NOW(), 'system_default')
+         ON CONFLICT (tier, step_kind) DO NOTHING`,
+        [tier, stepKind, model]
+      );
+    }
+  }
 }

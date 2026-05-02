@@ -474,8 +474,17 @@ async function markStepFailed(
   await finalizeJobIfTickerWorkClosed(ds, step.jobId);
 }
 
-export async function sweepAbandonedRunningSteps(ds: DataSource, now = new Date()): Promise<number> {
+export async function sweepAbandonedRunningSteps(
+  ds: DataSource,
+  now = new Date(),
+  excludeStepIds: string[] = []
+): Promise<number> {
   const cutoff = new Date(now.getTime() - lockTtlMs()).toISOString();
+  const params: unknown[] = [cutoff];
+  const excludeClause = excludeStepIds.length > 0
+    ? `AND id <> ALL($2::uuid[])`
+    : "";
+  if (excludeStepIds.length > 0) params.push(excludeStepIds);
   const result = await ds.query(
     `UPDATE step_work_items
         SET status = 'pending',
@@ -483,8 +492,9 @@ export async function sweepAbandonedRunningSteps(ds: DataSource, now = new Date(
             last_error = 'Step lock expired before completion'
       WHERE status = 'running'
         AND started_at < $1::timestamptz
+        ${excludeClause}
       RETURNING id, attempts`,
-    [cutoff]
+    params
   );
   const rows = mutationRows<{ id: string; attempts: number } & Record<string, unknown>>(result);
 
@@ -571,7 +581,7 @@ export function startStepQueueExecutor(): void {
 
   sweepTimer = setInterval(() => {
     void getApplicationDataSource()
-      .then((ds) => sweepAbandonedRunningSteps(ds))
+      .then((ds) => sweepAbandonedRunningSteps(ds, new Date(), Array.from(inflightSteps)))
       .then((count) => {
         if (count > 0) logger.warn(`Step queue swept ${count} abandoned running step(s)`);
       })

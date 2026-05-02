@@ -57,6 +57,7 @@ import {
   classifyUserAgentHealth,
   shouldUserHeartbeatBeEnabled,
 } from "../services/startupService.js";
+import { ensureDefaultModelTierAssignments } from "../services/stepQueue/modelTier.js";
 import { MODEL_TIERS, STEP_KINDS } from "../services/stepQueue/types.js";
 import type { ModelTier, StepKind } from "../services/stepQueue/types.js";
 
@@ -98,6 +99,27 @@ function mutationRows<T extends Record<string, unknown>>(result: unknown): T[] {
     return result[0] as T[];
   }
   return Array.isArray(result) ? result as T[] : [];
+}
+
+function parseIsoRange(req: Request, res: Response): { from: Date; to: Date } | null {
+  const fromRaw = typeof req.query["from"] === "string" ? req.query["from"] : "";
+  const toRaw = typeof req.query["to"] === "string" ? req.query["to"] : "";
+  const from = new Date(fromRaw);
+  const to = new Date(toRaw);
+  if (!fromRaw || !toRaw || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    res.status(400).json({ error: "valid from and to ISO timestamps required" });
+    return null;
+  }
+  if (from >= to) {
+    res.status(400).json({ error: "from must be before to" });
+    return null;
+  }
+  const maxRangeMs = 366 * 24 * 60 * 60 * 1000;
+  if (to.getTime() - from.getTime() > maxRangeMs) {
+    res.status(400).json({ error: "range too large; maximum is 366 days" });
+    return null;
+  }
+  return { from, to };
 }
 
 async function patchUserPointsBudget(req: Request, res: Response): Promise<void> {
@@ -617,6 +639,42 @@ router.get(
   })
 );
 
+// GET /api/admin/observability/range — arbitrary UTC range aggregate from Postgres
+router.get(
+  "/observability/range",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const range = parseIsoRange(req, res);
+    if (!range) return;
+
+    const ds = await getApplicationDataSource();
+    const users = await ds.query(
+      `SELECT
+         user_id AS "userId",
+         COUNT(*)::int AS "requestCount",
+         COALESCE(SUM(tokens_in), 0)::int AS "totalTokensIn",
+         COALESCE(SUM(tokens_out), 0)::int AS "totalTokensOut",
+         COALESCE(ROUND(SUM(cost_usd), 6), 0)::float AS "totalCostUsd",
+         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END)::int AS "successCount",
+         SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END)::int AS "errorCount",
+         SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END)::int AS "timeoutCount",
+         SUM(CASE WHEN rejection_reason IS NOT NULL THEN 1 ELSE 0 END)::int AS "rejectedCount",
+         SUM(CASE
+           WHEN purpose = 'empty from earlier version'
+             OR attribution_source = 'empty from earlier version'
+           THEN 1 ELSE 0 END)::int AS "unattributedCount"
+       FROM llm_requests
+       WHERE occurred_at >= $1::timestamptz
+         AND occurred_at < $2::timestamptz
+       GROUP BY user_id
+       ORDER BY "totalCostUsd" DESC`,
+      [range.from.toISOString(), range.to.toISOString()]
+    ) as Array<Record<string, unknown>>;
+
+    res.json({ from: range.from.toISOString(), to: range.to.toISOString(), users });
+  })
+);
+
 // GET /api/admin/observability/users/:userId — 7-day history + last 20 requests
 router.get(
   "/observability/users/:userId",
@@ -757,6 +815,7 @@ router.get(
   handler(async (_req, res) => {
     if (!requireStepQueueDatabase(res)) return;
     const ds = await getApplicationDataSource();
+    await ensureDefaultModelTierAssignments(ds);
     const rows = await ds.query(
       `SELECT tier, step_kind, model, fallback, updated_at, updated_by
          FROM model_tier_assignments
@@ -805,7 +864,13 @@ router.get(
   "/step-queue/cost",
   handler(async (req, res) => {
     if (!requireStepQueueDatabase(res)) return;
+    const hasExplicitRange = typeof req.query["from"] === "string" || typeof req.query["to"] === "string";
+    const now = new Date();
     const days = Math.min(Math.max(Number(req.query["days"] ?? 7), 1), 90);
+    const range = hasExplicitRange
+      ? parseIsoRange(req, res)
+      : { from: new Date(now.getTime() - days * 24 * 60 * 60 * 1000), to: now };
+    if (!range) return;
     const ds = await getApplicationDataSource();
     const rows = await ds.query(
       `SELECT
@@ -821,12 +886,13 @@ router.get(
          SUM(CASE WHEN status <> 'success' THEN 1 ELSE 0 END)::int AS error_count
        FROM llm_requests
        WHERE purpose = 'step_queue'
-         AND occurred_at >= NOW() - ($1::int * INTERVAL '1 day')
+         AND occurred_at >= $1::timestamptz
+         AND occurred_at < $2::timestamptz
        GROUP BY user_id, ticker, analyst, day
        ORDER BY day DESC, cost_usd DESC`,
-      [days]
+      [range.from.toISOString(), range.to.toISOString()]
     ) as Array<Record<string, unknown>>;
-    res.json({ days, rows });
+    res.json({ days: hasExplicitRange ? null : days, from: range.from.toISOString(), to: range.to.toISOString(), rows });
   })
 );
 

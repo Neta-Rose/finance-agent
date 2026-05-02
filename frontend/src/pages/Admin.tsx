@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminFetchUsers,
@@ -31,7 +31,7 @@ import {
   adminGetStepQueueCost,
   adminGetStepQueueModels,
   adminUpdateStepQueueModel,
-  adminGetObservabilitySummary,
+  adminGetObservabilityRange,
   adminListSupportMessages,
   adminUpdateSupportMessageStatus,
   adminUpdatePointsBudget,
@@ -617,6 +617,18 @@ function StepQueueStatusBadge({ status }: { status: string }) {
   );
 }
 
+function formatElapsed(startIso: string | null, endIso?: string | null): string {
+  if (!startIso) return "not started";
+  const end = endIso ? new Date(endIso).getTime() : Date.now();
+  const diff = Math.max(0, end - new Date(startIso).getTime());
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
 function StepQueueInspector({ onError }: { onError: (message: string) => void }) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const jobsQuery = useQuery({
@@ -641,13 +653,18 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
   const partial = jobs.filter((job) => job.status === "partial_completed").length;
   const failed = jobs.filter((job) => job.status === "failed").length;
   const stepsByTicker = new Map<string, StepQueueStep[]>();
+  const tickerById = new Map<string, string>();
   if (selected) {
+    for (const ticker of selected.tickers) {
+      tickerById.set(ticker.id, ticker.ticker);
+    }
     for (const step of selected.steps) {
       const list = stepsByTicker.get(step.ticker_work_item_id) ?? [];
       list.push(step);
       stepsByTicker.set(step.ticker_work_item_id, list);
     }
   }
+  const runningSteps = selected?.steps.filter((step) => step.status === "running") ?? [];
 
   const fmt = (iso: string | null) => {
     if (!iso) return "open";
@@ -714,14 +731,44 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
         {selected && (
           <div className="mt-3 rounded-lg border p-3 space-y-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold">Ticker Details</p>
+              <div>
+                <p className="text-xs font-bold">Ticker Details</p>
+                <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                  Current stage visibility, durations, and terminal errors for {String(selected.job["id"] ?? "").slice(-10)}.
+                </p>
+              </div>
               <button onClick={() => void detailQuery.refetch()} className="text-[10px] underline" style={{ color: "var(--color-accent-blue)" }}>
                 Refresh
               </button>
             </div>
+            {runningSteps.length > 0 && (
+              <div className="rounded-md border p-2" style={{ borderColor: "rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.08)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-accent-blue)" }}>
+                  Running now
+                </p>
+                <div className="mt-1 space-y-1">
+                  {runningSteps.map((step) => (
+                    <div key={step.id} className="flex items-center justify-between gap-2 text-[10px]">
+                      <span className="min-w-0 truncate">
+                        <span className="font-mono">{tickerById.get(step.ticker_work_item_id) ?? "unknown"}</span>
+                        {" · "}
+                        {step.kind}
+                        {" · "}
+                        attempt {step.attempts}
+                      </span>
+                      <span className="shrink-0" style={{ color: "var(--color-fg-muted)" }}>
+                        {formatElapsed(step.started_at)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {selected.tickers.map((ticker) => {
               const steps = stepsByTicker.get(ticker.id) ?? [];
               const failedSteps = steps.filter((step) => step.status === "failed");
+              const runningStep = steps.find((step) => step.status === "running");
+              const completedCount = steps.filter((step) => step.status === "completed").length;
               return (
                 <div key={ticker.id} className="rounded-md border p-2" style={{ borderColor: "var(--color-border)" }}>
                   <div className="flex items-center justify-between gap-2">
@@ -729,9 +776,37 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
                     <StepQueueStatusBadge status={ticker.status} />
                   </div>
                   <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
-                    {steps.filter((step) => step.status === "completed").length}/{steps.length} steps completed
+                    {completedCount}/{steps.length} completed · {failedSteps.length} failed
+                    {runningStep ? ` · current: ${runningStep.kind} attempt ${runningStep.attempts} for ${formatElapsed(runningStep.started_at)}` : ""}
                     {failedSteps.length > 0 ? ` · failed: ${failedSteps.map((step) => step.kind).join(", ")}` : ""}
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {steps.map((step) => (
+                      <span
+                        key={step.id}
+                        title={step.last_error ?? undefined}
+                        className="rounded px-1.5 py-0.5 text-[9px]"
+                        style={{
+                          background: step.status === "completed"
+                            ? "rgba(16,185,129,0.10)"
+                            : step.status === "failed"
+                              ? "rgba(239,68,68,0.10)"
+                              : step.status === "running"
+                                ? "rgba(59,130,246,0.12)"
+                                : "var(--color-bg-muted)",
+                          color: step.status === "completed"
+                            ? "var(--color-accent-green)"
+                            : step.status === "failed"
+                              ? "var(--color-accent-red)"
+                              : step.status === "running"
+                                ? "var(--color-accent-blue)"
+                                : "var(--color-fg-subtle)",
+                        }}
+                      >
+                        {step.kind.replace("analyst.", "")} · a{step.attempts} · {formatElapsed(step.started_at, step.completed_at)}
+                      </span>
+                    ))}
+                  </div>
                   {(ticker.failure_reason || failedSteps[0]?.last_error) && (
                     <p className="text-[10px] mt-1 line-clamp-2" style={{ color: "var(--color-accent-red)" }}>
                       {(ticker.failure_reason ?? failedSteps[0]?.last_error ?? "").slice(0, 240)}
@@ -762,14 +837,54 @@ function OperationsOverview({
   restrictedCount: number;
   onError: (message: string) => void;
 }) {
+  const toInputValue = (date: Date) => {
+    const offset = date.getTimezoneOffset() * 60_000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  };
+  const [rangePreset, setRangePreset] = useState<"minutes" | "24h" | "7d" | "14d" | "custom">("minutes");
+  const [rangeMinutes, setRangeMinutes] = useState("30");
+  const [customFrom, setCustomFrom] = useState(() => toInputValue(new Date(Date.now() - 24 * 60 * 60 * 1000)));
+  const [customTo, setCustomTo] = useState(() => toInputValue(new Date()));
+  const range = useMemo(() => {
+    const now = new Date();
+    if (rangePreset === "custom") {
+      const from = new Date(customFrom);
+      const to = new Date(customTo);
+      if (!Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime()) && from < to) {
+        return {
+          from: from.toISOString(),
+          to: to.toISOString(),
+          label: `${from.toLocaleString()} to ${to.toLocaleString()}`,
+        };
+      }
+      return {
+        from: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
+        to: now.toISOString(),
+        label: "Invalid custom range; showing last hour",
+      };
+    }
+    const minutes = rangePreset === "minutes"
+      ? Math.min(Math.max(Number(rangeMinutes) || 30, 1), 60 * 24 * 90)
+      : rangePreset === "24h"
+        ? 24 * 60
+        : rangePreset === "7d"
+          ? 7 * 24 * 60
+          : 14 * 24 * 60;
+    return {
+      from: new Date(now.getTime() - minutes * 60 * 1000).toISOString(),
+      to: now.toISOString(),
+      label: rangePreset === "minutes" ? `Last ${minutes} minutes` : `Last ${rangePreset}`,
+    };
+  }, [customFrom, customTo, rangeMinutes, rangePreset]);
+
   const observabilityQuery = useQuery({
-    queryKey: ["admin-observability-summary"],
-    queryFn: adminGetObservabilitySummary,
+    queryKey: ["admin-observability-range", range.from, range.to],
+    queryFn: () => adminGetObservabilityRange(range.from, range.to),
     refetchInterval: 15_000,
   });
   const costQuery = useQuery({
-    queryKey: ["admin-step-queue-cost"],
-    queryFn: () => adminGetStepQueueCost(7),
+    queryKey: ["admin-step-queue-cost", range.from, range.to],
+    queryFn: () => adminGetStepQueueCost({ from: range.from, to: range.to }),
     refetchInterval: 30_000,
   });
   const supportQuery = useQuery({
@@ -796,10 +911,10 @@ function OperationsOverview({
 
   const cards = [
     { label: "Users", value: users.length, sub: `${status?.activeAgents ?? "?"} agents`, tone: "default" },
-    { label: "Health", value: unhealthyCount, sub: `${degradedCount} degraded`, tone: unhealthyCount > 0 || degradedCount > 0 ? "bad" : "good" },
+    { label: "Unhealthy agents", value: unhealthyCount, sub: unhealthyCount === 0 ? "0 means all operational" : `${degradedCount} degraded`, tone: unhealthyCount > 0 || degradedCount > 0 ? "bad" : "good" },
     { label: "Restricted", value: restrictedCount, sub: "account controls", tone: restrictedCount > 0 ? "warn" : "default" },
-    { label: "Requests today", value: totalRequests, sub: `$${totalCost.toFixed(4)}`, tone: "default" },
-    { label: "Errors today", value: totalErrors, sub: `${unattributed} unattributed`, tone: totalErrors > 0 || unattributed > 0 ? "warn" : "good" },
+    { label: "Requests", value: totalRequests, sub: `$${totalCost.toFixed(4)} · ${range.label}`, tone: "default" },
+    { label: "Errors", value: totalErrors, sub: `${unattributed} unattributed · selected range`, tone: totalErrors > 0 || unattributed > 0 ? "warn" : "good" },
     { label: "Open support", value: openSupport, sub: "messages", tone: openSupport > 0 ? "warn" : "good" },
   ];
 
@@ -808,6 +923,77 @@ function OperationsOverview({
 
   return (
     <section className="space-y-3">
+      <div className="rounded-xl border p-3 space-y-2" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wide">Observability Range</h2>
+            <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+              {range.label}
+            </p>
+          </div>
+          <span className="text-[10px] font-mono" style={{ color: "var(--color-fg-subtle)" }}>
+            Postgres
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            ["minutes", "Last minutes"],
+            ["24h", "24h"],
+            ["7d", "7d"],
+            ["14d", "14d"],
+            ["custom", "Exact range"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setRangePreset(key as typeof rangePreset)}
+              className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
+              style={{
+                background: rangePreset === key ? "var(--color-accent-blue)" : "var(--color-bg-muted)",
+                color: rangePreset === key ? "white" : "var(--color-fg-muted)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+          {rangePreset === "minutes" && (
+            <input
+              type="number"
+              min={1}
+              max={129600}
+              value={rangeMinutes}
+              onChange={(e) => setRangeMinutes(e.target.value)}
+              className="w-24 rounded-lg px-2 py-1 text-[10px] outline-none"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+              aria-label="Minutes"
+            />
+          )}
+        </div>
+        {rangePreset === "custom" && (
+          <div className="grid md:grid-cols-2 gap-2">
+            <label className="text-[10px]" style={{ color: "var(--color-fg-muted)" }}>
+              From
+              <input
+                type="datetime-local"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="mt-1 w-full rounded-lg px-2 py-1.5 text-[11px] outline-none"
+                style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+              />
+            </label>
+            <label className="text-[10px]" style={{ color: "var(--color-fg-muted)" }}>
+              To
+              <input
+                type="datetime-local"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="mt-1 w-full rounded-lg px-2 py-1.5 text-[11px] outline-none"
+                style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+              />
+            </label>
+          </div>
+        )}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {cards.map((card) => (
           <div key={card.label} className="rounded-xl border p-4" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
@@ -823,7 +1009,7 @@ function OperationsOverview({
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wide">Cost Hotspots</h2>
             <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
-              Last {costQuery.data?.days ?? 7} days step-queue spend: ${stepQueueCost.toFixed(4)}
+              {range.label} step-queue spend: ${stepQueueCost.toFixed(4)}
             </p>
           </div>
         </div>
@@ -999,7 +1185,7 @@ function StepQueueModelsPanel({ onError }: { onError: (message: string) => void 
       <div className="px-4 py-3" style={{ background: "var(--color-bg-subtle)" }}>
         <h2 className="text-xs font-bold uppercase tracking-wide">Step Queue Models</h2>
         <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
-          Per-tier model assignments for backend-owned queue steps.
+          Postgres-backed per-tier model assignments for backend-owned queue steps. Empty databases are seeded with code defaults on load.
         </p>
       </div>
       <div className="p-3 overflow-x-auto" style={{ background: "var(--color-bg-base)" }}>
@@ -1910,6 +2096,70 @@ function UserJobsPanel({ userId, onError }: { userId: string; onError: (m: strin
   );
 }
 
+function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: string) => void }) {
+  const { data = [], error, isLoading, refetch } = useQuery({
+    queryKey: ["admin-user-step-queue-jobs", userId],
+    queryFn: () => adminListStepQueueJobs(5, userId),
+    refetchInterval: 10_000,
+  });
+
+  useEffect(() => {
+    if (error) onError(error instanceof Error ? error.message : "Failed to load user step-queue jobs");
+  }, [error, onError]);
+
+  return (
+    <div className="border-t pt-2" style={{ borderColor: "var(--color-border)" }}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
+          Step-queue jobs
+        </p>
+        <button onClick={() => void refetch()} className="text-[10px] underline" style={{ color: "var(--color-accent-blue)" }}>
+          Refresh
+        </button>
+      </div>
+      {isLoading ? (
+        <p className="mt-1 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>Loading queue jobs...</p>
+      ) : data.length === 0 ? (
+        <p className="mt-1 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>No backend queue jobs for this user.</p>
+      ) : (
+        <div className="mt-2 space-y-1.5">
+          {data.map((job) => {
+            const pct = job.step_count > 0
+              ? Math.round(((job.completed_steps + job.failed_steps) / job.step_count) * 100)
+              : 0;
+            return (
+              <div key={job.id} className="rounded-lg border p-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold truncate">
+                      {ACTION_LABELS[job.action] ?? job.action} · {job.model_tier}
+                    </p>
+                    <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                      {job.id.slice(-10)} · {timeAgo(job.triggered_at)}
+                      {job.started_at ? ` · elapsed ${formatElapsed(job.started_at, job.completed_at)}` : ""}
+                    </p>
+                  </div>
+                  <StepQueueStatusBadge status={job.status} />
+                </div>
+                <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--color-bg-muted)" }}>
+                  <div
+                    className={job.failed_steps > 0 ? "h-full bg-amber-500" : "h-full bg-[var(--color-accent-green)]"}
+                    style={{ width: `${Math.max(2, pct)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                  {job.completed_steps}/{job.step_count} completed · {job.failed_steps} failed · {job.ticker_count} tickers
+                  {job.failure_reason ? ` · ${job.failure_reason.slice(0, 120)}` : ""}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- User Card ----
 function UserCard({
   user,
@@ -2037,6 +2287,7 @@ function UserCard({
       />
 
       {/* Jobs panel */}
+      <UserStepQueueJobs userId={user.userId} onError={onError} />
       <UserJobsPanel userId={user.userId} onError={onError} />
 
       {/* Actions row */}
@@ -2242,6 +2493,7 @@ export function Admin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<"overview" | "users" | "support" | "settings">("overview");
+  const [userSearch, setUserSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2296,6 +2548,20 @@ export function Admin() {
   const degradedCount = users.filter(
     (user) => !user.integrityValid || user.eligibilityIssue !== null
   ).length;
+  const filteredUsers = useMemo(() => {
+    const needle = userSearch.trim().toLowerCase();
+    if (!needle) return users;
+    return users.filter((user) =>
+      [
+        user.userId,
+        user.displayName,
+        user.state,
+        user.modelProfile,
+        user.restriction ?? "",
+        user.eligibilityIssue ?? "",
+      ].some((value) => value.toLowerCase().includes(needle))
+    );
+  }, [userSearch, users]);
 
   if (!loggedIn) return <AdminLogin onLogin={() => setLoggedIn(true)} />;
 
@@ -2371,19 +2637,35 @@ export function Admin() {
 
         {activeSection === "users" && (
           <>
-            <button onClick={() => setShowAdd(true)}
-              className="w-full py-3 rounded-xl text-sm font-semibold"
-              style={{ background: "var(--color-accent-blue)", color: "white" }}>
-              + {t("adminAddUser", language)}
-            </button>
+            <div className="rounded-xl border p-3 space-y-2" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
+              <div className="flex gap-2">
+                <input
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="Search users by id, name, state, model, restriction..."
+                  className="flex-1 rounded-lg px-3 py-2 text-xs outline-none"
+                  style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+                />
+                <button onClick={() => setShowAdd(true)}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold"
+                  style={{ background: "var(--color-accent-blue)", color: "white" }}>
+                  + User
+                </button>
+              </div>
+              <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                Showing {filteredUsers.length} of {users.length} users.
+              </p>
+            </div>
 
             {loading && users.length === 0 ? (
               <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>{t("loading", language)}</div>
             ) : users.length === 0 ? (
               <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>{t("adminNoUsers", language)}</div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>No users match this search.</div>
             ) : (
               <div className="space-y-3">
-                {users.map(u => (
+                {filteredUsers.map(u => (
                   <UserCard
                     key={u.userId}
                     user={u}
@@ -2419,10 +2701,13 @@ export function Admin() {
               style={{ borderColor: "var(--color-border)" }}>
               <summary className="px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none flex items-center justify-between"
                 style={{ background: "var(--color-bg-subtle)", color: "var(--color-fg-muted)", listStyle: "none" }}>
-                <span>Model Profiles</span>
+                <span>Legacy Agent Model Profiles</span>
                 <span className="group-open:rotate-180 transition-transform">▾</span>
               </summary>
               <div className="p-4" style={{ background: "var(--color-bg-base)" }}>
+                <p className="mb-3 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                  These profiles still control the legacy OpenClaw chat/agent pipeline. Backend step-queue work uses the Postgres model matrix above.
+                </p>
                 <ProfilesSection onError={setError} />
               </div>
             </details>
