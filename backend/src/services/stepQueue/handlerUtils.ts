@@ -45,8 +45,18 @@ export async function getPortfolioPosition(ws: UserWorkspace, ticker: string): P
 
 export async function gatherCommonInputs(step: ClaimedStepWorkItem, ws: UserWorkspace): Promise<Record<string, unknown>> {
   const position = await getPortfolioPosition(ws, step.ticker);
+  if (!position) {
+    return {
+      ticker: step.ticker,
+      position: null,
+      price: null,
+      usdIlsRate: 3.7,
+      currentStrategy: await readJsonIfExists(ws.strategyFile(step.ticker)),
+      userProfile: await readTextIfExists(ws.userMdFile),
+    };
+  }
   const usdIlsRate = await getUsdIlsRate();
-  const price = position ? await getPrice(step.ticker, position.exchange, usdIlsRate) : null;
+  const price = await getPrice(step.ticker, position.exchange, usdIlsRate);
   return {
     ticker: step.ticker,
     position,

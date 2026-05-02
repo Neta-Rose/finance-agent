@@ -253,12 +253,12 @@ async function finalizeJobIfTickerWorkClosed(ds: DataSource, jobId: string): Pro
 
   await ds.query(
     `UPDATE jobs
-        SET status = $2,
+        SET status = $2::varchar,
             completed_at = NOW(),
             failure_reason = $3,
             result = jsonb_build_object(
               'completed_at', NOW(),
-              'status', $2,
+              'status', $2::varchar,
               'totalTickers', $4::int,
               'completedTickers', $5::text[],
               'failedTickers', $6::text[],
@@ -402,12 +402,12 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
           : "No ticker work completed";
     const result = await ds.query(
       `UPDATE jobs
-          SET status = $2,
+          SET status = $2::varchar,
               completed_at = COALESCE(completed_at, NOW()),
               failure_reason = $3,
               result = jsonb_build_object(
                 'completed_at', COALESCE(completed_at, NOW()),
-                'status', $2,
+                'status', $2::varchar,
                 'totalTickers', $4::int,
                 'completedTickers', $5::text[],
                 'failedTickers', $6::text[],
@@ -415,7 +415,7 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
               )
         WHERE id = $1
           AND status IN ('running', 'completed', 'partial_completed', 'failed')
-          AND status <> $2
+          AND status <> $2::varchar
       RETURNING id`,
       [
         row.job_id,
