@@ -131,6 +131,7 @@ export async function claimNextPendingStep(
        JOIN ticker_work_items t ON t.id = s.ticker_work_item_id
        WHERE s.status = 'pending'
          AND j.status = 'running'
+         AND t.status = 'running'
          AND (
            s.kind LIKE 'analyst.%'
            OR (
@@ -290,7 +291,9 @@ async function advanceAfterStepCompletion(ds: DataSource, step: ClaimedStepWorkI
   await ds.query(
     `UPDATE ticker_work_items
         SET status = 'completed',
-            completed_at = NOW()
+            completed_at = NOW(),
+            failure_reason = NULL,
+            skip_reason = NULL
       WHERE id = $1
         AND status <> 'completed'`,
     [step.tickerWorkItemId]
@@ -328,6 +331,14 @@ async function markBlockedPendingStepsFailed(ds: DataSource, step: ClaimedStepWo
 }
 
 export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<{ blockedSteps: number; updatedJobs: number }> {
+  await ds.query(
+    `UPDATE ticker_work_items
+        SET failure_reason = NULL,
+            skip_reason = NULL
+      WHERE status = 'completed'
+        AND (failure_reason IS NOT NULL OR skip_reason IS NOT NULL)`
+  );
+
   const blockedResult = await ds.query(
     `UPDATE step_work_items s
         SET status = 'failed',
