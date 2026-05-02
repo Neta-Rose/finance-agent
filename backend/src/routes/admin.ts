@@ -688,9 +688,9 @@ router.get(
       `SELECT
          j.*,
          COUNT(DISTINCT t.id)::int AS ticker_count,
-         COUNT(s.id)::int AS step_count,
-         SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END)::int AS completed_steps,
-         SUM(CASE WHEN s.status = 'failed' THEN 1 ELSE 0 END)::int AS failed_steps
+         COUNT(DISTINCT s.id)::int AS step_count,
+         COUNT(DISTINCT s.id) FILTER (WHERE s.status = 'completed')::int AS completed_steps,
+         COUNT(DISTINCT s.id) FILTER (WHERE s.status = 'failed')::int AS failed_steps
        FROM jobs j
        LEFT JOIN ticker_work_items t ON t.job_id = j.id
        LEFT JOIN step_work_items s ON s.job_id = j.id
