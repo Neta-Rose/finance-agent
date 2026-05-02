@@ -28,6 +28,12 @@ import {
   adminKillJob,
   adminListStepQueueJobs,
   adminGetStepQueueJob,
+  adminGetStepQueueCost,
+  adminGetStepQueueModels,
+  adminUpdateStepQueueModel,
+  adminGetObservabilitySummary,
+  adminListSupportMessages,
+  adminUpdateSupportMessageStatus,
   adminUpdatePointsBudget,
   type UserSummary,
   type SystemAgentSummary,
@@ -42,7 +48,11 @@ import {
   type AdminJob,
   type StepQueueJobSummary,
   type StepQueueStep,
+  type StepQueueModelAssignment,
+  type StepQueueCostRow,
+  type UserDailySummary,
 } from "../api/admin";
+import type { SupportMessageRecord } from "../types/api";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t } from "../store/i18n";
 
@@ -731,6 +741,320 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
               );
             })}
           </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function OperationsOverview({
+  users,
+  status,
+  degradedCount,
+  unhealthyCount,
+  restrictedCount,
+  onError,
+}: {
+  users: UserSummary[];
+  status: AdminStatus | null;
+  degradedCount: number;
+  unhealthyCount: number;
+  restrictedCount: number;
+  onError: (message: string) => void;
+}) {
+  const observabilityQuery = useQuery({
+    queryKey: ["admin-observability-summary"],
+    queryFn: adminGetObservabilitySummary,
+    refetchInterval: 15_000,
+  });
+  const costQuery = useQuery({
+    queryKey: ["admin-step-queue-cost"],
+    queryFn: () => adminGetStepQueueCost(7),
+    refetchInterval: 30_000,
+  });
+  const supportQuery = useQuery({
+    queryKey: ["admin-support-preview"],
+    queryFn: () => adminListSupportMessages(50),
+    refetchInterval: 30_000,
+  });
+
+  useEffect(() => {
+    const firstError = observabilityQuery.error ?? costQuery.error ?? supportQuery.error;
+    if (firstError) onError(firstError instanceof Error ? firstError.message : "Failed to load admin overview");
+  }, [observabilityQuery.error, costQuery.error, supportQuery.error, onError]);
+
+  const dailyRows = observabilityQuery.data?.users ?? [];
+  const totalRequests = dailyRows.reduce((sum, row: UserDailySummary) => sum + row.requestCount, 0);
+  const totalCost = dailyRows.reduce((sum, row: UserDailySummary) => sum + row.totalCostUsd, 0);
+  const totalErrors = dailyRows.reduce((sum, row: UserDailySummary) => sum + row.errorCount + row.timeoutCount, 0);
+  const unattributed = dailyRows.reduce((sum, row: UserDailySummary) => sum + row.unattributedCount, 0);
+  const openSupport = (supportQuery.data ?? []).filter((message) => message.status === "open").length;
+  const stepQueueCost = (costQuery.data?.rows ?? []).reduce((sum, row: StepQueueCostRow) => sum + Number(row.cost_usd ?? 0), 0);
+  const topCostRows = [...(costQuery.data?.rows ?? [])]
+    .sort((a, b) => Number(b.cost_usd ?? 0) - Number(a.cost_usd ?? 0))
+    .slice(0, 5);
+
+  const cards = [
+    { label: "Users", value: users.length, sub: `${status?.activeAgents ?? "?"} agents`, tone: "default" },
+    { label: "Health", value: unhealthyCount, sub: `${degradedCount} degraded`, tone: unhealthyCount > 0 || degradedCount > 0 ? "bad" : "good" },
+    { label: "Restricted", value: restrictedCount, sub: "account controls", tone: restrictedCount > 0 ? "warn" : "default" },
+    { label: "Requests today", value: totalRequests, sub: `$${totalCost.toFixed(4)}`, tone: "default" },
+    { label: "Errors today", value: totalErrors, sub: `${unattributed} unattributed`, tone: totalErrors > 0 || unattributed > 0 ? "warn" : "good" },
+    { label: "Open support", value: openSupport, sub: "messages", tone: openSupport > 0 ? "warn" : "good" },
+  ];
+
+  const colorFor = (tone: string) =>
+    tone === "bad" ? "var(--color-accent-red)" : tone === "warn" ? "var(--color-accent-yellow)" : tone === "good" ? "var(--color-accent-green)" : "var(--color-fg-default)";
+
+  return (
+    <section className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {cards.map((card) => (
+          <div key={card.label} className="rounded-xl border p-4" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
+            <p className="text-[10px] uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>{card.label}</p>
+            <p className="text-2xl font-bold mt-1" style={{ color: colorFor(card.tone) }}>{card.value}</p>
+            <p className="text-[11px] mt-1" style={{ color: "var(--color-fg-muted)" }}>{card.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl border p-4" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wide">Cost Hotspots</h2>
+            <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
+              Last {costQuery.data?.days ?? 7} days step-queue spend: ${stepQueueCost.toFixed(4)}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 space-y-2">
+          {topCostRows.length === 0 ? (
+            <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>No step-queue cost rows yet.</p>
+          ) : topCostRows.map((row) => (
+            <div key={`${row.day}-${row.user_id}-${row.ticker ?? ""}-${row.step_kind}`} className="flex items-center justify-between gap-3 text-[11px]">
+              <span className="min-w-0 truncate">
+                <span className="font-mono">{row.user_id}</span>
+                {" · "}
+                {row.ticker ?? "-"}
+                {" · "}
+                {row.step_kind}
+              </span>
+              <span className="shrink-0" style={{ color: "var(--color-accent-green)" }}>
+                ${Number(row.cost_usd ?? 0).toFixed(4)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SupportInbox({ onError }: { onError: (message: string) => void }) {
+  const queryClient = useQueryClient();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: ["admin-support-messages"],
+    queryFn: () => adminListSupportMessages(200),
+    refetchInterval: 30_000,
+  });
+
+  useEffect(() => {
+    if (error) onError(error instanceof Error ? error.message : "Failed to load support messages");
+  }, [error, onError]);
+
+  const selected = data.find((message) => message.id === selectedId) ?? data[0] ?? null;
+  const open = data.filter((message) => message.status === "open");
+  const closed = data.filter((message) => message.status === "closed");
+
+  const setStatus = async (message: SupportMessageRecord, status: "open" | "closed") => {
+    try {
+      await adminUpdateSupportMessageStatus(message.id, status);
+      await queryClient.invalidateQueries({ queryKey: ["admin-support-messages"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-support-preview"] });
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to update support message");
+    }
+  };
+
+  const fmt = (iso: string) => new Date(iso).toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <section className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
+      <div className="px-4 py-3 flex items-center justify-between" style={{ background: "var(--color-bg-subtle)" }}>
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wide">Support Inbox</h2>
+          <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
+            Contact-admin messages from users. Open {open.length}, closed {closed.length}.
+          </p>
+        </div>
+      </div>
+      <div className="grid md:grid-cols-[260px,1fr] min-h-[360px]" style={{ background: "var(--color-bg-base)" }}>
+        <div className="border-r max-h-[520px] overflow-y-auto" style={{ borderColor: "var(--color-border)" }}>
+          {isLoading ? (
+            <p className="p-4 text-xs" style={{ color: "var(--color-fg-muted)" }}>Loading messages...</p>
+          ) : data.length === 0 ? (
+            <p className="p-4 text-xs" style={{ color: "var(--color-fg-muted)" }}>No support messages yet.</p>
+          ) : data.map((message) => (
+            <button
+              key={message.id}
+              onClick={() => setSelectedId(message.id)}
+              className="w-full p-3 text-left border-b hover:bg-[var(--color-bg-muted)]"
+              style={{
+                borderColor: "var(--color-border)",
+                background: selected?.id === message.id ? "var(--color-bg-muted)" : undefined,
+              }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold truncate">{message.subject}</span>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${message.status === "open" ? "bg-amber-500/10 text-amber-400" : "bg-green-500/10 text-green-400"}`}>
+                  {message.status}
+                </span>
+              </div>
+              <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
+                @{message.userId} · {fmt(message.createdAt)}
+              </p>
+            </button>
+          ))}
+        </div>
+        <div className="p-4">
+          {!selected ? (
+            <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>Select a message.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold">{selected.subject}</h3>
+                  <p className="text-[11px] mt-1" style={{ color: "var(--color-fg-muted)" }}>
+                    @{selected.userId} · {fmt(selected.createdAt)}
+                    {selected.page ? ` · ${selected.page}` : ""}
+                    {selected.source ? ` · ${selected.source}` : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => void setStatus(selected, selected.status === "open" ? "closed" : "open")}
+                  className="text-[10px] px-3 py-1 rounded-lg font-semibold"
+                  style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+                >
+                  Mark {selected.status === "open" ? "closed" : "open"}
+                </button>
+              </div>
+              <div className="rounded-lg border p-3 whitespace-pre-wrap text-sm leading-6" style={{ borderColor: "var(--color-border)", color: "var(--color-fg-default)" }}>
+                {selected.message}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StepQueueModelsPanel({ onError }: { onError: (message: string) => void }) {
+  const queryClient = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-step-queue-models"],
+    queryFn: adminGetStepQueueModels,
+  });
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [draftModel, setDraftModel] = useState("");
+  const [draftFallback, setDraftFallback] = useState("");
+
+  useEffect(() => {
+    if (error) onError(error instanceof Error ? error.message : "Failed to load step queue models");
+  }, [error, onError]);
+
+  const byKey = new Map<string, StepQueueModelAssignment>();
+  for (const assignment of data?.assignments ?? []) {
+    byKey.set(`${assignment.tier}:${assignment.step_kind}`, assignment);
+  }
+
+  const beginEdit = (tier: string, stepKind: string) => {
+    const assignment = byKey.get(`${tier}:${stepKind}`);
+    setEditingKey(`${tier}:${stepKind}`);
+    setDraftModel(assignment?.model ?? "");
+    setDraftFallback(assignment?.fallback ?? "");
+  };
+
+  const save = async (tier: string, stepKind: string) => {
+    if (!draftModel.trim()) {
+      onError("Model is required.");
+      return;
+    }
+    try {
+      await adminUpdateStepQueueModel(tier, stepKind, {
+        model: draftModel.trim(),
+        fallback: draftFallback.trim() || null,
+        updatedBy: "admin-ui",
+      });
+      setEditingKey(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-step-queue-models"] });
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to update model");
+    }
+  };
+
+  return (
+    <section className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
+      <div className="px-4 py-3" style={{ background: "var(--color-bg-subtle)" }}>
+        <h2 className="text-xs font-bold uppercase tracking-wide">Step Queue Models</h2>
+        <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
+          Per-tier model assignments for backend-owned queue steps.
+        </p>
+      </div>
+      <div className="p-3 overflow-x-auto" style={{ background: "var(--color-bg-base)" }}>
+        {isLoading ? (
+          <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>Loading model matrix...</p>
+        ) : (
+          <table className="w-full min-w-[720px] text-[10px]">
+            <thead>
+              <tr style={{ color: "var(--color-fg-subtle)" }}>
+                <th className="text-left py-2 pr-2 font-normal">Tier</th>
+                {(data?.stepKinds ?? []).map((stepKind) => (
+                  <th key={stepKind} className="text-left py-2 px-2 font-normal">{stepKind.replace("analyst.", "")}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.tiers ?? []).map((tier) => (
+                <tr key={tier} className="border-t" style={{ borderColor: "var(--color-border)" }}>
+                  <td className="py-2 pr-2 font-bold">{tier}</td>
+                  {(data?.stepKinds ?? []).map((stepKind) => {
+                    const key = `${tier}:${stepKind}`;
+                    const assignment = byKey.get(key);
+                    const editing = editingKey === key;
+                    return (
+                      <td key={key} className="py-2 px-2 align-top">
+                        {editing ? (
+                          <div className="space-y-1">
+                            <input value={draftModel} onChange={(e) => setDraftModel(e.target.value)} placeholder="model"
+                              className="w-44 rounded px-2 py-1 outline-none"
+                              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
+                            <input value={draftFallback} onChange={(e) => setDraftFallback(e.target.value)} placeholder="fallback"
+                              className="w-44 rounded px-2 py-1 outline-none"
+                              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
+                            <div className="flex gap-1">
+                              <button onClick={() => void save(tier, stepKind)} className="px-2 py-0.5 rounded bg-[var(--color-accent-blue)] text-white">Save</button>
+                              <button onClick={() => setEditingKey(null)} className="px-2 py-0.5 rounded" style={{ background: "var(--color-bg-muted)" }}>Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => beginEdit(tier, stepKind)} className="text-left w-44 rounded p-1 hover:bg-[var(--color-bg-muted)]">
+                            <span className="block truncate" style={{ color: assignment ? "var(--color-fg-default)" : "var(--color-fg-subtle)" }}>
+                              {assignment?.model ?? "unset"}
+                            </span>
+                            {assignment?.fallback && (
+                              <span className="block truncate" style={{ color: "var(--color-fg-subtle)" }}>fb: {assignment.fallback}</span>
+                            )}
+                          </button>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </section>
@@ -1917,6 +2241,7 @@ export function Admin() {
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<"overview" | "users" | "support" | "settings">("overview");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2000,56 +2325,26 @@ export function Admin() {
 
       <div className="px-4 py-4 max-w-2xl mx-auto space-y-4">
 
-        {/* Stat bar */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-2 rounded-xl border p-1" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
           {[
-            { label: t("adminUsers", language), value: `${users.length} ${t("adminTotal", language)}`, accent: false },
-            { label: t("adminActive", language), value: status?.activeAgents ?? "—", accent: true },
-            { label: t("adminGateway", language), value: status?.gatewayRunning ? t("adminRunning", language) : t("adminStopped", language), accent: !!status?.gatewayRunning },
-          ].map(s => (
-            <div key={s.label} className="rounded-lg px-4 py-3 text-center"
-              style={{ background: "var(--color-bg-subtle)", border: "1px solid var(--color-border)" }}>
-              <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>{s.label}</p>
-              <p className={`text-sm font-bold mt-0.5 ${s.accent ? "text-[var(--color-accent-green)]" : ""}`}
-                style={!s.accent ? { color: "var(--color-fg-default)" } : undefined}>
-                {String(s.value)}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "Degraded", value: degradedCount, color: degradedCount > 0 ? "var(--color-accent-yellow)" : "var(--color-fg-default)" },
-            { label: "Unhealthy", value: unhealthyCount, color: unhealthyCount > 0 ? "var(--color-accent-red)" : "var(--color-fg-default)" },
-            { label: "Restricted", value: restrictedCount, color: restrictedCount > 0 ? "var(--color-accent-blue)" : "var(--color-fg-default)" },
+            { key: "overview", label: "Overview" },
+            { key: "users", label: "Users" },
+            { key: "support", label: "Support" },
+            { key: "settings", label: "Settings" },
           ].map((item) => (
-            <div
-              key={item.label}
-              className="rounded-lg px-4 py-3 text-center"
-              style={{ background: "var(--color-bg-subtle)", border: "1px solid var(--color-border)" }}
+            <button
+              key={item.key}
+              onClick={() => setActiveSection(item.key as typeof activeSection)}
+              className="rounded-lg py-2 text-xs font-semibold"
+              style={{
+                background: activeSection === item.key ? "var(--color-accent-blue)" : "transparent",
+                color: activeSection === item.key ? "white" : "var(--color-fg-muted)",
+              }}
             >
-              <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>{item.label}</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: item.color }}>
-                {item.value}
-              </p>
-            </div>
+              {item.label}
+            </button>
           ))}
         </div>
-
-        {/* System controls */}
-        <SystemControls onError={(m) => setError(m)} />
-
-        <StepQueueInspector onError={setError} />
-
-        {systemAgent && (
-          <SystemAgentCard
-            agent={systemAgent}
-            profiles={profiles}
-            onProfileChanged={load}
-            onError={setError}
-          />
-        )}
 
         {/* Error banner */}
         {error && (
@@ -2060,48 +2355,79 @@ export function Admin() {
           </div>
         )}
 
-        {/* Add User */}
-        <button onClick={() => setShowAdd(true)}
-          className="w-full py-3 rounded-xl text-sm font-semibold"
-          style={{ background: "var(--color-accent-blue)", color: "white" }}>
-          + {t("adminAddUser", language)}
-        </button>
-
-        {/* User cards */}
-        {loading && users.length === 0 ? (
-          <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>{t("loading", language)}</div>
-        ) : users.length === 0 ? (
-          <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>{t("adminNoUsers", language)}</div>
-        ) : (
-          <div className="space-y-3">
-            {users.map(u => (
-              <UserCard
-                key={u.userId}
-                user={u}
-                profiles={profiles}
-                onDelete={handleDelete}
-                onUpdatePointsBudget={handleUpdatePointsBudget}
-                onAddTelegram={handleAddTelegram}
-                onProfileChanged={load}
-                onControlChanged={load}
-                onError={setError}
-              />
-            ))}
-          </div>
+        {activeSection === "overview" && (
+          <>
+            <OperationsOverview
+              users={users}
+              status={status}
+              degradedCount={degradedCount}
+              unhealthyCount={unhealthyCount}
+              restrictedCount={restrictedCount}
+              onError={setError}
+            />
+            <StepQueueInspector onError={setError} />
+          </>
         )}
 
-        {/* Model Profiles (collapsible, at bottom) */}
-        <details className="group rounded-xl border overflow-hidden"
-          style={{ borderColor: "var(--color-border)" }}>
-          <summary className="px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none flex items-center justify-between"
-            style={{ background: "var(--color-bg-subtle)", color: "var(--color-fg-muted)", listStyle: "none" }}>
-            <span>⚙️ {t("adminModelProfiles", language)}</span>
-            <span className="group-open:rotate-180 transition-transform">▾</span>
-          </summary>
-          <div className="p-4" style={{ background: "var(--color-bg-base)" }}>
-            <ProfilesSection onError={setError} />
-          </div>
-        </details>
+        {activeSection === "users" && (
+          <>
+            <button onClick={() => setShowAdd(true)}
+              className="w-full py-3 rounded-xl text-sm font-semibold"
+              style={{ background: "var(--color-accent-blue)", color: "white" }}>
+              + {t("adminAddUser", language)}
+            </button>
+
+            {loading && users.length === 0 ? (
+              <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>{t("loading", language)}</div>
+            ) : users.length === 0 ? (
+              <div className="text-center py-12 text-sm" style={{ color: "var(--color-fg-muted)" }}>{t("adminNoUsers", language)}</div>
+            ) : (
+              <div className="space-y-3">
+                {users.map(u => (
+                  <UserCard
+                    key={u.userId}
+                    user={u}
+                    profiles={profiles}
+                    onDelete={handleDelete}
+                    onUpdatePointsBudget={handleUpdatePointsBudget}
+                    onAddTelegram={handleAddTelegram}
+                    onProfileChanged={load}
+                    onControlChanged={load}
+                    onError={setError}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeSection === "support" && <SupportInbox onError={setError} />}
+
+        {activeSection === "settings" && (
+          <>
+            <SystemControls onError={(m) => setError(m)} />
+            {systemAgent && (
+              <SystemAgentCard
+                agent={systemAgent}
+                profiles={profiles}
+                onProfileChanged={load}
+                onError={setError}
+              />
+            )}
+            <StepQueueModelsPanel onError={setError} />
+            <details className="group rounded-xl border overflow-hidden"
+              style={{ borderColor: "var(--color-border)" }}>
+              <summary className="px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none flex items-center justify-between"
+                style={{ background: "var(--color-bg-subtle)", color: "var(--color-fg-muted)", listStyle: "none" }}>
+                <span>Model Profiles</span>
+                <span className="group-open:rotate-180 transition-transform">▾</span>
+              </summary>
+              <div className="p-4" style={{ background: "var(--color-bg-base)" }}>
+                <ProfilesSection onError={setError} />
+              </div>
+            </details>
+          </>
+        )}
 
       </div>
 

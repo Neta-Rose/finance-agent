@@ -44,7 +44,7 @@ import { hasPendingAgentManagedWork } from "../services/jobService.js";
 import { buildWorkspace } from "../middleware/userIsolation.js";
 import type { JobAction, Job } from "../types/index.js";
 import { connectUserTelegramChannel } from "../services/channelService.js";
-import { listSupportMessages } from "../services/supportService.js";
+import { listSupportMessages, updateSupportMessageStatus } from "../services/supportService.js";
 import { getActiveUserEligibility, readState } from "../services/stateService.js";
 import { markDeepDiveJobCancelled } from "../services/deepDiveService.js";
 import {
@@ -127,6 +127,26 @@ router.get(
     const limit = Math.min(Math.max(Number(req.query["limit"] ?? 100), 1), 500);
     const messages = await listSupportMessages(limit);
     res.json({ messages });
+  })
+);
+
+router.patch(
+  "/support/messages/:messageId",
+  handler(async (req, res) => {
+    const messageId = req.params.messageId as string;
+    const status = (req.body as { status?: string }).status;
+    if (status !== "open" && status !== "closed") {
+      res.status(400).json({ error: "status must be open or closed" });
+      return;
+    }
+
+    const message = await updateSupportMessageStatus(messageId, status);
+    if (!message) {
+      res.status(404).json({ error: "message_not_found" });
+      return;
+    }
+
+    res.json({ message });
   })
 );
 

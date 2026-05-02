@@ -45,3 +45,22 @@ export async function listSupportMessages(limit = 100): Promise<SupportMessageRe
   const current = await readSupportMessages();
   return current.slice(0, limit);
 }
+
+export async function updateSupportMessageStatus(
+  messageId: string,
+  status: SupportMessageRecord["status"]
+): Promise<SupportMessageRecord | null> {
+  const current = await readSupportMessages();
+  const index = current.findIndex((item) => item.id === messageId);
+  if (index < 0) return null;
+  const existing = current[index];
+  if (!existing) return null;
+
+  const updated: SupportMessageRecord = {
+    ...existing,
+    status,
+  };
+  current[index] = updated;
+  await writeSupportMessages(current);
+  return updated;
+}

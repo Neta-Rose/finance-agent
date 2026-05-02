@@ -1,4 +1,4 @@
-import type { AgentHealth } from "../types/api";
+import type { AgentHealth, SupportMessageRecord } from "../types/api";
 
 const ADMIN_KEY = () => sessionStorage.getItem("admin_key") ?? "";
 
@@ -165,6 +165,34 @@ export interface StepQueueJobDetail {
   tickers: StepQueueTicker[];
   steps: StepQueueStep[];
   events: StepQueueEvent[];
+}
+
+export interface StepQueueModelAssignment {
+  tier: string;
+  step_kind: string;
+  model: string;
+  fallback: string | null;
+  updated_at: string;
+  updated_by: string;
+}
+
+export interface StepQueueModelsResponse {
+  tiers: string[];
+  stepKinds: string[];
+  assignments: StepQueueModelAssignment[];
+}
+
+export interface StepQueueCostRow {
+  user_id: string;
+  ticker: string | null;
+  step_kind: string;
+  day: string;
+  request_count: number;
+  tokens_in: number;
+  tokens_out: number;
+  cost_usd: string | number;
+  success_count: number;
+  error_count: number;
 }
 
 const DEFAULT_POINTS_BUDGET_VALUE = 500;
@@ -379,6 +407,9 @@ export const adminGetUserObservability = async (
     };
   });
 
+export const adminGetObservabilitySummary = async (): Promise<{ date: string; users: UserDailySummary[] }> =>
+  adminFetch("/api/admin/observability/summary") as Promise<{ date: string; users: UserDailySummary[] }>;
+
 // ── Admin control API ─────────────────────────────────────────────────────────
 
 export interface SystemControlPatch {
@@ -437,6 +468,40 @@ export const adminListStepQueueJobs = async (limit = 20): Promise<StepQueueJobSu
 
 export const adminGetStepQueueJob = async (jobId: string): Promise<StepQueueJobDetail> =>
   adminFetch(`/api/admin/step-queue/jobs/${encodeURIComponent(jobId)}`) as Promise<StepQueueJobDetail>;
+
+export const adminGetStepQueueCost = async (days = 7): Promise<{ days: number; rows: StepQueueCostRow[] }> =>
+  adminFetch(`/api/admin/step-queue/cost?days=${encodeURIComponent(String(days))}`) as Promise<{ days: number; rows: StepQueueCostRow[] }>;
+
+export const adminGetStepQueueModels = async (): Promise<StepQueueModelsResponse> =>
+  adminFetch("/api/admin/step-queue/models") as Promise<StepQueueModelsResponse>;
+
+export const adminUpdateStepQueueModel = async (
+  tier: string,
+  stepKind: string,
+  payload: { model: string; fallback?: string | null; updatedBy?: string }
+): Promise<StepQueueModelAssignment> => {
+  const d = await adminFetch(`/api/admin/step-queue/models/${encodeURIComponent(tier)}/${encodeURIComponent(stepKind)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  }) as { assignment: StepQueueModelAssignment };
+  return d.assignment;
+};
+
+export const adminListSupportMessages = async (limit = 100): Promise<SupportMessageRecord[]> => {
+  const d = await adminFetch(`/api/admin/support/messages?limit=${encodeURIComponent(String(limit))}`) as { messages: SupportMessageRecord[] };
+  return d.messages;
+};
+
+export const adminUpdateSupportMessageStatus = async (
+  messageId: string,
+  status: "open" | "closed"
+): Promise<SupportMessageRecord> => {
+  const d = await adminFetch(`/api/admin/support/messages/${encodeURIComponent(messageId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  }) as { message: SupportMessageRecord };
+  return d.message;
+};
 
 // ── Admin job control API ─────────────────────────────────────────────────────
 
