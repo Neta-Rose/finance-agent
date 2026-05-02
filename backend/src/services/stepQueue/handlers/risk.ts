@@ -15,9 +15,6 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
   const allPositions = Object.entries(portfolio.accounts).flatMap(([account, positions]) =>
     positions.map((position) => ({ account, ...position }))
   );
-  const targetPositions = allPositions.filter((position) => position.ticker === step.ticker);
-  if (targetPositions.length === 0) throw new Error(`Ticker ${step.ticker} is not in portfolio`);
-
   const positionCostBasisILS = (position: typeof allPositions[number]) => {
     const avgPriceILS = position.exchange === "TASE"
       ? position.unitAvgBuyPrice
@@ -25,6 +22,25 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
     return avgPriceILS * position.shares;
   };
   const totalValueILS = allPositions.reduce((sum, position) => sum + positionCostBasisILS(position), 0);
+  const targetPositions = allPositions.filter((position) => position.ticker === step.ticker);
+  if (targetPositions.length === 0) {
+    return {
+      ticker: step.ticker,
+      generatedAt: new Date().toISOString(),
+      analyst: "risk",
+      livePrice: 0,
+      livePriceCurrency: "USD",
+      livePriceSource: "not_in_portfolio",
+      shares: { main: 0, second: 0, total: 0 },
+      positionValueILS: 0,
+      portfolioWeightPct: 0,
+      plILS: 0,
+      plPct: 0,
+      avgPricePaid: 0,
+      concentrationFlag: false,
+      riskFacts: `Ticker ${step.ticker} is not currently held in this portfolio. Risk snapshot is watchlist-style with 0% current portfolio weight.`,
+    };
+  }
   const first = targetPositions[0]!;
   const totalShares = targetPositions.reduce((sum, position) => sum + position.shares, 0);
   const avgPricePaid =

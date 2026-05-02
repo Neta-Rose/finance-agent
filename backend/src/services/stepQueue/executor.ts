@@ -441,14 +441,15 @@ async function markStepFailed(
 ): Promise<void> {
   const message = error instanceof Error ? error.message : String(error);
   const permanent = step.attempts >= 3;
+  const nextStatus = permanent ? "failed" : "pending";
   await ds.query(
     `UPDATE step_work_items
         SET status = $2,
             owner_lock_id = NULL,
-            completed_at = CASE WHEN $2 = 'failed' THEN NOW() ELSE completed_at END,
+            completed_at = CASE WHEN $4::boolean THEN NOW() ELSE completed_at END,
             last_error = $3
       WHERE id = $1`,
-    [step.id, permanent ? "failed" : "pending", message.slice(0, 2000)]
+    [step.id, nextStatus, message.slice(0, 2000), permanent]
   );
   await recordLifecycle(ds, {
     stepId: step.id,
