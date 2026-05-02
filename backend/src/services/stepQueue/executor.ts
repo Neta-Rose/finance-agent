@@ -330,13 +330,43 @@ async function markBlockedPendingStepsFailed(ds: DataSource, step: ClaimedStepWo
   );
 }
 
-export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<{ blockedSteps: number; updatedJobs: number }> {
+export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<{ repairedSteps: number; blockedSteps: number; updatedJobs: number }> {
   await ds.query(
     `UPDATE ticker_work_items
         SET failure_reason = NULL,
             skip_reason = NULL
       WHERE status = 'completed'
         AND (failure_reason IS NOT NULL OR skip_reason IS NOT NULL)`
+  );
+
+  const repairedResult = await ds.query(
+    `WITH repaired AS (
+       SELECT id, status AS from_status, attempts
+         FROM step_work_items
+        WHERE status <> 'completed'
+          AND output_artifact_path IS NOT NULL
+          AND completed_at IS NOT NULL
+     )
+     UPDATE step_work_items s
+        SET status = 'completed',
+            owner_lock_id = NULL,
+            last_error = NULL
+       FROM repaired
+      WHERE s.id = repaired.id
+      RETURNING s.id, repaired.from_status, s.attempts`
+  );
+  const repairedRows = mutationRows<{ id: string; from_status: string; attempts: number } & Record<string, unknown>>(repairedResult);
+  await Promise.all(
+    repairedRows.map((row) =>
+      recordLifecycle(ds, {
+        stepId: row.id,
+        fromStatus: row.from_status,
+        toStatus: "completed",
+        attemptN: row.attempts,
+        errorClass: "handler",
+        errorMessage: "Repaired completed artifact row during reconciliation",
+      })
+    )
   );
 
   const blockedResult = await ds.query(
@@ -430,7 +460,7 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
     updatedJobs += mutationRows<Record<string, unknown>>(result).length;
   }
 
-  return { blockedSteps: blockedRows.length, updatedJobs };
+  return { repairedSteps: repairedRows.length, blockedSteps: blockedRows.length, updatedJobs };
 }
 
 async function markStepFailed(
@@ -564,8 +594,8 @@ export function startStepQueueExecutor(): void {
   void getApplicationDataSource()
     .then((ds) => reconcileStepQueueTerminalStates(ds))
     .then((result) => {
-      if (result.blockedSteps > 0 || result.updatedJobs > 0) {
-        logger.warn(`Step queue reconciled terminal state: blocked_steps=${result.blockedSteps} updated_jobs=${result.updatedJobs}`);
+      if (result.repairedSteps > 0 || result.blockedSteps > 0 || result.updatedJobs > 0) {
+        logger.warn(`Step queue reconciled terminal state: repaired_steps=${result.repairedSteps} blocked_steps=${result.blockedSteps} updated_jobs=${result.updatedJobs}`);
       }
     })
     .catch((err) => logger.warn(`Step queue terminal reconciliation failed: ${err instanceof Error ? err.message : String(err)}`));
