@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { UserWorkspace } from "../../../middleware/userIsolation.js";
 import { RiskReportSchema } from "../../../schemas/analysts.js";
 import { PortfolioFileSchema } from "../../../schemas/portfolio.js";
-import { getPrice, getUsdIlsRate } from "../../priceService.js";
+import { getUsdIlsRate } from "../../priceService.js";
 import type { BuiltPrompt, StepHandler, StepInputs, ValidationResult } from "../handlers.js";
 import { persistReportArtifact, validateWithSchema } from "../handlerUtils.js";
 import type { ClaimedStepWorkItem, ModelTier } from "../types.js";
@@ -19,22 +19,21 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
   const targetPositions = allPositions.filter((position) => position.ticker === step.ticker);
   if (targetPositions.length === 0) throw new Error(`Ticker ${step.ticker} is not in portfolio`);
 
-  const priceResults = await Promise.all(
-    allPositions.map((position) => getPrice(position.ticker, position.exchange, usdIlsRate))
-  );
-  const totalValueILS = allPositions.reduce((sum, position, index) => {
-    const price = priceResults[index]?.priceILS ?? 0;
-    return sum + price * position.shares;
-  }, 0);
+  const positionCostBasisILS = (position: typeof allPositions[number]) => {
+    const avgPriceILS = position.exchange === "TASE"
+      ? position.unitAvgBuyPrice
+      : position.unitAvgBuyPrice * usdIlsRate;
+    return avgPriceILS * position.shares;
+  };
+  const totalValueILS = allPositions.reduce((sum, position) => sum + positionCostBasisILS(position), 0);
   const first = targetPositions[0]!;
-  const targetPrice = await getPrice(step.ticker, first.exchange, usdIlsRate);
   const totalShares = targetPositions.reduce((sum, position) => sum + position.shares, 0);
-  const positionValueILS = targetPrice.priceILS * totalShares;
   const avgPricePaid =
     targetPositions.reduce((sum, position) => sum + position.unitAvgBuyPrice * position.shares, 0) /
     Math.max(totalShares, 1);
   const avgPriceILS = first.exchange === "TASE" ? avgPricePaid : avgPricePaid * usdIlsRate;
   const costBasisILS = avgPriceILS * totalShares;
+  const positionValueILS = costBasisILS;
   const plILS = positionValueILS - costBasisILS;
   const plPct = costBasisILS > 0 ? (plILS / costBasisILS) * 100 : 0;
   const portfolioWeightPct = totalValueILS > 0 ? (positionValueILS / totalValueILS) * 100 : 0;
@@ -43,9 +42,9 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
     ticker: step.ticker,
     generatedAt: new Date().toISOString(),
     analyst: "risk",
-    livePrice: targetPrice.priceNative,
-    livePriceCurrency: targetPrice.currency,
-    livePriceSource: targetPrice.source,
+    livePrice: avgPricePaid,
+    livePriceCurrency: first.exchange === "TASE" ? "ILS" : "USD",
+    livePriceSource: "portfolio_cost_basis_proxy",
     shares: {
       main: targetPositions.filter((position) => position.account === "main").reduce((sum, position) => sum + position.shares, 0),
       second: targetPositions.filter((position) => position.account !== "main").reduce((sum, position) => sum + position.shares, 0),
@@ -57,7 +56,7 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
     plPct,
     avgPricePaid,
     concentrationFlag: portfolioWeightPct >= 20,
-    riskFacts: `Deterministic risk snapshot. Weight ${portfolioWeightPct.toFixed(1)}%, P/L ${plPct.toFixed(1)}%, total shares ${totalShares}.`,
+    riskFacts: `Deterministic risk snapshot using portfolio cost basis to avoid blocking on external price providers. Weight ${portfolioWeightPct.toFixed(1)}%, proxy P/L ${plPct.toFixed(1)}%, total shares ${totalShares}.`,
   };
 }
 
