@@ -330,7 +330,7 @@ async function markBlockedPendingStepsFailed(ds: DataSource, step: ClaimedStepWo
   );
 }
 
-export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<{ repairedSteps: number; blockedSteps: number; updatedJobs: number }> {
+export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<{ repairedSteps: number; repairedTickers: number; blockedSteps: number; updatedJobs: number }> {
   await ds.query(
     `UPDATE ticker_work_items
         SET failure_reason = NULL,
@@ -394,6 +394,23 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
       })
     )
   );
+
+  const repairedTickerResult = await ds.query(
+    `UPDATE ticker_work_items t
+        SET status = 'completed',
+            completed_at = COALESCE(completed_at, NOW()),
+            failure_reason = NULL,
+            skip_reason = NULL
+      WHERE status = 'failed'
+        AND NOT EXISTS (
+          SELECT 1
+            FROM step_work_items s
+           WHERE s.ticker_work_item_id = t.id
+             AND s.status <> 'completed'
+        )
+      RETURNING id`
+  );
+  const repairedTickerRows = mutationRows<Record<string, unknown>>(repairedTickerResult);
 
   const jobRows = await ds.query(
     `SELECT
@@ -460,7 +477,12 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
     updatedJobs += mutationRows<Record<string, unknown>>(result).length;
   }
 
-  return { repairedSteps: repairedRows.length, blockedSteps: blockedRows.length, updatedJobs };
+  return {
+    repairedSteps: repairedRows.length,
+    repairedTickers: repairedTickerRows.length,
+    blockedSteps: blockedRows.length,
+    updatedJobs,
+  };
 }
 
 async function markStepFailed(
@@ -594,8 +616,8 @@ export function startStepQueueExecutor(): void {
   void getApplicationDataSource()
     .then((ds) => reconcileStepQueueTerminalStates(ds))
     .then((result) => {
-      if (result.repairedSteps > 0 || result.blockedSteps > 0 || result.updatedJobs > 0) {
-        logger.warn(`Step queue reconciled terminal state: repaired_steps=${result.repairedSteps} blocked_steps=${result.blockedSteps} updated_jobs=${result.updatedJobs}`);
+      if (result.repairedSteps > 0 || result.repairedTickers > 0 || result.blockedSteps > 0 || result.updatedJobs > 0) {
+        logger.warn(`Step queue reconciled terminal state: repaired_steps=${result.repairedSteps} repaired_tickers=${result.repairedTickers} blocked_steps=${result.blockedSteps} updated_jobs=${result.updatedJobs}`);
       }
     })
     .catch((err) => logger.warn(`Step queue terminal reconciliation failed: ${err instanceof Error ? err.message : String(err)}`));
