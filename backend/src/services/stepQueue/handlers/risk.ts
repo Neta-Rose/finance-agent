@@ -3,7 +3,6 @@ import type { z } from "zod";
 import type { UserWorkspace } from "../../../middleware/userIsolation.js";
 import { RiskReportSchema } from "../../../schemas/analysts.js";
 import { PortfolioFileSchema } from "../../../schemas/portfolio.js";
-import { getUsdIlsRate } from "../../priceService.js";
 import type { BuiltPrompt, StepHandler, StepInputs, ValidationResult } from "../handlers.js";
 import { persistReportArtifact, validateWithSchema } from "../handlerUtils.js";
 import type { ClaimedStepWorkItem, ModelTier } from "../types.js";
@@ -12,7 +11,7 @@ type RiskArtifact = z.infer<typeof RiskReportSchema>;
 
 async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): Promise<RiskArtifact> {
   const portfolio = PortfolioFileSchema.parse(JSON.parse(await fs.readFile(ws.portfolioFile, "utf-8")));
-  const usdIlsRate = await getUsdIlsRate();
+  const usdIlsRate = 3.7;
   const allPositions = Object.entries(portfolio.accounts).flatMap(([account, positions]) =>
     positions.map((position) => ({ account, ...position }))
   );
@@ -56,7 +55,7 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
     plPct,
     avgPricePaid,
     concentrationFlag: portfolioWeightPct >= 20,
-    riskFacts: `Deterministic risk snapshot using portfolio cost basis to avoid blocking on external price providers. Weight ${portfolioWeightPct.toFixed(1)}%, proxy P/L ${plPct.toFixed(1)}%, total shares ${totalShares}.`,
+    riskFacts: `Deterministic risk snapshot using portfolio cost basis and fixed USD/ILS fallback ${usdIlsRate} to avoid blocking on external providers. Weight ${portfolioWeightPct.toFixed(1)}%, proxy P/L ${plPct.toFixed(1)}%, total shares ${totalShares}.`,
   };
 }
 
