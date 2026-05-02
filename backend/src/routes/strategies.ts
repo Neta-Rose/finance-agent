@@ -29,6 +29,8 @@ const VERDICT_SORT_ORDER: Record<string, number> = {
   BUY: 6,
 };
 
+const TICKER_REGEX = /^[A-Z0-9.]{1,12}$/;
+
 // ── GET /api/strategies ────────────────────────────────────────────────────
 
 router.get(
@@ -132,7 +134,7 @@ router.get(
     const ws = res.locals["workspace"] as UserWorkspace;
     const ticker = String(req.params["ticker"] ?? "").toUpperCase();
 
-    if (!/^[A-Z0-9]{1,10}$/.test(ticker)) {
+    if (!TICKER_REGEX.test(ticker)) {
       res.status(400).json({ error: "Invalid ticker" });
       return;
     }

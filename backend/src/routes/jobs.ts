@@ -160,6 +160,7 @@ const VALID_ACTIONS: JobAction[] = [
 ];
 
 const JOB_ID_REGEX = /^job_[0-9]{8}_[0-9]{6}_[a-f0-9]{6}$/;
+const TICKER_REGEX = /^[A-Z0-9.]{1,12}$/;
 
 async function removeTriggerIfExists(ws: UserWorkspace, jobId: string): Promise<void> {
   try {
@@ -186,9 +187,9 @@ router.post(
       }
 
       if (action === "deep_dive" || action === "quick_check") {
-        if (!ticker || !/^[A-Z0-9]{1,10}$/.test(ticker)) {
+        if (!ticker || !TICKER_REGEX.test(ticker)) {
           res.status(400).json({
-            error: `${action} requires ticker (uppercase, 1-10 chars)`,
+            error: `${action} requires ticker (uppercase letters, numbers, dot, 1-12 chars)`,
           });
           return;
         }

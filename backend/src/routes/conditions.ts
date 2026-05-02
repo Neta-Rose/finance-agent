@@ -8,6 +8,7 @@ import type { EscalationReason } from "../services/conditionEngine.js";
 import { dispatchPendingAgentJobsForUser } from "../services/agentJobDispatcher.js";
 
 const router = Router();
+const TICKER_REGEX = /^[A-Z0-9.]{1,12}$/;
 
 type AsyncHandler = (
   req: AuthenticatedRequest,
@@ -53,7 +54,7 @@ router.post(
     const ticker = String(req.params["ticker"] ?? "").toUpperCase();
     const { reason } = req.body as { reason?: EscalationReason };
 
-    if (!ticker || !/^[A-Z0-9]{1,10}$/.test(ticker)) {
+    if (!ticker || !TICKER_REGEX.test(ticker)) {
       res.status(400).json({ error: "Invalid ticker" });
       return;
     }

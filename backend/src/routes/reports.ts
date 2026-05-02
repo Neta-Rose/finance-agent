@@ -36,7 +36,7 @@ const VALID_REPORT_TYPES = [
 ];
 
 const BATCH_ID_REGEX = /^[a-zA-Z0-9_]{1,60}$/;
-const TICKER_REGEX = /^[A-Z0-9]{1,10}$/;
+const TICKER_REGEX = /^[A-Z0-9.]{1,12}$/;
 
 async function readCurrentMeta(ws: UserWorkspace): Promise<{
   totalBatches: number;
