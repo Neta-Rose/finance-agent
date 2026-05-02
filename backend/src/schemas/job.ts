@@ -25,7 +25,7 @@ export const JobSchema = z.object({
   ticker: z.string().nullable(),
   source: z.enum(["backend_job", "telegram_command", "dashboard_action"]).nullable().optional(),
   budget_admitted_at: z.string().datetime().nullable().optional(),
-  status: z.enum(["pending", "paused", "running", "completed", "failed", "cancelled", "superseded"]),
+  status: z.enum(["pending", "paused", "running", "completed", "partial_completed", "failed", "cancelled", "superseded"]),
   triggered_at: z.string().datetime(),
   started_at: z.string().datetime().nullable(),
   completed_at: z.string().datetime().nullable(),

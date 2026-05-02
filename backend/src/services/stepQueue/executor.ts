@@ -7,7 +7,7 @@ import { resolveConfiguredPath } from "../paths.js";
 import { isStepQueueServiceEnabled } from "./featureFlag.js";
 import { handlerFor } from "./handlers.js";
 import { resolveStepModel } from "./modelTier.js";
-import { isStepKind, type ClaimedStepWorkItem, type StepErrorClass } from "./types.js";
+import { isStepKind, type ClaimedStepWorkItem, type JobStatus, type StepErrorClass } from "./types.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 const DEFAULT_LOCK_TTL_MS = 10 * 60 * 1000;
@@ -18,6 +18,19 @@ let loopTimer: NodeJS.Timeout | null = null;
 let sweepTimer: NodeJS.Timeout | null = null;
 let runningTicks = 0;
 const inflightSteps = new Set<string>();
+
+export interface TerminalTickerCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+}
+
+export function resolveTerminalJobStatus(counts: TerminalTickerCounts): JobStatus {
+  if (counts.total <= 0) return "failed";
+  if (counts.failed <= 0) return "completed";
+  return counts.completed + counts.skipped > 0 ? "partial_completed" : "failed";
+}
 
 function maxInflightSteps(): number {
   const parsed = Number(process.env["MAX_INFLIGHT_STEPS"] ?? "4");
@@ -202,6 +215,68 @@ async function markStepCompleted(ds: DataSource, step: ClaimedStepWorkItem, outp
   });
 }
 
+async function finalizeJobIfTickerWorkClosed(ds: DataSource, jobId: string): Promise<void> {
+  const rows = await ds.query(
+    `SELECT
+       COUNT(*)::int AS total,
+       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)::int AS completed,
+       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::int AS failed,
+       SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END)::int AS skipped,
+       SUM(CASE WHEN status NOT IN ('completed', 'failed', 'skipped') THEN 1 ELSE 0 END)::int AS open,
+       COALESCE(array_agg(ticker ORDER BY position) FILTER (WHERE status = 'completed'), '{}') AS completed_tickers,
+       COALESCE(array_agg(ticker ORDER BY position) FILTER (WHERE status = 'failed'), '{}') AS failed_tickers,
+       COALESCE(array_agg(ticker ORDER BY position) FILTER (WHERE status = 'skipped'), '{}') AS skipped_tickers
+     FROM ticker_work_items
+     WHERE job_id = $1`,
+    [jobId]
+  ) as Array<{
+    total: number;
+    completed: number;
+    failed: number;
+    skipped: number;
+    open: number;
+    completed_tickers: string[];
+    failed_tickers: string[];
+    skipped_tickers: string[];
+  }>;
+  const row = rows[0];
+  if (!row || row.open > 0) return;
+
+  const status = resolveTerminalJobStatus(row);
+  const failureReason =
+    status === "completed"
+      ? null
+      : row.failed_tickers.length > 0
+        ? `Ticker work failed: ${row.failed_tickers.join(", ")}`
+        : "No ticker work completed";
+
+  await ds.query(
+    `UPDATE jobs
+        SET status = $2,
+            completed_at = NOW(),
+            failure_reason = $3,
+            result = jsonb_build_object(
+              'completed_at', NOW(),
+              'status', $2,
+              'totalTickers', $4::int,
+              'completedTickers', $5::text[],
+              'failedTickers', $6::text[],
+              'skippedTickers', $7::text[]
+            )
+      WHERE id = $1
+        AND status = 'running'`,
+    [
+      jobId,
+      status,
+      failureReason,
+      row.total,
+      row.completed_tickers,
+      row.failed_tickers,
+      row.skipped_tickers,
+    ]
+  );
+}
+
 async function advanceAfterStepCompletion(ds: DataSource, step: ClaimedStepWorkItem): Promise<void> {
   const incompleteStepRows = await ds.query(
     `SELECT COUNT(*)::int AS count
@@ -221,24 +296,130 @@ async function advanceAfterStepCompletion(ds: DataSource, step: ClaimedStepWorkI
     [step.tickerWorkItemId]
   );
 
-  const openTickerRows = await ds.query(
-    `SELECT COUNT(*)::int AS count
-       FROM ticker_work_items
-      WHERE job_id = $1
-        AND status NOT IN ('completed', 'failed', 'skipped')`,
-    [step.jobId]
-  ) as Array<{ count: number }>;
-  if ((openTickerRows[0]?.count ?? 0) > 0) return;
+  await finalizeJobIfTickerWorkClosed(ds, step.jobId);
+}
 
-  await ds.query(
-    `UPDATE jobs
-        SET status = 'completed',
+async function markBlockedPendingStepsFailed(ds: DataSource, step: ClaimedStepWorkItem, reason: string): Promise<void> {
+  const result = await ds.query(
+    `UPDATE step_work_items
+        SET status = 'failed',
+            owner_lock_id = NULL,
             completed_at = NOW(),
-            result = jsonb_build_object('completed_at', NOW())
-      WHERE id = $1
-        AND status = 'running'`,
-    [step.jobId]
+            last_error = $2
+      WHERE ticker_work_item_id = $1
+        AND status = 'pending'
+      RETURNING id, attempts`,
+    [step.tickerWorkItemId, reason]
   );
+  const rows = mutationRows<{ id: string; attempts: number } & Record<string, unknown>>(result);
+
+  await Promise.all(
+    rows.map((row) =>
+      recordLifecycle(ds, {
+        stepId: row.id,
+        fromStatus: "pending",
+        toStatus: "failed",
+        attemptN: row.attempts,
+        errorClass: "handler",
+        errorMessage: reason,
+      })
+    )
+  );
+}
+
+export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<{ blockedSteps: number; updatedJobs: number }> {
+  const blockedResult = await ds.query(
+    `UPDATE step_work_items s
+        SET status = 'failed',
+            owner_lock_id = NULL,
+            completed_at = NOW(),
+            last_error = 'Blocked by failed ticker work item during reconciliation'
+       FROM ticker_work_items t
+      WHERE t.id = s.ticker_work_item_id
+        AND t.status = 'failed'
+        AND s.status = 'pending'
+      RETURNING s.id, s.attempts`
+  );
+  const blockedRows = mutationRows<{ id: string; attempts: number } & Record<string, unknown>>(blockedResult);
+  await Promise.all(
+    blockedRows.map((row) =>
+      recordLifecycle(ds, {
+        stepId: row.id,
+        fromStatus: "pending",
+        toStatus: "failed",
+        attemptN: row.attempts,
+        errorClass: "handler",
+        errorMessage: "Blocked by failed ticker work item during reconciliation",
+      })
+    )
+  );
+
+  const jobRows = await ds.query(
+    `SELECT
+       job_id,
+       COUNT(*)::int AS total,
+       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)::int AS completed,
+       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)::int AS failed,
+       SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END)::int AS skipped,
+       SUM(CASE WHEN status NOT IN ('completed', 'failed', 'skipped') THEN 1 ELSE 0 END)::int AS open,
+       COALESCE(array_agg(ticker ORDER BY position) FILTER (WHERE status = 'completed'), '{}') AS completed_tickers,
+       COALESCE(array_agg(ticker ORDER BY position) FILTER (WHERE status = 'failed'), '{}') AS failed_tickers,
+       COALESCE(array_agg(ticker ORDER BY position) FILTER (WHERE status = 'skipped'), '{}') AS skipped_tickers
+     FROM ticker_work_items
+     GROUP BY job_id`
+  ) as Array<{
+    job_id: string;
+    total: number;
+    completed: number;
+    failed: number;
+    skipped: number;
+    open: number;
+    completed_tickers: string[];
+    failed_tickers: string[];
+    skipped_tickers: string[];
+  }>;
+
+  let updatedJobs = 0;
+  for (const row of jobRows) {
+    if (row.open > 0) continue;
+    const status = resolveTerminalJobStatus(row);
+    const failureReason =
+      status === "completed"
+        ? null
+        : row.failed_tickers.length > 0
+          ? `Ticker work failed: ${row.failed_tickers.join(", ")}`
+          : "No ticker work completed";
+    const result = await ds.query(
+      `UPDATE jobs
+          SET status = $2,
+              completed_at = COALESCE(completed_at, NOW()),
+              failure_reason = $3,
+              result = jsonb_build_object(
+                'completed_at', COALESCE(completed_at, NOW()),
+                'status', $2,
+                'totalTickers', $4::int,
+                'completedTickers', $5::text[],
+                'failedTickers', $6::text[],
+                'skippedTickers', $7::text[]
+              )
+        WHERE id = $1
+          AND status IN ('running', 'completed', 'partial_completed', 'failed')
+          AND status <> $2
+      RETURNING id`,
+      [
+        row.job_id,
+        status,
+        failureReason,
+        row.total,
+        row.completed_tickers,
+        row.failed_tickers,
+        row.skipped_tickers,
+      ]
+    );
+    updatedJobs += mutationRows<Record<string, unknown>>(result).length;
+  }
+
+  return { blockedSteps: blockedRows.length, updatedJobs };
 }
 
 async function markStepFailed(
@@ -253,6 +434,7 @@ async function markStepFailed(
     `UPDATE step_work_items
         SET status = $2,
             owner_lock_id = NULL,
+            completed_at = CASE WHEN $2 = 'failed' THEN NOW() ELSE completed_at END,
             last_error = $3
       WHERE id = $1`,
     [step.id, permanent ? "failed" : "pending", message.slice(0, 2000)]
@@ -277,6 +459,8 @@ async function markStepFailed(
       WHERE id = $1`,
     [step.tickerWorkItemId, message.slice(0, 2000)]
   );
+  await markBlockedPendingStepsFailed(ds, step, "Blocked by failed prerequisite step");
+  await finalizeJobIfTickerWorkClosed(ds, step.jobId);
 }
 
 export async function sweepAbandonedRunningSteps(ds: DataSource, now = new Date()): Promise<number> {
@@ -354,6 +538,15 @@ export function startStepQueueExecutor(): void {
     return;
   }
   if (loopTimer) return;
+
+  void getApplicationDataSource()
+    .then((ds) => reconcileStepQueueTerminalStates(ds))
+    .then((result) => {
+      if (result.blockedSteps > 0 || result.updatedJobs > 0) {
+        logger.warn(`Step queue reconciled terminal state: blocked_steps=${result.blockedSteps} updated_jobs=${result.updatedJobs}`);
+      }
+    })
+    .catch((err) => logger.warn(`Step queue terminal reconciliation failed: ${err instanceof Error ? err.message : String(err)}`));
 
   loopTimer = setInterval(() => {
     if (runningTicks >= maxInflightSteps()) return;

@@ -1139,6 +1139,7 @@ function jobStatusColor(status: AdminJob["status"]): { bg: string; color: string
   if (status === "running")   return { bg: "rgba(245,158,11,0.10)", color: "#f59e0b", border: "rgba(245,158,11,0.35)" };
   if (status === "pending")   return { bg: "rgba(59,130,246,0.08)", color: "#3b82f6", border: "rgba(59,130,246,0.3)" };
   if (status === "completed") return { bg: "rgba(16,185,129,0.08)", color: "#10b981", border: "rgba(16,185,129,0.25)" };
+  if (status === "partial_completed") return { bg: "rgba(245,158,11,0.10)", color: "#f59e0b", border: "rgba(245,158,11,0.35)" };
   return { bg: "rgba(239,68,68,0.07)", color: "var(--color-accent-red)", border: "rgba(239,68,68,0.25)" };
 }
 

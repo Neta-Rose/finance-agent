@@ -26,7 +26,7 @@ export type ModelTier = (typeof MODEL_TIERS)[number];
 
 export type JobAction = "full_report" | "deep_dive";
 export type JobSource = "dashboard_action" | "auto_brief" | "admin" | "backend_job" | "telegram_command";
-export type JobStatus = "pending" | "running" | "paused" | "completed" | "failed" | "cancelled" | "superseded";
+export type JobStatus = "pending" | "running" | "paused" | "completed" | "partial_completed" | "failed" | "cancelled" | "superseded";
 export type TickerWorkItemStatus = "pending" | "running" | "paused" | "completed" | "failed" | "skipped";
 export type StepWorkItemStatus = "pending" | "running" | "completed" | "failed";
 export type StepErrorClass = "zod" | "network" | "timeout" | "rate_limit" | "gather_inputs" | "handler";

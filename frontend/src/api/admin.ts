@@ -369,7 +369,7 @@ export interface AdminJob {
   id: string;
   action: string;
   ticker: string | null;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "partial_completed" | "failed";
   triggered_at: string;
   started_at: string | null;
   completed_at: string | null;

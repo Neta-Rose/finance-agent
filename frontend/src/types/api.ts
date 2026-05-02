@@ -32,7 +32,7 @@ export interface SupportMessageRecord extends SupportMessageCreate {
   createdAt: string;
   status: "open" | "closed";
 }
-export type JobStatus = "pending" | "paused" | "running" | "completed" | "failed" | "cancelled" | "superseded";
+export type JobStatus = "pending" | "paused" | "running" | "completed" | "partial_completed" | "failed" | "cancelled" | "superseded";
 export type JobAction =
  | "daily_brief" | "full_report" | "deep_dive"
  | "new_ideas" | "quick_check" | "switch_production" | "switch_testing";

@@ -13,12 +13,13 @@ process.env["USERS_DIR"] = usersDir;
 delete process.env["USE_STEP_QUEUE"];
 delete process.env["USE_STEP_QUEUE_USERS"];
 
-const [{ buildWorkspace }, { expandStepQueueJob }, { isStepQueueServiceEnabled, isStepQueueEnabledForUser }, { handlerFor, registeredStepKinds }] =
+const [{ buildWorkspace }, { expandStepQueueJob }, { isStepQueueServiceEnabled, isStepQueueEnabledForUser }, { handlerFor, registeredStepKinds }, { resolveTerminalJobStatus }] =
   await Promise.all([
     import("../middleware/userIsolation.js"),
     import("./stepQueue/expansion.js"),
     import("./stepQueue/featureFlag.js"),
     import("./stepQueue/handlers.js"),
+    import("./stepQueue/executor.js"),
   ]);
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {
@@ -126,6 +127,13 @@ function deterministicInputs(step: ClaimedStepWorkItem, ws: UserWorkspace): Step
 test("step queue feature flags default off", async () => {
   assert.equal(isStepQueueServiceEnabled(), false);
   assert.equal(await isStepQueueEnabledForUser("missing-user"), false);
+});
+
+test("terminal job status is completed only when no ticker failed", () => {
+  assert.equal(resolveTerminalJobStatus({ total: 10, completed: 10, failed: 0, skipped: 0 }), "completed");
+  assert.equal(resolveTerminalJobStatus({ total: 10, completed: 9, failed: 1, skipped: 0 }), "partial_completed");
+  assert.equal(resolveTerminalJobStatus({ total: 1, completed: 0, failed: 1, skipped: 0 }), "failed");
+  assert.equal(resolveTerminalJobStatus({ total: 0, completed: 0, failed: 0, skipped: 0 }), "failed");
 });
 
 test("full_report expansion mixes light pass and full deep dive per ticker", async () => {

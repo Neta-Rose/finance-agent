@@ -132,7 +132,7 @@ function formatDate(value: string | null | undefined): string {
 }
 
 function progressPct(job: Job): number {
-  if (job.status === "completed" || job.status === "failed") return 100;
+  if (job.status === "completed" || job.status === "partial_completed" || job.status === "failed") return 100;
   return job.progress?.pct ?? (job.status === "running" ? 5 : 0);
 }
 

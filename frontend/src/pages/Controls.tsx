@@ -118,7 +118,7 @@ export function Controls() {
   const activeJobs = allJobs.filter((j) => j.status === "pending" || j.status === "paused" || j.status === "running");
   // Most recent completed/failed jobs
   const recentHistory = allJobs
-    .filter((j) => j.status === "completed" || j.status === "failed")
+    .filter((j) => j.status === "completed" || j.status === "partial_completed" || j.status === "failed")
     .slice(0, 15);
 
   const handleJobComplete = useCallback((job: Job) => {
@@ -126,6 +126,8 @@ export function Controls() {
     const ticker = job.ticker ? ` (${job.ticker})` : "";
     if (job.status === "completed") {
       showToast(`${label}${ticker} ${t("jobCompletedNotif", language)}`, "success");
+    } else if (job.status === "partial_completed") {
+      showToast(`${label}${ticker} completed partially — check failed tickers`, "warning");
     } else {
       showToast(`${label}${ticker} ${t("jobFailedNotif", language)}`, "error");
     }
@@ -226,7 +228,7 @@ export function Controls() {
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="shrink-0">
-                      {job.status === "completed"
+                      {job.status === "completed" || job.status === "partial_completed"
                         ? <CheckCircle size={14} className="text-[var(--color-accent-green)]" />
                         : <XCircle size={14} className="text-[var(--color-accent-red)]" />}
                     </span>

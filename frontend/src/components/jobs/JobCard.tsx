@@ -16,6 +16,7 @@ function statusIcon(status: Job["status"]) {
     case "running":   return <RefreshCw size={14} className="text-[var(--color-accent-blue)] shrink-0 animate-spin" />;
     case "paused":    return <Clock size={14} className="text-[var(--color-fg-subtle)] shrink-0" />;
     case "completed": return <CheckCircle size={14} className="text-[var(--color-accent-green)] shrink-0" />;
+    case "partial_completed": return <CheckCircle size={14} className="text-amber-500 shrink-0" />;
     case "failed":    return <XCircle size={14} className="text-[var(--color-accent-red)] shrink-0" />;
     default:          return <Clock size={14} className="text-[var(--color-fg-muted)] shrink-0" />;
   }
@@ -26,6 +27,7 @@ function statusColor(status: Job["status"]) {
     case "running":   return "border-l-[var(--color-accent-blue)]";
     case "paused":    return "border-l-[var(--color-border)]";
     case "completed": return "border-l-[var(--color-accent-green)]";
+    case "partial_completed": return "border-l-amber-500";
     case "failed":    return "border-l-[var(--color-accent-red)]";
     default:          return "border-l-[var(--color-border)]";
   }
@@ -74,7 +76,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
       try {
         const updated = await fetchJob(job.id);
         setJob(updated);
-        if (updated.status === "completed" || updated.status === "failed") {
+        if (updated.status === "completed" || updated.status === "partial_completed" || updated.status === "failed") {
           onPollComplete?.(updated);
         }
       } catch { /* ignore */ }
@@ -121,7 +123,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
               {elapsedStr}
             </span>
           )}
-          {(job.status === "completed" || job.status === "failed") && (
+          {(job.status === "completed" || job.status === "partial_completed" || job.status === "failed") && (
             <span className="text-[10px] text-[var(--color-fg-subtle)]">
               {new Date(job.completed_at ?? job.triggered_at).toLocaleString("en-US", {
                 hour: "numeric", minute: "2-digit",
@@ -194,12 +196,12 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
               <span>{t("jobQueued2", language)} {new Date(job.triggered_at).toLocaleTimeString()}</span>
             )}
           </div>
-          {job.status === "completed" && resultText && (
+          {(job.status === "completed" || job.status === "partial_completed") && resultText && (
             <p className="text-xs text-[var(--color-fg-muted)]">
               {resultText.slice(0, 200)}{resultText.length > 200 ? "…" : ""}
             </p>
           )}
-          {job.status === "completed" && !resultText && (
+          {(job.status === "completed" || job.status === "partial_completed") && !resultText && (
             <p className="text-xs text-[var(--color-fg-subtle)]">{t("jobCompletedOk", language)}</p>
           )}
           {job.status === "failed" && job.error && (
