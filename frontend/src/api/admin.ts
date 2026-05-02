@@ -101,6 +101,72 @@ export type ProfilesRegistry = Record<string, ProfileDefinition>;
 
 export type { AgentHealth };
 
+export interface StepQueueJobSummary {
+  id: string;
+  user_id: string;
+  action: string;
+  status: string;
+  model_tier: string;
+  triggered_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  failure_reason: string | null;
+  ticker_count: number;
+  step_count: number;
+  completed_steps: number;
+  failed_steps: number;
+}
+
+export interface StepQueueTicker {
+  id: string;
+  job_id: string;
+  user_id: string;
+  ticker: string;
+  status: string;
+  position: number;
+  started_at: string | null;
+  completed_at: string | null;
+  failure_reason: string | null;
+  skip_reason: string | null;
+}
+
+export interface StepQueueStep {
+  id: string;
+  ticker_work_item_id: string;
+  job_id: string;
+  user_id: string;
+  kind: string;
+  status: string;
+  attempts: number;
+  model_tier_used: string | null;
+  cost_accrued_cents: number;
+  output_artifact_path: string | null;
+  last_error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface StepQueueEvent {
+  id: number;
+  step_id: string;
+  from_status: string | null;
+  to_status: string;
+  attempt_n: number | null;
+  model_used: string | null;
+  tier_used: string | null;
+  error_class: string | null;
+  error_message: string | null;
+  occurred_at: string;
+}
+
+export interface StepQueueJobDetail {
+  job: Record<string, unknown>;
+  tickers: StepQueueTicker[];
+  steps: StepQueueStep[];
+  events: StepQueueEvent[];
+}
+
 const DEFAULT_POINTS_BUDGET_VALUE = 500;
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
@@ -362,6 +428,15 @@ export const adminForceLogout = async (userId: string): Promise<void> => {
 export const adminKillJob = async (userId: string, jobId: string): Promise<void> => {
   await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs/${encodeURIComponent(jobId)}/kill`, { method: "POST" });
 };
+
+export const adminListStepQueueJobs = async (limit = 20): Promise<StepQueueJobSummary[]> => {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const d = await adminFetch(`/api/admin/step-queue/jobs?${params.toString()}`) as { jobs: StepQueueJobSummary[] };
+  return d.jobs;
+};
+
+export const adminGetStepQueueJob = async (jobId: string): Promise<StepQueueJobDetail> =>
+  adminFetch(`/api/admin/step-queue/jobs/${encodeURIComponent(jobId)}`) as Promise<StepQueueJobDetail>;
 
 // ── Admin job control API ─────────────────────────────────────────────────────
 

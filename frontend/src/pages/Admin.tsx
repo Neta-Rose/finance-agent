@@ -26,6 +26,8 @@ import {
   adminContinueJob,
   adminWakeUser,
   adminKillJob,
+  adminListStepQueueJobs,
+  adminGetStepQueueJob,
   adminUpdatePointsBudget,
   type UserSummary,
   type SystemAgentSummary,
@@ -38,6 +40,8 @@ import {
   type UserControlPatch,
   type SystemControlPatch,
   type AdminJob,
+  type StepQueueJobSummary,
+  type StepQueueStep,
 } from "../api/admin";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t } from "../store/i18n";
@@ -582,6 +586,154 @@ function HealthBadge({ health }: { health: UserSummary["agentHealth"] }) {
     >
       {t("adminStatusError", language)}
     </span>
+  );
+}
+
+function StepQueueStatusBadge({ status }: { status: string }) {
+  const color =
+    status === "completed"
+      ? "text-[var(--color-accent-green)] bg-green-500/10"
+      : status === "partial_completed"
+        ? "text-amber-400 bg-amber-500/10"
+        : status === "failed"
+          ? "text-[var(--color-accent-red)] bg-red-500/10"
+          : status === "running"
+            ? "text-[var(--color-accent-blue)] bg-blue-500/10"
+            : "text-[var(--color-fg-muted)] bg-[var(--color-bg-muted)]";
+  return (
+    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${color}`}>
+      {status.replace("_", " ")}
+    </span>
+  );
+}
+
+function StepQueueInspector({ onError }: { onError: (message: string) => void }) {
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const jobsQuery = useQuery({
+    queryKey: ["admin-step-queue-jobs"],
+    queryFn: () => adminListStepQueueJobs(20),
+    refetchInterval: 10_000,
+  });
+  const detailQuery = useQuery({
+    queryKey: ["admin-step-queue-job", selectedJobId],
+    queryFn: () => adminGetStepQueueJob(selectedJobId ?? ""),
+    enabled: selectedJobId !== null,
+    refetchInterval: selectedJobId ? 10_000 : false,
+  });
+
+  useEffect(() => {
+    if (jobsQuery.error) onError(jobsQuery.error instanceof Error ? jobsQuery.error.message : "Failed to load step queue jobs");
+  }, [jobsQuery.error, onError]);
+
+  const jobs = jobsQuery.data ?? [];
+  const selected = detailQuery.data;
+  const running = jobs.filter((job) => job.status === "running").length;
+  const partial = jobs.filter((job) => job.status === "partial_completed").length;
+  const failed = jobs.filter((job) => job.status === "failed").length;
+  const stepsByTicker = new Map<string, StepQueueStep[]>();
+  if (selected) {
+    for (const step of selected.steps) {
+      const list = stepsByTicker.get(step.ticker_work_item_id) ?? [];
+      list.push(step);
+      stepsByTicker.set(step.ticker_work_item_id, list);
+    }
+  }
+
+  const fmt = (iso: string | null) => {
+    if (!iso) return "open";
+    return new Date(iso).toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <section className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
+      <div className="px-4 py-3 flex items-center justify-between gap-3" style={{ background: "var(--color-bg-subtle)" }}>
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wide">Step Queue</h2>
+          <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+            Postgres-owned execution truth, refreshed every 10s.
+          </p>
+        </div>
+        <div className="flex gap-2 text-[10px]" style={{ color: "var(--color-fg-muted)" }}>
+          <span>Running {running}</span>
+          <span>Partial {partial}</span>
+          <span>Failed {failed}</span>
+        </div>
+      </div>
+
+      <div className="p-3 space-y-2" style={{ background: "var(--color-bg-base)" }}>
+        {jobsQuery.isLoading ? (
+          <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>Loading step queue...</p>
+        ) : jobs.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>No step-queue jobs yet.</p>
+        ) : (
+          jobs.map((job: StepQueueJobSummary) => {
+            const pct = job.step_count > 0 ? Math.round((job.completed_steps / job.step_count) * 100) : 0;
+            return (
+              <button
+                key={job.id}
+                onClick={() => setSelectedJobId((current) => current === job.id ? null : job.id)}
+                className="w-full rounded-lg p-2 text-left border hover:bg-[var(--color-bg-muted)]"
+                style={{ borderColor: selectedJobId === job.id ? "var(--color-accent-blue)" : "var(--color-border)" }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate">
+                      {job.user_id} · {job.action} · {job.model_tier}
+                    </p>
+                    <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                      {job.id.slice(-10)} · {fmt(job.triggered_at)} · {job.ticker_count} tickers
+                    </p>
+                  </div>
+                  <StepQueueStatusBadge status={job.status} />
+                </div>
+                <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--color-bg-muted)" }}>
+                  <div
+                    className={job.failed_steps > 0 ? "h-full bg-amber-500" : "h-full bg-[var(--color-accent-green)]"}
+                    style={{ width: `${Math.max(3, pct)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                  {job.completed_steps}/{job.step_count} steps · {job.failed_steps} failed
+                  {job.failure_reason ? ` · ${job.failure_reason.slice(0, 120)}` : ""}
+                </p>
+              </button>
+            );
+          })
+        )}
+
+        {selected && (
+          <div className="mt-3 rounded-lg border p-3 space-y-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold">Ticker Details</p>
+              <button onClick={() => void detailQuery.refetch()} className="text-[10px] underline" style={{ color: "var(--color-accent-blue)" }}>
+                Refresh
+              </button>
+            </div>
+            {selected.tickers.map((ticker) => {
+              const steps = stepsByTicker.get(ticker.id) ?? [];
+              const failedSteps = steps.filter((step) => step.status === "failed");
+              return (
+                <div key={ticker.id} className="rounded-md border p-2" style={{ borderColor: "var(--color-border)" }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono font-bold">{ticker.ticker}</span>
+                    <StepQueueStatusBadge status={ticker.status} />
+                  </div>
+                  <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
+                    {steps.filter((step) => step.status === "completed").length}/{steps.length} steps completed
+                    {failedSteps.length > 0 ? ` · failed: ${failedSteps.map((step) => step.kind).join(", ")}` : ""}
+                  </p>
+                  {(ticker.failure_reason || failedSteps[0]?.last_error) && (
+                    <p className="text-[10px] mt-1 line-clamp-2" style={{ color: "var(--color-accent-red)" }}>
+                      {(ticker.failure_reason ?? failedSteps[0]?.last_error ?? "").slice(0, 240)}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -1887,6 +2039,8 @@ export function Admin() {
 
         {/* System controls */}
         <SystemControls onError={(m) => setError(m)} />
+
+        <StepQueueInspector onError={setError} />
 
         {systemAgent && (
           <SystemAgentCard
