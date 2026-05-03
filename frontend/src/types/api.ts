@@ -289,6 +289,7 @@ export interface FeedItemEntry {
  deepDiveJobId?: string | null;
  deepDiveQueueStatus?: "not_needed" | "not_selected" | "queued" | "suppressed";
  deepDiveQueueReason?: string | null;
+ dailySection?: "portfolio" | "tracking";
  assetScope?: StrategyScope;
  trackingStatus?: TrackingStatus | null;
  stance?: TrackingStance | null;

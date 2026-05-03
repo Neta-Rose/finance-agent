@@ -3,12 +3,17 @@ import path from "path";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Job, JsonValue } from "../types/index.js";
 import { PortfolioFileSchema } from "../schemas/portfolio.js";
+import type { Strategy } from "../schemas/strategy.js";
 import { getPricesParallel, getUsdIlsRate } from "./priceService.js";
 import { performQuickCheck, type QuickCheckOutcome } from "./quickCheckService.js";
-import { updateJob } from "./jobService.js";
+import { createJob, listJobs, updateJob } from "./jobService.js";
 import { readState, writeState } from "./stateService.js";
 import { getUserPlan } from "./profileService.js";
 import { publishNotification } from "./notificationService.js";
+import { listTrackedAssets } from "./trackedAssetService.js";
+import { loadStrategyFile } from "./strategyFileService.js";
+import { initializeDeepDiveJob } from "./deepDiveService.js";
+import { dispatchPendingAgentJobsForUser } from "./agentJobDispatcher.js";
 
 export type DailyBriefTruthState =
   | "calm_trusted"
@@ -21,6 +26,14 @@ export type DailyBriefDeepDiveQueueStatus =
   | "not_selected"
   | "queued"
   | "suppressed";
+
+export type DailyBriefSection = "portfolio" | "tracking";
+
+const DEFAULT_DAILY_BRIEF_SCOPE = {
+  includePortfolio: true,
+  includeTracking: true,
+  trackingAutoDeepDiveLimit: Number(process.env["DAILY_BRIEF_TRACKING_AUTO_DEEP_DIVE_LIMIT"] ?? 1),
+} as const;
 
 interface DailyBriefEntry {
   ticker: string;
@@ -47,6 +60,18 @@ export interface DailyBriefResult {
   onTrack: number;
   summary: DailyBriefNarrative;
   highlights: string[];
+  portfolio: {
+    totalChecked: number;
+    escalated: number;
+    onTrack: number;
+    tickers: DailyBriefResult["tickers"];
+  };
+  tracking: {
+    totalChecked: number;
+    actionNeeded: number;
+    onWatch: number;
+    tickers: TrackingDailyEntry[];
+  };
   tickers: Array<{
     ticker: string;
     score: number;
@@ -61,7 +86,29 @@ export interface DailyBriefResult {
     deepDiveJobId?: string | null;
     deepDiveQueueStatus?: DailyBriefDeepDiveQueueStatus;
     deepDiveQueueReason?: string | null;
+    dailySection?: DailyBriefSection;
   }>;
+}
+
+export interface TrackingDailyEntry {
+  ticker: string;
+  dailySection: "tracking";
+  stance: Strategy["stance"] | null;
+  potentialScore: number | null;
+  urgencyScore: number | null;
+  urgencyLabel: Strategy["urgencyLabel"] | null;
+  portfolioFitScore: number | null;
+  suggestedAllocationPct: number | null;
+  suggestedAllocationILS: number | null;
+  needsReview: boolean;
+  reviewReason: string | null;
+  verdict: string;
+  confidence: string;
+  reasoning: string;
+  deepDiveQueued: boolean;
+  deepDiveJobId: string | null;
+  deepDiveQueueStatus: DailyBriefDeepDiveQueueStatus;
+  deepDiveQueueReason: string | null;
 }
 
 const DEFAULT_AUTO_DEEP_DIVE_LIMIT = Number(process.env["DAILY_BRIEF_AUTO_DEEP_DIVE_LIMIT"] ?? 1);
@@ -152,7 +199,7 @@ export function buildDailyBriefNarrative(
 
   if (truth.truthState === "coverage_incomplete") {
     const missing = truth.invalid + truth.provisional;
-    headline = `Coverage is incomplete today. ${missing} monitored position${missing === 1 ? "" : "s"} still need a trustworthy baseline before the portfolio can be called calm.`;
+    headline = `Coverage is incomplete today. ${missing} monitored position${missing === 1 ? "" : "s"} still need a trustworthy baseline before the portfolio can be called calm. ${result.tracking.actionNeeded} tracked idea${result.tracking.actionNeeded === 1 ? "" : "s"} need review.`;
     today =
       truth.escalated.length > 0
         ? `Act on the live pressure first: ${formatEscalations(truth.escalated, 2)}. Separate from that, baseline coverage is still incomplete on part of the monitored slice.`
@@ -161,7 +208,7 @@ export function buildDailyBriefNarrative(
     marketView = `From your portfolio’s angle, the issue is trust coverage, not just market movement: the system is still missing enough validated baseline context on part of the monitored slice.`;
     securityNote = `You are not being given false reassurance. The brief is withholding a calm verdict until baseline coverage is complete.`;
   } else if (truth.truthState === "action_needed") {
-    headline = `${result.escalated} monitored position${result.escalated === 1 ? "" : "s"} need action today while ${truth.valid} ${truth.valid === 1 ? "position remains" : "positions remain"} under trusted coverage.`;
+    headline = `${result.escalated} monitored position${result.escalated === 1 ? "" : "s"} need action today while ${truth.valid} ${truth.valid === 1 ? "position remains" : "positions remain"} under trusted coverage. ${result.tracking.actionNeeded} tracked idea${result.tracking.actionNeeded === 1 ? "" : "s"} need review.`;
     today = `Today’s pressure points are ${formatEscalations(truth.escalated)}.`;
     tomorrow =
       queuedEscalations.length > 0
@@ -173,13 +220,13 @@ export function buildDailyBriefNarrative(
         ? `Trusted coverage remains in place for ${strongest.join(", ")} while the out-of-tolerance names are escalated instead of being smoothed over.`
         : `Trusted coverage is intact on the non-flagged slice, and the out-of-tolerance names are escalated instead of being ignored.`;
   } else if (truth.truthState === "confidence_degraded") {
-    headline = `Coverage is running, but confidence is degraded today. ${truth.stale} monitored position${truth.stale === 1 ? "" : "s"} have stale strategy baselines.`;
+    headline = `Coverage is running, but confidence is degraded today. ${truth.stale} monitored position${truth.stale === 1 ? "" : "s"} have stale strategy baselines. ${result.tracking.actionNeeded} tracked idea${result.tracking.actionNeeded === 1 ? "" : "s"} need review.`;
     today = `There is no clean calm verdict yet because part of the monitored slice needs a strategy refresh before the brief can speak with full confidence.`;
     tomorrow = `Tomorrow the priority is refreshing the stale baselines so routine monitoring can return to a trustworthy calm-vs-action read.`;
     marketView = `From your portfolio’s angle, the market picture may be fine, but strategy freshness is lagging behind current conditions.`;
     securityNote = `The brief is staying honest: it is not calling the portfolio calm while baseline confidence is degraded.`;
   } else {
-    headline = `Portfolio check is calm today. ${result.totalChecked} monitored position${result.totalChecked === 1 ? "" : "s"} are covered by trusted baseline strategy.`;
+    headline = `Portfolio check is calm today. ${result.totalChecked} monitored position${result.totalChecked === 1 ? "" : "s"} are covered by trusted baseline strategy. ${result.tracking.totalChecked} tracked idea${result.tracking.totalChecked === 1 ? "" : "s"} monitored.`;
     today = `Today there are no urgent thesis breaks across the monitored slice. Core holdings are holding their planned posture under trusted coverage.`;
     tomorrow = `Tomorrow the priority is routine monitoring only unless prices, catalysts, or news create a new escalation trigger.`;
     marketView = `From your portfolio’s angle, the current backdrop supports the plan: no concentrated stress is showing up in the monitored holdings and baseline coverage is healthy.`;
@@ -230,6 +277,9 @@ export function buildDailyHighlights(
   } else if (truth.truthState === "calm_trusted") {
     highlights.push("No urgent thesis breaks");
   }
+  if (result.tracking.actionNeeded > 0) {
+    highlights.push(`${result.tracking.actionNeeded} tracking review${result.tracking.actionNeeded === 1 ? "" : "s"}`);
+  }
   return highlights.slice(0, 4);
 }
 
@@ -249,6 +299,126 @@ export function selectDailyBriefAutoDeepDiveTickers(
     })
     .slice(0, limit)
     .map((entry) => entry.ticker);
+}
+
+async function queueTrackingDeepDiveIfNeeded(
+  ws: UserWorkspace,
+  ticker: string
+): Promise<string | null> {
+  const active = (await listJobs(ws, 200)).find(
+    (job) =>
+      job.action === "deep_dive" &&
+      job.ticker === ticker &&
+      (job.status === "pending" || job.status === "running")
+  );
+  if (active) return active.id;
+
+  const job = await createJob(ws, "deep_dive", ticker, { dispatch: false, source: "backend_job" });
+  const initialized = await initializeDeepDiveJob(ws, job);
+  await dispatchPendingAgentJobsForUser(ws.userId);
+  return initialized.id;
+}
+
+export function evaluateTrackedStrategyForDaily(strategy: Strategy): {
+  needsReview: boolean;
+  reviewReason: string | null;
+  sortScore: number;
+} {
+  const reasons: string[] = [];
+  const now = Date.now();
+  const dueReview =
+    strategy.nextReviewAt !== null &&
+    strategy.nextReviewAt !== undefined &&
+    new Date(strategy.nextReviewAt).getTime() <= now;
+  if (dueReview) {
+    reasons.push("scheduled review is due");
+  }
+
+  const dueCatalyst = (strategy.actionCatalysts ?? []).find((catalyst) => {
+    if (catalyst.triggered || catalyst.expiresAt === null) return false;
+    const days = Math.ceil((new Date(catalyst.expiresAt).getTime() - now) / 86400000);
+    return days <= 7;
+  });
+  if (dueCatalyst) {
+    reasons.push(`action catalyst is due soon: ${dueCatalyst.description}`);
+  }
+
+  const urgencyScore = strategy.urgencyScore ?? 0;
+  if (urgencyScore >= 70 || strategy.urgencyLabel === "high" || strategy.urgencyLabel === "extra_high") {
+    reasons.push(`urgency is ${strategy.urgencyLabel ?? urgencyScore}`);
+  }
+
+  if (strategy.stance === "candidate" && (strategy.potentialScore ?? 0) >= 70) {
+    reasons.push("candidate score is strong enough to keep on the action list");
+  }
+
+  return {
+    needsReview: reasons.length > 0,
+    reviewReason: reasons.join(". ") || null,
+    sortScore: urgencyScore + (strategy.potentialScore ?? 0) + (dueReview ? 25 : 0) + (dueCatalyst ? 25 : 0),
+  };
+}
+
+export async function evaluateTrackingDailyEntries(
+  ws: UserWorkspace,
+  autoDeepDiveLimit = DEFAULT_DAILY_BRIEF_SCOPE.trackingAutoDeepDiveLimit
+): Promise<TrackingDailyEntry[]> {
+  const trackedAssets = (await listTrackedAssets(ws.userId)).filter((asset) => asset.status !== "archived");
+  const evaluated: Array<TrackingDailyEntry & { sortScore: number }> = [];
+
+  for (const asset of trackedAssets) {
+    const loaded = await loadStrategyFile(ws.strategyFile(asset.ticker), {
+      repair: true,
+      tickerHint: asset.ticker,
+    });
+    if (!loaded.valid || !loaded.strategy) continue;
+    const strategy = loaded.strategy;
+    const evaluation = evaluateTrackedStrategyForDaily(strategy);
+    evaluated.push({
+      ticker: asset.ticker,
+      dailySection: "tracking",
+      stance: strategy.stance ?? null,
+      potentialScore: strategy.potentialScore ?? null,
+      urgencyScore: strategy.urgencyScore ?? null,
+      urgencyLabel: strategy.urgencyLabel ?? null,
+      portfolioFitScore: strategy.portfolioFitScore ?? null,
+      suggestedAllocationPct: strategy.suggestedAllocationPct ?? null,
+      suggestedAllocationILS: strategy.suggestedAllocationILS ?? null,
+      needsReview: evaluation.needsReview,
+      reviewReason: evaluation.reviewReason,
+      verdict: strategy.verdict,
+      confidence: strategy.confidence,
+      reasoning: strategy.reasoning,
+      deepDiveQueued: false,
+      deepDiveJobId: null,
+      deepDiveQueueStatus: evaluation.needsReview ? "not_selected" : "not_needed",
+      deepDiveQueueReason: evaluation.needsReview
+        ? `Tracked idea needs review; tracking daily auto-queue limit is ${autoDeepDiveLimit}.`
+        : null,
+      sortScore: evaluation.sortScore,
+    });
+  }
+
+  evaluated.sort((a, b) => b.sortScore - a.sortScore);
+  const selected = new Set(
+    evaluated
+      .filter((entry) => entry.needsReview)
+      .slice(0, Math.max(0, autoDeepDiveLimit))
+      .map((entry) => entry.ticker)
+  );
+
+  for (const entry of evaluated) {
+    if (!selected.has(entry.ticker)) continue;
+    const jobId = await queueTrackingDeepDiveIfNeeded(ws, entry.ticker);
+    entry.deepDiveQueued = jobId !== null;
+    entry.deepDiveJobId = jobId;
+    entry.deepDiveQueueStatus = jobId !== null ? "queued" : "suppressed";
+    entry.deepDiveQueueReason = jobId !== null
+      ? "Tracked idea review deep dive was queued or already active."
+      : "Tracked idea review was selected, but no deep dive could be queued.";
+  }
+
+  return evaluated.map(({ sortScore: _sortScore, ...entry }) => entry);
 }
 
 async function topPortfolioTickers(
@@ -359,29 +529,62 @@ async function appendDailyBriefBatch(
     },
     highlights: result.highlights,
     entries: Object.fromEntries(
-      result.tickers.map((item) => [
-        item.ticker,
-        {
-          ticker: item.ticker,
-          mode: "daily_brief",
-          verdict: item.verdict,
-          confidence: item.confidence,
-          reasoning: item.escalationReason ?? "On track",
-          timeframe: "immediate",
-          analystTypes: ["quick_check"],
-          hasBullCase: false,
-          hasBearCase: false,
-          currentILS: item.currentILS,
-          dayChangePct: item.dayChangePct,
-          moveReason: item.moveReason,
-          needsEscalation: item.needsEscalation,
-          escalationReason: item.escalationReason,
-          deepDiveQueued: item.deepDiveQueued ?? false,
-          deepDiveJobId: item.deepDiveJobId ?? null,
-          deepDiveQueueStatus: item.deepDiveQueueStatus ?? "not_needed",
-          deepDiveQueueReason: item.deepDiveQueueReason ?? null,
-        },
-      ])
+      [
+        ...result.tickers.map((item) => [
+          item.ticker,
+          {
+            ticker: item.ticker,
+            mode: "daily_brief",
+            dailySection: "portfolio",
+            verdict: item.verdict,
+            confidence: item.confidence,
+            reasoning: item.escalationReason ?? "On track",
+            timeframe: "immediate",
+            analystTypes: ["quick_check"],
+            hasBullCase: false,
+            hasBearCase: false,
+            currentILS: item.currentILS,
+            dayChangePct: item.dayChangePct,
+            moveReason: item.moveReason,
+            needsEscalation: item.needsEscalation,
+            escalationReason: item.escalationReason,
+            deepDiveQueued: item.deepDiveQueued ?? false,
+            deepDiveJobId: item.deepDiveJobId ?? null,
+            deepDiveQueueStatus: item.deepDiveQueueStatus ?? "not_needed",
+            deepDiveQueueReason: item.deepDiveQueueReason ?? null,
+          },
+        ] as const),
+        ...result.tracking.tickers.map((item) => [
+          item.ticker,
+          {
+            ticker: item.ticker,
+            mode: "daily_brief",
+            dailySection: "tracking",
+            verdict: item.verdict,
+            confidence: item.confidence,
+            reasoning: item.reviewReason ?? item.reasoning,
+            timeframe: "watch",
+            analystTypes: ["tracking"],
+            hasBullCase: false,
+            hasBearCase: false,
+            needsEscalation: item.needsReview,
+            escalationReason: item.reviewReason,
+            deepDiveQueued: item.deepDiveQueued,
+            deepDiveJobId: item.deepDiveJobId,
+            deepDiveQueueStatus: item.deepDiveQueueStatus,
+            deepDiveQueueReason: item.deepDiveQueueReason,
+            assetScope: "tracking",
+            trackingStatus: "active",
+            stance: item.stance,
+            potentialScore: item.potentialScore,
+            urgencyScore: item.urgencyScore,
+            urgencyLabel: item.urgencyLabel,
+            portfolioFitScore: item.portfolioFitScore,
+            suggestedAllocationPct: item.suggestedAllocationPct,
+            suggestedAllocationILS: item.suggestedAllocationILS,
+          },
+        ] as const),
+      ]
     ),
   });
   page.batches = page.batches.slice(0, meta.pageSize ?? 10);
@@ -429,7 +632,9 @@ export async function runDailyBriefJob(
     }
 
     const coverageLimit = await getDailyBriefCoverageLimit(ws);
-    const topTickers = await topPortfolioTickers(ws, coverageLimit);
+    const topTickers = DEFAULT_DAILY_BRIEF_SCOPE.includePortfolio
+      ? await topPortfolioTickers(ws, coverageLimit)
+      : [];
     const entries: DailyBriefEntry[] = [];
     for (const item of topTickers) {
       const quickCheck = await performQuickCheck(ws, item.ticker, { queueDeepDive: false });
@@ -447,43 +652,60 @@ export async function runDailyBriefJob(
       entry.quickCheck = await performQuickCheck(ws, entry.ticker, { queueDeepDive: true });
     }
 
+    const trackingEntries = DEFAULT_DAILY_BRIEF_SCOPE.includeTracking
+      ? await evaluateTrackingDailyEntries(ws)
+      : [];
+    const portfolioTickers = entries
+      .sort((a, b) => b.currentILS - a.currentILS)
+      .map((entry) => ({
+        ticker: entry.ticker,
+        score: entry.quickCheck.score,
+        needsEscalation: entry.quickCheck.needs_escalation,
+        escalationReason: entry.quickCheck.escalation_reason,
+        verdict: entry.quickCheck.verdict,
+        confidence: entry.quickCheck.confidence,
+        currentILS: Math.round(entry.currentILS * 100) / 100,
+        dayChangePct: entry.dayChangePct ?? 0,
+        moveReason:
+          Math.abs(entry.dayChangePct ?? 0) >= 1
+            ? `Price moved ${(entry.dayChangePct ?? 0) > 0 ? "+" : ""}${entry.dayChangePct ?? 0}% today; no external catalyst attribution is attached yet.`
+            : "Price movement was small; no external catalyst attribution is attached yet.",
+        deepDiveQueued: entry.quickCheck.escalated_to_job_id !== null,
+        deepDiveJobId: entry.quickCheck.escalated_to_job_id,
+        deepDiveQueueStatus: !entry.quickCheck.needs_escalation
+          ? "not_needed" as const
+          : entry.quickCheck.escalated_to_job_id !== null
+            ? "queued" as const
+            : autoQueueTickers.has(entry.ticker)
+              ? "suppressed" as const
+              : "not_selected" as const,
+        deepDiveQueueReason: !entry.quickCheck.needs_escalation
+          ? null
+          : entry.quickCheck.escalated_to_job_id !== null
+            ? "Deep dive was queued or already active for this ticker."
+            : autoQueueTickers.has(entry.ticker)
+              ? "Auto-queue selected this ticker, but a matching escalation was already active or previously recorded."
+              : `Flagged for attention but not auto-queued; daily auto-queue limit is ${DEFAULT_AUTO_DEEP_DIVE_LIMIT}.`,
+        dailySection: "portfolio" as const,
+      }));
     const baseResult = {
       generatedAt: new Date().toISOString(),
       totalChecked: entries.length,
       escalated: entries.filter((entry) => entry.quickCheck.needs_escalation).length,
       onTrack: entries.filter((entry) => !entry.quickCheck.needs_escalation).length,
-      tickers: entries
-        .sort((a, b) => b.currentILS - a.currentILS)
-        .map((entry) => ({
-          ticker: entry.ticker,
-          score: entry.quickCheck.score,
-          needsEscalation: entry.quickCheck.needs_escalation,
-          escalationReason: entry.quickCheck.escalation_reason,
-          verdict: entry.quickCheck.verdict,
-          confidence: entry.quickCheck.confidence,
-          currentILS: Math.round(entry.currentILS * 100) / 100,
-          dayChangePct: entry.dayChangePct ?? 0,
-          moveReason:
-            Math.abs(entry.dayChangePct ?? 0) >= 1
-              ? `Price moved ${(entry.dayChangePct ?? 0) > 0 ? "+" : ""}${entry.dayChangePct ?? 0}% today; no external catalyst attribution is attached yet.`
-              : "Price movement was small; no external catalyst attribution is attached yet.",
-          deepDiveQueued: entry.quickCheck.escalated_to_job_id !== null,
-          deepDiveJobId: entry.quickCheck.escalated_to_job_id,
-          deepDiveQueueStatus: !entry.quickCheck.needs_escalation
-            ? "not_needed" as const
-            : entry.quickCheck.escalated_to_job_id !== null
-              ? "queued" as const
-              : autoQueueTickers.has(entry.ticker)
-                ? "suppressed" as const
-                : "not_selected" as const,
-          deepDiveQueueReason: !entry.quickCheck.needs_escalation
-            ? null
-            : entry.quickCheck.escalated_to_job_id !== null
-              ? "Deep dive was queued or already active for this ticker."
-              : autoQueueTickers.has(entry.ticker)
-                ? "Auto-queue selected this ticker, but a matching escalation was already active or previously recorded."
-                : `Flagged for attention but not auto-queued; daily auto-queue limit is ${DEFAULT_AUTO_DEEP_DIVE_LIMIT}.`,
-        })),
+      portfolio: {
+        totalChecked: entries.length,
+        escalated: entries.filter((entry) => entry.quickCheck.needs_escalation).length,
+        onTrack: entries.filter((entry) => !entry.quickCheck.needs_escalation).length,
+        tickers: portfolioTickers,
+      },
+      tracking: {
+        totalChecked: trackingEntries.length,
+        actionNeeded: trackingEntries.filter((entry) => entry.needsReview).length,
+        onWatch: trackingEntries.filter((entry) => !entry.needsReview).length,
+        tickers: trackingEntries,
+      },
+      tickers: portfolioTickers,
     };
     const truth = classifyDailyBriefTruth(entries);
     const result: DailyBriefResult = {

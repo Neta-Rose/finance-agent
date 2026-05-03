@@ -1145,11 +1145,14 @@ function ReportCard({
   const isMultiTicker = item.tickers.length > 1;
   const isBriefMode = item.mode === "daily_brief" || item.mode === "full_report";
   const trackingEntry = !isBriefMode && selectedEntry?.assetScope === "tracking" ? selectedEntry : null;
-  const portfolioMovers = entries
+  const portfolioDailyEntries = entries.filter((entry) => entry.dailySection !== "tracking");
+  const trackingDailyEntries = entries.filter((entry) => entry.dailySection === "tracking");
+  const trackingActionEntries = trackingDailyEntries.filter((entry) => entry.needsEscalation);
+  const portfolioMovers = portfolioDailyEntries
     .filter((entry) => Number.isFinite(entry.dayChangePct))
     .sort((a, b) => Math.abs(b.dayChangePct ?? 0) - Math.abs(a.dayChangePct ?? 0))
     .slice(0, 5);
-  const dailyEntries = entries.filter((entry) => entry.mode === "daily_brief");
+  const dailyEntries = portfolioDailyEntries.filter((entry) => entry.mode === "daily_brief");
   const hasDailyQueueMetadata = dailyEntries.some(
     (entry) => typeof entry.needsEscalation === "boolean" || typeof entry.deepDiveQueued === "boolean"
   );
@@ -1303,9 +1306,47 @@ function ReportCard({
                     </div>
                   </div>
                 ) : null}
+                {trackingDailyEntries.length > 0 ? (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Tracking watchlist</p>
+                    <div className="mt-2 space-y-2">
+                      {trackingDailyEntries.map((entry) => (
+                        <div key={entry.ticker} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
+                            {entry.stance ? <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--color-fg-subtle)]">{entry.stance}</span> : null}
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
+                            {entry.reasoning}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[var(--color-fg-subtle)]">
+                            {typeof entry.potentialScore === "number" ? <span>{entry.potentialScore}/100 potential</span> : null}
+                            {typeof entry.urgencyScore === "number" ? <span>{entry.urgencyScore}/100 urgency</span> : null}
+                            {typeof entry.suggestedAllocationPct === "number" ? <span>{entry.suggestedAllocationPct.toFixed(1)}% suggested</span> : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {trackingActionEntries.length > 0 ? (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Tracking action candidates</p>
+                    <div className="mt-2 space-y-2">
+                      {trackingActionEntries.map((entry) => (
+                        <div key={entry.ticker} className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
+                          <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
+                          <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
+                            {entry.deepDiveQueueReason ?? entry.reasoning}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {queuedDailyEntries.length > 0 ? (
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Queued deep dives</p>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Portfolio queued deep dives</p>
                     <div className="mt-2 space-y-2">
                       {queuedDailyEntries.map((entry) => (
                         <div key={entry.ticker} className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
@@ -1320,7 +1361,7 @@ function ReportCard({
                 ) : null}
                 {attentionDailyEntries.length > 0 ? (
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Needs attention, not auto-queued</p>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Portfolio needs attention, not auto-queued</p>
                     <div className="mt-2 space-y-2">
                       {attentionDailyEntries.map((entry) => (
                         <div key={entry.ticker} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">

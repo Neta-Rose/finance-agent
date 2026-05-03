@@ -4,11 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
+import type { Strategy } from "../schemas/strategy.js";
 import type { QuickCheckOutcome } from "./quickCheckService.js";
 
 const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), "daily-brief-service-"));
 const usersDir = path.join(testRoot, "users");
 process.env["USERS_DIR"] = usersDir;
+process.env["APP_DATABASE_URL"] = "";
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -67,6 +69,42 @@ function quickCheck(
   };
 }
 
+function withDailySections<T extends {
+  totalChecked: number;
+  escalated: number;
+  onTrack: number;
+  tickers: Array<Record<string, unknown>>;
+}>(baseResult: T): T & {
+  portfolio: {
+    totalChecked: number;
+    escalated: number;
+    onTrack: number;
+    tickers: T["tickers"];
+  };
+  tracking: {
+    totalChecked: number;
+    actionNeeded: number;
+    onWatch: number;
+    tickers: [];
+  };
+} {
+  return {
+    ...baseResult,
+    portfolio: {
+      totalChecked: baseResult.totalChecked,
+      escalated: baseResult.escalated,
+      onTrack: baseResult.onTrack,
+      tickers: baseResult.tickers,
+    },
+    tracking: {
+      totalChecked: 0,
+      actionNeeded: 0,
+      onWatch: 0,
+      tickers: [],
+    },
+  };
+}
+
 test("daily brief defaults all users to pro coverage", async () => {
   const ctx = await setupWorkspace("daily-brief-default");
   const limit = await ctx.getDailyBriefCoverageLimit(ctx.ws);
@@ -102,8 +140,9 @@ test("daily brief truth is coverage_incomplete when monitored coverage is provis
     })),
   };
 
-  const narrative = buildDailyBriefNarrative(baseResult, truth);
-  const highlights = buildDailyHighlights(baseResult, truth);
+  const result = withDailySections(baseResult);
+  const narrative = buildDailyBriefNarrative(result, truth);
+  const highlights = buildDailyHighlights(result, truth);
 
   assert.equal(truth.truthState, "coverage_incomplete");
   assert.equal(narrative.truthState, "coverage_incomplete");
@@ -134,7 +173,7 @@ test("daily brief truth is confidence_degraded when coverage is stale but not in
     })),
   };
 
-  const narrative = buildDailyBriefNarrative(baseResult, truth);
+  const narrative = buildDailyBriefNarrative(withDailySections(baseResult), truth);
   assert.equal(truth.truthState, "confidence_degraded");
   assert.match(narrative.headline, /confidence is degraded/i);
 });
@@ -170,7 +209,7 @@ test("daily brief truth is action_needed when trusted coverage has active escala
     })),
   };
 
-  const narrative = buildDailyBriefNarrative(baseResult, truth);
+  const narrative = buildDailyBriefNarrative(withDailySections(baseResult), truth);
   assert.equal(truth.truthState, "action_needed");
   assert.match(narrative.today, /TSLA: Live price is below an exit threshold/i);
   assert.match(narrative.tomorrow, /queued deeper review on TSLA/i);
@@ -211,7 +250,7 @@ test("daily brief narrative does not claim unqueued escalations have deep dives 
     })),
   };
 
-  const narrative = buildDailyBriefNarrative(baseResult, truth);
+  const narrative = buildDailyBriefNarrative(withDailySections(baseResult), truth);
   assert.equal(truth.truthState, "action_needed");
   assert.match(narrative.tomorrow, /manually deciding whether to start deeper reviews/i);
   assert.doesNotMatch(narrative.tomorrow, /finishing deeper review/i);
@@ -240,10 +279,61 @@ test("daily brief truth is calm_trusted only when all monitored coverage is vali
     })),
   };
 
-  const narrative = buildDailyBriefNarrative(baseResult, truth);
-  const highlights = buildDailyHighlights(baseResult, truth);
+  const result = withDailySections(baseResult);
+  const narrative = buildDailyBriefNarrative(result, truth);
+  const highlights = buildDailyHighlights(result, truth);
 
   assert.equal(truth.truthState, "calm_trusted");
   assert.match(narrative.headline, /calm today/i);
   assert.ok(highlights.includes("Calm with trusted coverage"));
+});
+
+test("tracking daily evaluator uses tracking strategy fields without portfolio ownership penalty", async () => {
+  const strategy: Strategy = {
+    ticker: "GOOGL",
+    updatedAt: "2026-05-03T12:00:00.000Z",
+    version: 1,
+    verdict: "HOLD",
+    confidence: "medium",
+    reasoning: "Tracked idea fixture.",
+    timeframe: "months",
+    positionSizeILS: 0,
+    positionWeightPct: 0,
+    entryConditions: [],
+    exitConditions: [],
+    catalysts: [],
+    bullCase: null,
+    bearCase: null,
+    lastDeepDiveAt: "2026-05-03T12:00:00.000Z",
+    deepDiveTriggeredBy: "step_queue",
+    assetScope: "tracking",
+    trackingStatus: "active",
+    stance: "candidate",
+    potentialScore: 78,
+    urgencyScore: 72,
+    urgencyLabel: "high",
+    portfolioFitScore: 66,
+    suggestedAllocationPct: 3,
+    suggestedAllocationILS: 12000,
+    actionCatalysts: [{
+      description: "Review before earnings",
+      expiresAt: new Date(Date.now() + 3 * 86400000).toISOString(),
+      triggered: false,
+    }],
+    avoidConditions: ["Avoid if thesis weakens."],
+    nextReviewAt: new Date(Date.now() - 86400000).toISOString(),
+    metadata: {
+      source: "deep_dive",
+      status: "validated",
+      generatedAt: "2026-05-03T12:00:00.000Z",
+      userGuidanceApplied: false,
+    },
+  };
+
+  const { evaluateTrackedStrategyForDaily } = await import("./dailyBriefService.js");
+  const evaluation = evaluateTrackedStrategyForDaily(strategy);
+
+  assert.equal(evaluation.needsReview, true);
+  assert.match(evaluation.reviewReason ?? "", /scheduled review is due/i);
+  assert.doesNotMatch(evaluation.reviewReason ?? "", /not found in portfolio/i);
 });
