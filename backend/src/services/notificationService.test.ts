@@ -55,6 +55,52 @@ test("publishNotification writes web outbox entries and markNotificationsRead ma
   assert.equal(after.length, 0);
 });
 
+test("publishNotification is idempotent for report batch ids", async () => {
+  const { publishNotification, listNotifications } = await import("./notificationService.js");
+  const userId = "dedupe-user";
+
+  await writeJson(path.join(process.env["USERS_DIR"]!, userId, "profile.json"), {
+    notifications: {
+      primaryChannel: "web",
+      enabledChannels: {
+        telegram: false,
+        web: true,
+        whatsapp: false,
+      },
+      categories: {
+        dailyBriefs: true,
+        reportRuns: true,
+        marketNews: true,
+      },
+    },
+  });
+
+  const first = await publishNotification({
+    userId,
+    category: "report",
+    title: "Deep dive complete",
+    body: "AAPL report is ready.",
+    ticker: "AAPL",
+    batchId: "batch_duplicate_deep_dive",
+  });
+  const second = await publishNotification({
+    userId,
+    category: "report",
+    title: "Deep dive complete",
+    body: "AAPL report is ready.",
+    ticker: "AAPL",
+    batchId: "batch_duplicate_deep_dive",
+  });
+
+  assert.equal(first.length, 1);
+  assert.equal(second.length, 1);
+  assert.equal(second[0]?.id, first[0]?.id);
+
+  const items = await listNotifications(userId, { channel: "web", limit: 10 });
+  assert.equal(items.length, 1);
+  assert.equal(items[0]?.batchId, "batch_duplicate_deep_dive");
+});
+
 test("getNotificationPreferences falls back to web when external channels are not connected", async () => {
   const { getNotificationPreferences } = await import("./notificationService.js");
   const userId = "stale-channel-user";

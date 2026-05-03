@@ -282,6 +282,18 @@ export async function publishNotification(
   const preferences = await getNotificationPreferences(request.userId);
   if (!categoryEnabled(preferences, request.category)) return [];
 
+  if (request.batchId) {
+    const existing = (await readOutbox(request.userId)).filter(
+      (item) => item.category === request.category && item.batchId === request.batchId
+    );
+    if (existing.length > 0) {
+      logger.info(
+        `Skipped duplicate notification: user=${request.userId} category=${request.category} batch=${request.batchId}`
+      );
+      return existing;
+    }
+  }
+
   const connectivity = await getUserChannelConnectivity(request.userId);
   const candidateChannels = buildCandidateChannels(preferences, connectivity);
 
