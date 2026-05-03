@@ -458,6 +458,13 @@ export async function initializeDeepDiveJob(
     return job;
   }
 
+  if (job.status === "completed") {
+    const existingState = await readJsonIfExists<DeepDiveState>(deepDiveStatePath(ws, job.ticker));
+    if (existingState?.jobId === job.id && existingState.status === "completed") {
+      return job;
+    }
+  }
+
   const state = await buildDeepDiveState(ws, job);
 
   await writeDeepDiveState(ws, job.ticker, state);

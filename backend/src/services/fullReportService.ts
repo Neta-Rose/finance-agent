@@ -497,6 +497,13 @@ export async function reconcileFullReportJob(
 ): Promise<Job> {
   if (job.action !== "full_report") return job;
 
+  if (job.status === "completed") {
+    const existingState = await readJsonIfExists<FullReportState>(statePath(ws));
+    if (existingState?.jobId === job.id && existingState.status === "completed") {
+      return job;
+    }
+  }
+
   const tickers = await listPortfolioTickers(ws);
   for (const ticker of tickers) {
     await promoteFullReportStrategy(ws, ticker);
