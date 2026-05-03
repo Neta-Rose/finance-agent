@@ -20,11 +20,30 @@ The page renders one of three top-of-page state blocks. Below the state block, p
 
 | State | Trigger | Top-of-page |
 |---|---|---|
-| **Setup** | `onboardStatus.state === "BOOTSTRAPPING"` OR no strategies exist | `<SetupBanner>` — *"Clawd is preparing your portfolio. First strategies arrive in ~30 minutes — we'll notify you on Telegram when ready."* No fake attention items. |
-| **Attention** | `state === "ACTIVE"` AND `attentionItems.length > 0` | `<AttentionBlock>` — *"3 need attention · 9 clear"* heading + stack of `<AttentionCard>` (one per ticker) |
+| **Setup** | `onboardStatus.state === "BOOTSTRAPPING"` (regardless of how many strategies exist) | `<SetupBanner>` — *"Clawd is preparing your portfolio."* Subline shows progress: *"Analyzed {N} of {M} positions · {ticker1, ticker2, ticker3} in progress"*. Channel-agnostic notification line: *"We'll notify you when ready"* — append *"on Telegram"* iff `onboardStatus.telegram.connected`. |
+| **Attention** | `state === "ACTIVE"` AND `attentionItems.length > 0` | `<AttentionBlock>` — *"{N} need attention · {M} clear"* heading + stack of `<AttentionCard>` (one per ticker) |
 | **Clear** | `state === "ACTIVE"` AND `attentionItems.length === 0` | `<HealthHero>` — portfolio score (0–100) + label + summary line |
 
-State determination is pure frontend, computed from the existing `/api/onboard/status` and `/api/verdicts` responses. No new endpoints.
+State determination is pure frontend, computed from the existing `/api/onboard/status`, `/api/verdicts`, and `/api/jobs` responses. No new endpoints.
+
+### Setup-state behavior details
+
+**Progress numbers** are derived from `/api/jobs` filtered to `action === "deep_dive"`:
+
+- `analyzed = jobs.filter(j => j.status === "completed").length` (across all time, not last 24h)
+- Or, if `/api/onboard/status` exposes a `progress` field with bootstrapped count, prefer that
+- `total` = number of unique tickers in portfolio
+- "in progress" tickers = active jobs' `ticker` field
+
+**Partial-bootstrap is shown live.** Strategies that already exist while the user is still in BOOTSTRAPPING DO render in the unified positions list below the setup banner, with their score chip and factoid. The user gets immediate value as each strategy arrives — they don't have to wait for the whole portfolio.
+
+**Active-jobs banner suppression.** The existing "X jobs running" banner in `Portfolio.tsx:473–486` is **hidden** while `state === "BOOTSTRAPPING"` — the SetupBanner already conveys that information and stacking both is noise. When `state === "ACTIVE"`, the active-jobs banner stays as today (for ad-hoc deep dives the user triggers).
+
+### Edge cases
+
+- **All positions in attention (0 clear):** `<AttentionBlock>` renders normally; below it, the unified positions list is omitted entirely (no "no clear positions" placeholder — the attention block already tells the story). Account cards still render collapsed.
+- **0 positions in portfolio:** existing `EmptyState` keeps rendering as today; state block does not render. Unchanged behavior.
+- **Strategies exist but `state === "UNINITIALIZED"`:** treated as Setup (defensive — should not occur in practice).
 
 ## 3. Page structure (top-to-bottom)
 
@@ -138,6 +157,18 @@ This is a documented compromise. Phase 2 follow-up #1 (below) replaces it with s
 
 Same component file (`frontend/src/components/portfolio/StrategyModal.tsx`), same data fetch (`fetchStrategy(ticker)`), same props, same `onDeepDive` callback. Render order changes only.
 
+### Tap-target routing — explicit
+
+Two different drill-downs serve two different questions. Both stay in v1; spec makes the routing explicit so it isn't accidentally collapsed:
+
+| Surface | Tap target | Why |
+|---|---|---|
+| `<AttentionCard>` (in AttentionBlock) | **`<StrategyModal>`** | User is asking *"why does this need attention?"* — strategy + reasoning is the answer |
+| `<PositionRow>` (in unified list or account cards) | **`<PositionDetailModal>`** (existing, unchanged) | User is asking *"tell me about this holding"* — P/L, history, edit. Existing behavior, preserved |
+| Score chip on PositionRow | **no tap behavior** | Informational only. Factoid is the explanation. Tooltip-on-hover for desktop showing top components; on mobile the score chip is read-only |
+
+`<PositionDetailModal>` already has a "View Strategy" affordance that opens `<StrategyModal>` — that path is unchanged. Users can always escalate from "details" view to "why" view.
+
 ### New layout (top → bottom)
 
 ```
@@ -167,18 +198,20 @@ REASONING                                    ← pinned, was middle
 | Priority | Condition | Output (en) |
 |---|---|---|
 | 1 | any catalyst with `expiresAt < now` AND not triggered | `"{description} expired {N} days ago"` |
-| 2 | verdict === "SELL" or "CLOSE" | `"{verdict} · {reasoning first sentence}"` |
-| 3 | verdict === "REDUCE" | `"REDUCE · {reasoning first sentence}"` |
+| 2 | verdict === "SELL" or "CLOSE" | `"{verdict} · {reasoningSnippet}"` |
+| 3 | verdict === "REDUCE" | `"REDUCE · {reasoningSnippet}"` |
 | 4 | (defensive default) | `"Marked for attention"` |
+
+`reasoningSnippet`: first sentence of `strategy.reasoning`, truncated to ~80 characters at the last word boundary, with ellipsis if truncated. Pure frontend; no backend involvement.
 
 ## 8. Data flow
 
 | Endpoint | Already used? | Used for |
 |---|---|---|
-| `GET /api/onboard/status` | yes | `state` field; profile (`stopLossThresholdPct`) |
+| `GET /api/onboard/status` | yes | `state` field; profile (`stopLossThresholdPct`); `telegram.connected` for setup-banner copy |
 | `GET /api/portfolio` | yes | positions, day change, weights |
 | `GET /api/verdicts` | yes | verdict, confidence, hasExpiredCatalysts, lastDeepDiveAt, catalyst array |
-| `GET /api/jobs` | yes | active-jobs banner (kept) |
+| `GET /api/jobs` | yes | active-jobs banner (kept, suppressed during BOOTSTRAPPING); SetupBanner progress numbers (count of completed deep_dive jobs + active tickers) |
 | `GET /api/strategies/:ticker` | yes (StrategyModal) | strategy detail on drill-down |
 
 **No new endpoints, no backend changes.**
@@ -229,7 +262,10 @@ Approximate line budgets (informative, not normative):
 | Key | English | Hebrew |
 |---|---|---|
 | `setupBannerTitle` | "Preparing your portfolio" | "מכין את התיק שלך" |
-| `setupBannerBody` | "First strategies arrive in ~30 minutes. We'll notify you on Telegram when ready." | "אסטרטגיות ראשונות מגיעות תוך כ-30 דקות. נעדכן אותך בטלגרם כשהן מוכנות." |
+| `setupBannerBodyChannelAgnostic` | "We'll notify you when ready." | "נעדכן אותך כשהפעולה תסתיים." |
+| `setupBannerBodyTelegram` | "We'll notify you on Telegram when ready." | "נעדכן אותך בטלגרם כשהפעולה תסתיים." |
+| `setupBannerProgress` | "Analyzed {N} of {M} positions" | "נותחו {N} מתוך {M} פוזיציות" |
+| `setupBannerInProgress` | "{tickers} in progress" | "{tickers} בתהליך" |
 | `healthLabelHealthy` | "Healthy" | "בריא" |
 | `healthLabelSteady` | "Steady" | "יציב" |
 | `healthLabelWatch` | "Watch" | "מעקב" |
@@ -260,7 +296,9 @@ Approximate line budgets (informative, not normative):
 | Score computation on edge data | Wrong score number | Each component is null-safe and bounded; clamp(0,100) at the boundary; portfolio score has a minimum-positions guard (returns null if `<2` positions, hides hero) |
 | `<StrategyModal>` reorder | Existing callers break | Same component, same props, same fetch — only render order changes |
 | Account cards default collapsed | Existing-user expectation regression | Toggle still works; one tap restores; preserve last-expanded state in `localStorage` |
-| Score may surprise users (no explanation) | "Why is my score 76?" feedback | Tooltip on score chip showing top component contributions; tooltip-only, no expand-to-detail view in v1 |
+| Score may surprise users (no explanation) | "Why is my score 76?" feedback | Desktop hover tooltip on score chip showing top component contributions; mobile = chip is read-only (factoid is the explanation). No tap-to-expand view in v1 |
+| Re-render cost on 30-position portfolio | `classifyAttention` + `healthScore` + `factoid` per row each render | All four utils are pure; wrap in `useMemo` keyed on `verdicts` and `portfolio` query data; recompute only on data change |
+| Stacked banners (ControlBanner + active-jobs + SetupBanner) | Visual clutter, esp. mobile | ControlBanner stays (safety-critical); active-jobs banner hidden during BOOTSTRAPPING; only one of {SetupBanner, HealthHero, AttentionBlock} renders at a time |
 
 **Per-task revert:** each new module is a pure function or new component file; `git revert` of any single commit leaves the rest functional.
 
@@ -274,13 +312,20 @@ Approximate line budgets (informative, not normative):
 
 ## 14. Acceptance checks (must pass before declaring pilot-ready)
 
-- [ ] Day 1 (BOOTSTRAPPING state, 0 strategies) shows SetupBanner — verified on a fresh test workspace
-- [ ] Day N with all-clear shows HealthHero with score ≥ 70
-- [ ] Day N with 1 SELL ticker shows AttentionBlock with that ticker, tappable to StrategyModal
-- [ ] StrategyModal shows "Why this fired today" pinned at top before reasoning
-- [ ] Score chip + factoid render on every clear-state row
-- [ ] Hebrew strings render correctly on all three states (RTL where applicable)
-- [ ] No regressions: AddPositionModal, AccountManagerModal, PositionDetailModal, refresh button, Telegram banner
+- [ ] Day 1 (BOOTSTRAPPING, 0 strategies) shows SetupBanner with "0 of M analyzed" progress
+- [ ] Mid-bootstrap (BOOTSTRAPPING, 5 of 12 strategies) shows SetupBanner with "5 of 12 analyzed" AND those 5 strategies render in the unified list below with score+factoid
+- [ ] Setup banner copy adapts: "We'll notify you on Telegram when ready" iff Telegram is connected, else channel-agnostic
+- [ ] Active-jobs banner is HIDDEN while state === "BOOTSTRAPPING"; visible when state === "ACTIVE" and a deep dive is running
+- [ ] Day N with all-clear shows HealthHero with portfolio score and label
+- [ ] Day N with 1 SELL ticker shows AttentionBlock with that ticker; tap → StrategyModal
+- [ ] PositionRow tap → PositionDetailModal (unchanged); StrategyModal accessible from there too (unchanged)
+- [ ] StrategyModal shows "Why this fired today" pinned above reasoning
+- [ ] Score chip + factoid render on every position row in clear/attention states
+- [ ] All-attention edge case (5 of 5 SELL): AttentionBlock renders, unified positions list omitted, account cards still expandable
+- [ ] Hebrew strings render correctly on all three states
+- [ ] All score components null-safe: a position with `lastDeepDiveAt: null` and `catalysts: []` doesn't crash; renders score with safe defaults
+- [ ] Score recomputes when `/api/verdicts` refreshes (no stale scores after refresh)
+- [ ] No regressions: AddPositionModal, AccountManagerModal, PositionDetailModal, refresh button, Telegram banner, ControlBanner
 - [ ] `npx tsc --noEmit` clean and `npm run build` clean in both `frontend/` and `backend/`
 - [ ] `./deploy.sh` clean
 
