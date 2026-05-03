@@ -115,11 +115,19 @@ export async function syncStateToBaselineCoverage(
   }
 
   if (options?.enqueueBlockingTickers && summary.blockingTickers.length > 0) {
-    const pending = new Set(current.pendingDeepDives ?? []);
+    const baselineTickers = new Set(summary.tickers.map((item) => item.ticker));
+    const pending = new Set(
+      (current.pendingDeepDives ?? []).filter((ticker) => !baselineTickers.has(ticker))
+    );
     for (const item of summary.blockingTickers) {
       pending.add(item.ticker);
     }
     updates.pendingDeepDives = Array.from(pending);
+  } else if (options?.enqueueBlockingTickers) {
+    const baselineTickers = new Set(summary.tickers.map((item) => item.ticker));
+    updates.pendingDeepDives = (current.pendingDeepDives ?? []).filter(
+      (ticker) => !baselineTickers.has(ticker)
+    );
   }
 
   if (Object.keys(updates).length > 0) {

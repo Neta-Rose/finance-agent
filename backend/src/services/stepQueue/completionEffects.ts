@@ -9,7 +9,7 @@ import { publishNotification } from "../notificationService.js";
 import { resolveConfiguredPath } from "../paths.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
-const PRODUCT_EFFECTS_VERSION = 2;
+const PRODUCT_EFFECTS_VERSION = 3;
 
 interface TerminalJobRow {
   id: string;

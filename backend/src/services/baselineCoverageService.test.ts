@@ -14,6 +14,7 @@ interface TestContext {
   summarizeBaselineCoverage: typeof import("./baselineCoverageService.js")["summarizeBaselineCoverage"];
   syncStateToBaselineCoverage: typeof import("./baselineCoverageService.js")["syncStateToBaselineCoverage"];
   readState: typeof import("./stateService.js")["readState"];
+  writeState: typeof import("./stateService.js")["writeState"];
 }
 
 async function setupWorkspace(userId: string): Promise<TestContext> {
@@ -49,6 +50,7 @@ async function setupWorkspace(userId: string): Promise<TestContext> {
     summarizeBaselineCoverage: baselineCoverageService.summarizeBaselineCoverage,
     syncStateToBaselineCoverage: baselineCoverageService.syncStateToBaselineCoverage,
     readState: stateService.readState,
+    writeState: stateService.writeState,
   };
 }
 
@@ -148,4 +150,23 @@ test("syncStateToBaselineCoverage advances bootstrapping user once blockers are 
   assert.equal(state.state, "ACTIVE");
   assert.equal(state.bootstrapProgress, null);
   assert.equal(state.lastFullReportAt, now);
+  assert.deepEqual(state.pendingDeepDives, []);
+});
+
+test("syncStateToBaselineCoverage replaces resolved portfolio blockers", async () => {
+  const ctx = await setupWorkspace("baseline-pending-cleanup");
+  const now = new Date().toISOString();
+
+  await writeJson(ctx.ws.strategyFile("MSFT"), strategyFor("MSFT", {}));
+  await writeJson(ctx.ws.strategyFile("AAPL"), strategyFor("AAPL", {}));
+  await writeJson(ctx.ws.strategyFile("TSM"), strategyFor("TSM", {}));
+  await ctx.writeState(ctx.ws.userId, { pendingDeepDives: ["MSFT", "AAPL", "OFFBOOK"] });
+
+  await ctx.syncStateToBaselineCoverage(ctx.ws, {
+    lastFullReportAt: now,
+    enqueueBlockingTickers: true,
+  });
+  const state = await ctx.readState(ctx.ws.userId);
+
+  assert.deepEqual(state.pendingDeepDives, ["OFFBOOK"]);
 });
