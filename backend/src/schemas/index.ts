@@ -21,8 +21,19 @@ export {
   StrategySchema,
   StrategyCatalystSchema,
   StrategyMetadataSchema,
+  StrategyAssetScopeSchema,
+  StrategyTrackingStatusSchema,
+  StrategyStanceSchema,
+  StrategyUrgencyLabelSchema,
 } from "./strategy.js";
-export type { Strategy, StrategyMetadata } from "./strategy.js";
+export type {
+  Strategy,
+  StrategyMetadata,
+  StrategyAssetScope,
+  StrategyTrackingStatus,
+  StrategyStance,
+  StrategyUrgencyLabel,
+} from "./strategy.js";
 
 export { JobSchema } from "./job.js";
 

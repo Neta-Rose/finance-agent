@@ -89,9 +89,16 @@ export interface StrategyCatalyst {
  triggered: boolean;
 }
 
+export type StrategyScope = "portfolio" | "tracking";
+export type TrackingStatus = "active" | "muted" | "archived";
+export type TrackingStance = "candidate" | "watch" | "pass" | "avoid";
+export type UrgencyLabel = "low" | "medium" | "high" | "extra_high";
+
 export interface StrategyRow {
  ticker: string;
  inPortfolio: boolean;
+ scope?: StrategyScope;
+ trackingStatus?: TrackingStatus | null;
  verdict: Verdict;
  confidence: Confidence;
  reasoning: string;
@@ -101,10 +108,20 @@ export interface StrategyRow {
  entryConditions: string[];
  exitConditions: string[];
  catalysts: StrategyCatalyst[];
+ actionCatalysts?: StrategyCatalyst[];
+ avoidConditions?: string[];
  hasExpiredCatalysts: boolean;
  lastDeepDiveAt: string | null;
  updatedAt: string;
  version: number;
+ stance?: TrackingStance | null;
+ potentialScore?: number | null;
+ urgencyScore?: number | null;
+ urgencyLabel?: UrgencyLabel | null;
+ portfolioFitScore?: number | null;
+ suggestedAllocationPct?: number | null;
+ suggestedAllocationILS?: number | null;
+ nextReviewAt?: string | null;
 }
 
 export interface StrategiesResponse {

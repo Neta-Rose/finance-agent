@@ -60,6 +60,15 @@ const METADATA_STATUS_ALIASES = new Map<string, StrategyMetadata["status"]>([
   ["valid", "validated"],
   ["complete", "validated"],
 ]);
+const ASSET_SCOPES = new Set<NonNullable<Strategy["assetScope"]>>(["portfolio", "tracking"]);
+const TRACKING_STATUSES = new Set<NonNullable<Strategy["trackingStatus"]>>(["active", "muted", "archived"]);
+const STANCES = new Set<NonNullable<NonNullable<Strategy["stance"]>>>(["candidate", "watch", "pass", "avoid"]);
+const URGENCY_LABELS = new Set<NonNullable<NonNullable<Strategy["urgencyLabel"]>>>([
+  "low",
+  "medium",
+  "high",
+  "extra_high",
+]);
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -203,6 +212,26 @@ function normalizeCatalysts(value: unknown, repairNotes: string[]): Strategy["ca
   return deduped.slice(0, 10);
 }
 
+function normalizeNullableScore(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(0, Math.min(100, parsed));
+}
+
+function normalizeNonNegativeNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(0, parsed);
+}
+
+function normalizeOptionalEnum<T extends string>(value: unknown, allowed: Set<T>): T | undefined {
+  const normalized = asTrimmedString(value)?.toLowerCase();
+  if (!normalized) return undefined;
+  return allowed.has(normalized as T) ? normalized as T : undefined;
+}
+
 function buildCanonicalStrategy(record: JsonRecord, tickerHint: string | undefined): {
   strategy: Strategy;
   repairNotes: string[];
@@ -244,7 +273,39 @@ function buildCanonicalStrategy(record: JsonRecord, tickerHint: string | undefin
       generatedAt: toNullableDateString(rawMetadata?.["generatedAt"]) ?? updatedAt,
       userGuidanceApplied: Boolean(rawMetadata?.["userGuidanceApplied"]),
     },
+    actionCatalysts: normalizeCatalysts(record["actionCatalysts"], repairNotes),
+    avoidConditions: normalizeStringList(record["avoidConditions"], 8, 200, repairNotes, "avoidConditions"),
   };
+
+  const assetScope = normalizeOptionalEnum(record["assetScope"], ASSET_SCOPES);
+  if (assetScope) strategy.assetScope = assetScope;
+
+  const trackingStatus = normalizeOptionalEnum(record["trackingStatus"], TRACKING_STATUSES);
+  if (trackingStatus) strategy.trackingStatus = trackingStatus;
+
+  const stance = normalizeOptionalEnum(record["stance"], STANCES);
+  if (stance) strategy.stance = stance;
+
+  const urgencyLabel = normalizeOptionalEnum(record["urgencyLabel"], URGENCY_LABELS);
+  if (urgencyLabel) strategy.urgencyLabel = urgencyLabel;
+
+  const potentialScore = normalizeNullableScore(record["potentialScore"]);
+  if (potentialScore !== null) strategy.potentialScore = potentialScore;
+
+  const urgencyScore = normalizeNullableScore(record["urgencyScore"]);
+  if (urgencyScore !== null) strategy.urgencyScore = urgencyScore;
+
+  const portfolioFitScore = normalizeNullableScore(record["portfolioFitScore"]);
+  if (portfolioFitScore !== null) strategy.portfolioFitScore = portfolioFitScore;
+
+  const suggestedAllocationPct = normalizeNullableScore(record["suggestedAllocationPct"]);
+  if (suggestedAllocationPct !== null) strategy.suggestedAllocationPct = suggestedAllocationPct;
+
+  const suggestedAllocationILS = normalizeNonNegativeNumber(record["suggestedAllocationILS"]);
+  if (suggestedAllocationILS !== null) strategy.suggestedAllocationILS = suggestedAllocationILS;
+
+  const nextReviewAt = toNullableDateString(record["nextReviewAt"]);
+  if (nextReviewAt !== null) strategy.nextReviewAt = nextReviewAt;
 
   if (!ticker) {
     repairNotes.push("Ticker could not be normalized");

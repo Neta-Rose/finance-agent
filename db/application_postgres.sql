@@ -51,6 +51,22 @@ CREATE TABLE IF NOT EXISTS user_points_budgets (
 CREATE INDEX IF NOT EXISTS idx_user_points_budgets_updated_at
   ON user_points_budgets (updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS tracked_assets (
+  user_id VARCHAR(128) NOT NULL,
+  ticker VARCHAR(32) NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'muted', 'archived')),
+  created_from_job_id VARCHAR(128),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at TIMESTAMPTZ,
+  PRIMARY KEY (user_id, ticker)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tracked_assets_user_status
+  ON tracked_assets (user_id, status, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS jobs (
   id VARCHAR(128) PRIMARY KEY,
   user_id VARCHAR(128) NOT NULL,

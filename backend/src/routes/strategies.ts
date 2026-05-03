@@ -5,6 +5,8 @@ import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Verdict, Confidence } from "../types/index.js";
 import { PortfolioFileSchema } from "../schemas/portfolio.js";
 import { loadStrategyFile } from "../services/strategyFileService.js";
+import { logger } from "../services/logger.js";
+import { listTrackedAssets, type TrackedAssetStatus } from "../services/trackedAssetService.js";
 
 const router = Router();
 
@@ -30,6 +32,51 @@ const VERDICT_SORT_ORDER: Record<string, number> = {
 };
 
 const TICKER_REGEX = /^[A-Z0-9.]{1,12}$/;
+type StrategyScope = "portfolio" | "tracking";
+
+interface StrategyListRow {
+  ticker: string;
+  inPortfolio: boolean;
+  scope: StrategyScope;
+  trackingStatus: TrackedAssetStatus | null;
+  verdict: Verdict;
+  confidence: Confidence;
+  reasoning: string;
+  timeframe: string;
+  positionSizeILS: number;
+  positionWeightPct: number;
+  entryConditions: string[];
+  exitConditions: string[];
+  catalysts: Array<{ description: string; expiresAt: string | null; triggered: boolean }>;
+  actionCatalysts: Array<{ description: string; expiresAt: string | null; triggered: boolean }>;
+  avoidConditions: string[];
+  hasExpiredCatalysts: boolean;
+  lastDeepDiveAt: string | null;
+  updatedAt: string;
+  version: number;
+  stance: string | null;
+  potentialScore: number | null;
+  urgencyScore: number | null;
+  urgencyLabel: string | null;
+  portfolioFitScore: number | null;
+  suggestedAllocationPct: number | null;
+  suggestedAllocationILS: number | null;
+  nextReviewAt: string | null;
+}
+
+async function loadTrackedAssetStatusByTicker(userId: string): Promise<Map<string, TrackedAssetStatus>> {
+  try {
+    const trackedAssets = await listTrackedAssets(userId);
+    return new Map(trackedAssets.map((asset) => [asset.ticker, asset.status]));
+  } catch (error) {
+    logger.warn(
+      `Failed to load tracked assets for strategies route; falling back to legacy classification: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return new Map();
+  }
+}
 
 // ── GET /api/strategies ────────────────────────────────────────────────────
 
@@ -61,23 +108,8 @@ router.get(
       // keep empty portfolio set
     }
 
-    const strategies: Array<{
-      ticker: string;
-      inPortfolio: boolean;
-      verdict: Verdict;
-      confidence: Confidence;
-      reasoning: string;
-      timeframe: string;
-      positionSizeILS: number;
-      positionWeightPct: number;
-      entryConditions: string[];
-      exitConditions: string[];
-      catalysts: Array<{ description: string; expiresAt: string | null; triggered: boolean }>;
-      hasExpiredCatalysts: boolean;
-      lastDeepDiveAt: string | null;
-      updatedAt: string;
-      version: number;
-    }> = [];
+    const trackedStatusByTicker = await loadTrackedAssetStatusByTicker(ws.userId);
+    const strategies: StrategyListRow[] = [];
 
     const now = new Date();
 
@@ -87,13 +119,18 @@ router.get(
       if (!loaded.valid || !loaded.strategy) continue;
 
       const s = loaded.strategy;
+      const inPortfolio = portfolioTickers.has(ticker);
+      const trackingStatus = trackedStatusByTicker.get(ticker) ?? s.trackingStatus ?? null;
+      const scope: StrategyScope = inPortfolio ? "portfolio" : "tracking";
       const hasExpiredCatalysts = (s.catalysts ?? []).some(
         (c) => c.expiresAt !== null && new Date(c.expiresAt) < now
       );
 
       strategies.push({
         ticker,
-        inPortfolio: portfolioTickers.has(ticker),
+        inPortfolio,
+        scope,
+        trackingStatus: scope === "tracking" ? trackingStatus ?? "active" : null,
         verdict: s.verdict as Verdict,
         confidence: s.confidence as Confidence,
         reasoning:
@@ -104,10 +141,20 @@ router.get(
         entryConditions: s.entryConditions ?? [],
         exitConditions: s.exitConditions ?? [],
         catalysts: s.catalysts ?? [],
+        actionCatalysts: s.actionCatalysts ?? [],
+        avoidConditions: s.avoidConditions ?? [],
         hasExpiredCatalysts,
         lastDeepDiveAt: s.lastDeepDiveAt ?? null,
         updatedAt: s.updatedAt,
         version: s.version ?? 1,
+        stance: s.stance ?? null,
+        potentialScore: s.potentialScore ?? null,
+        urgencyScore: s.urgencyScore ?? null,
+        urgencyLabel: s.urgencyLabel ?? null,
+        portfolioFitScore: s.portfolioFitScore ?? null,
+        suggestedAllocationPct: s.suggestedAllocationPct ?? null,
+        suggestedAllocationILS: s.suggestedAllocationILS ?? null,
+        nextReviewAt: s.nextReviewAt ?? null,
       });
     }
 

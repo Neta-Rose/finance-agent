@@ -8,6 +8,7 @@ import { ObservabilityRequestEntitySchema } from "./entities/ObservabilityReques
 import { StepLifecycleEventEntitySchema } from "./entities/StepLifecycleEventEntity.js";
 import { StepWorkItemEntitySchema } from "./entities/StepWorkItemEntity.js";
 import { TickerWorkItemEntitySchema } from "./entities/TickerWorkItemEntity.js";
+import { TrackedAssetEntitySchema } from "./entities/TrackedAssetEntity.js";
 import { UserPointsBudgetEntitySchema } from "./entities/UserPointsBudgetEntity.js";
 import { logger } from "../services/logger.js";
 
@@ -42,6 +43,7 @@ function buildDataSource(): DataSource {
       StepLifecycleEventEntitySchema,
       StepWorkItemEntitySchema,
       TickerWorkItemEntitySchema,
+      TrackedAssetEntitySchema,
       UserPointsBudgetEntitySchema,
     ],
     synchronize: false,

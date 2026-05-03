@@ -22,7 +22,22 @@ const VERDICT_ORDER: Record<Verdict, number> = {
 };
 
 const VERDICT_FILTER_OPTIONS = ["All", "BUY", "ADD", "HOLD", "REDUCE", "SELL", "CLOSE"] as const;
-type StrategyScope = "portfolio" | "non_portfolio";
+type StrategyScope = "portfolio" | "tracking";
+
+function strategyScope(strategy: StrategyRow): StrategyScope {
+  return strategy.scope ?? (strategy.inPortfolio ? "portfolio" : "tracking");
+}
+
+function formatTrackingMeta(strategy: StrategyRow): string | null {
+  if (strategyScope(strategy) !== "tracking") return null;
+  const parts = [
+    strategy.stance ? strategy.stance.replace("_", " ") : null,
+    typeof strategy.potentialScore === "number" ? `${strategy.potentialScore}/100 potential` : null,
+    typeof strategy.urgencyScore === "number" ? `${strategy.urgencyScore}/100 urgency` : null,
+    typeof strategy.suggestedAllocationPct === "number" ? `${strategy.suggestedAllocationPct.toFixed(1)}% suggested` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(" · ") : "Tracked idea";
+}
 
 function sortStrategies(strategies: StrategyRow[]): StrategyRow[] {
   return [...strategies].sort((a, b) => {
@@ -49,9 +64,7 @@ export function Strategies() {
   const filtered = useMemo(() => {
     if (!data) return [];
     let list = sortStrategies(data.strategies);
-    list = list.filter((strategy) =>
-      scope === "portfolio" ? strategy.inPortfolio : !strategy.inPortfolio
-    );
+    list = list.filter((strategy) => strategyScope(strategy) === scope);
     if (search.trim()) {
       const q = search.trim().toUpperCase();
       list = list.filter((s) => s.ticker.includes(q));
@@ -64,9 +77,7 @@ export function Strategies() {
 
   const scopedTotal = useMemo(() => {
     if (!data) return 0;
-    return data.strategies.filter((strategy) =>
-      scope === "portfolio" ? strategy.inPortfolio : !strategy.inPortfolio
-    ).length;
+    return data.strategies.filter((strategy) => strategyScope(strategy) === scope).length;
   }, [data, scope]);
 
   const isEmpty = !data || scopedTotal === 0;
@@ -81,7 +92,7 @@ export function Strategies() {
         <div className="inline-flex rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-1">
           {([
             ["portfolio", t("strategyTabPortfolio", language)],
-            ["non_portfolio", t("strategyTabNonPortfolio", language)],
+            ["tracking", t("strategyTabNonPortfolio", language)],
           ] as const).map(([nextScope, label]) => (
             <button
               key={nextScope}
@@ -156,6 +167,11 @@ export function Strategies() {
                   <div className="text-[10px] text-[var(--color-fg-muted)] mb-1.5">
                     {tConfidence(s.confidence, language)} · {tTimeframe(s.timeframe, language)} · {formatILS(s.positionSizeILS)}
                   </div>
+                  {formatTrackingMeta(s) ? (
+                    <div className="text-[10px] text-[var(--color-accent-blue)] mb-1.5">
+                      {formatTrackingMeta(s)}
+                    </div>
+                  ) : null}
                   <p className="text-xs text-[var(--color-fg-muted)] line-clamp-2 leading-snug">
                     {s.reasoning}
                   </p>
@@ -171,7 +187,7 @@ export function Strategies() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[var(--color-border)]">
-                    {[t("colTicker",language), t("colVerdict",language), t("colConfidence",language), t("colTimeframe",language), t("colSize",language), t("colWeightPct",language), t("colReasoning",language), t("colUpdated",language), "⚠️"].map((h) => (
+                    {[t("colTicker",language), t("colVerdict",language), t("colConfidence",language), t("colTimeframe",language), t("colSize",language), t("colWeightPct",language), scope === "tracking" ? "Tracking" : t("colReasoning",language), t("colUpdated",language), "⚠️"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase">{h}</th>
                     ))}
                   </tr>
@@ -191,7 +207,9 @@ export function Strategies() {
                       <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)]">{tTimeframe(s.timeframe, language)}</td>
                       <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{formatILS(s.positionSizeILS)}</td>
                       <td className="px-3 py-2.5 text-sm text-[var(--color-fg-muted)] text-right">{(s.positionWeightPct ?? 0).toFixed(1)}%</td>
-                      <td className="px-3 py-2.5 text-xs text-[var(--color-fg-muted)] max-w-[200px] truncate">{s.reasoning}</td>
+                      <td className="px-3 py-2.5 text-xs text-[var(--color-fg-muted)] max-w-[200px] truncate">
+                        {scope === "tracking" ? formatTrackingMeta(s) ?? s.reasoning : s.reasoning}
+                      </td>
                       <td className="px-3 py-2.5 text-[10px] text-[var(--color-fg-subtle)]">{timeAgo(s.updatedAt)}</td>
                       <td className="px-3 py-2.5 text-center">{s.hasExpiredCatalysts ? "🔴" : ""}</td>
                     </tr>
