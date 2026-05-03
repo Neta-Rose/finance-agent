@@ -192,6 +192,36 @@ test("assessStrategyBaselineForTicker trusts validated full-report baseline with
   assert.ok(!result.issues.some((issue) => issue.includes("never recorded a deep dive")));
 });
 
+test("assessStrategyBaselineForTicker trusts completed queue baseline even if old metadata said provisional", async () => {
+  const ctx = await setupWorkspace("strategy-queue-provisional");
+  const now = new Date().toISOString();
+
+  await writeJson(ctx.ws.portfolioFile, portfolioFor("TSM"));
+  await writeJson(ctx.ws.strategyFile("TSM"), {
+    ticker: "TSM",
+    updatedAt: now,
+    version: 2,
+    verdict: "HOLD",
+    confidence: "low",
+    reasoning: "Completed step queue synthesis with low confidence.",
+    timeframe: "months",
+    positionSizeILS: 2000,
+    positionWeightPct: 20,
+    entryConditions: ["Wait for confirmation"],
+    exitConditions: ["Reduce on thesis break"],
+    catalysts: [],
+    bullCase: "Demand remains possible.",
+    bearCase: "Execution risk remains.",
+    lastDeepDiveAt: now,
+    deepDiveTriggeredBy: "step_queue",
+    metadata: ctx.buildStrategyMetadata("full_report", "provisional", now, false),
+  });
+
+  const result = await ctx.assessStrategyBaselineForTicker(ctx.ws, "TSM");
+  assert.notEqual(result.trustLevel, "provisional");
+  assert.equal(result.strategy?.metadata?.source, "full_report");
+});
+
 test("assessStrategyBaselineForTicker marks malformed strategy as invalid", async () => {
   const ctx = await setupWorkspace("strategy-invalid");
   await writeJson(ctx.ws.portfolioFile, portfolioFor("TSM"));

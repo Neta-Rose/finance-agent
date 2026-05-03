@@ -281,5 +281,5 @@ test("synthesis handler validates and persists deterministic strategy", async ()
   const artifact = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string; metadata?: { status?: string } };
   assert.equal(artifactPath, ws.strategyFile("AAPL"));
   assert.equal(artifact.ticker, "AAPL");
-  assert.equal(artifact.metadata?.status, "provisional");
+  assert.equal(artifact.metadata?.status, "validated");
 });

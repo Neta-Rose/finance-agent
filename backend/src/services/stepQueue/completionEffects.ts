@@ -9,7 +9,7 @@ import { publishNotification } from "../notificationService.js";
 import { resolveConfiguredPath } from "../paths.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
-const PRODUCT_EFFECTS_VERSION = 1;
+const PRODUCT_EFFECTS_VERSION = 2;
 
 interface TerminalJobRow {
   id: string;
@@ -164,7 +164,8 @@ export async function applyStepQueueCompletionEffects(
   const job = jobs[0];
   if (!job) return false;
   if (job.status !== "completed" && job.status !== "partial_completed") return false;
-  if (job.result?.["productEffectsAppliedAt"]) return false;
+  const appliedVersion = Number(job.result?.["productEffectsVersion"] ?? 0);
+  if (Number.isFinite(appliedVersion) && appliedVersion >= PRODUCT_EFFECTS_VERSION) return false;
 
   const tickers = await completedTickers(ds, job.id);
   if (tickers.length === 0) {

@@ -76,7 +76,7 @@ function buildStrategy(inputs: { step: { ticker: string }; data: Record<string, 
     deepDiveTriggeredBy: "step_queue",
     metadata: {
       source: "full_report",
-      status: "provisional",
+      status: "validated",
       generatedAt: now,
       userGuidanceApplied: false,
     },

@@ -101,7 +101,12 @@ function classifyTrustLevel(strategy: Strategy, issues: string[]): StrategyTrust
   const freshnessAnchor =
     strategy.lastDeepDiveAt ?? metadata.generatedAt ?? strategy.updatedAt;
 
-  if (metadata.status === "provisional" || isPlaceholderStrategy(strategy)) {
+  const completedQueueBaseline =
+    (metadata.source === "full_report" || metadata.source === "deep_dive") &&
+    strategy.lastDeepDiveAt !== null &&
+    !isPlaceholderStrategy(strategy);
+
+  if ((metadata.status === "provisional" && !completedQueueBaseline) || isPlaceholderStrategy(strategy)) {
     return "provisional";
   }
 
