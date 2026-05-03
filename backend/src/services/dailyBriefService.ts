@@ -16,6 +16,12 @@ export type DailyBriefTruthState =
   | "coverage_incomplete"
   | "confidence_degraded";
 
+export type DailyBriefDeepDiveQueueStatus =
+  | "not_needed"
+  | "not_selected"
+  | "queued"
+  | "suppressed";
+
 interface DailyBriefEntry {
   ticker: string;
   currentILS: number;
@@ -51,6 +57,10 @@ export interface DailyBriefResult {
     currentILS?: number;
     dayChangePct?: number;
     moveReason?: string;
+    deepDiveQueued?: boolean;
+    deepDiveJobId?: string | null;
+    deepDiveQueueStatus?: DailyBriefDeepDiveQueueStatus;
+    deepDiveQueueReason?: string | null;
   }>;
 }
 
@@ -128,6 +138,7 @@ export function buildDailyBriefNarrative(
   truth: DailyBriefTruthSummary
 ): DailyBriefNarrative {
   const topEscalations = result.tickers.filter((item) => item.needsEscalation).slice(0, 4);
+  const queuedEscalations = result.tickers.filter((item) => item.deepDiveQueued).slice(0, 4);
   const strongest = result.tickers
     .filter((item) => !item.needsEscalation)
     .slice(0, 3)
@@ -152,7 +163,10 @@ export function buildDailyBriefNarrative(
   } else if (truth.truthState === "action_needed") {
     headline = `${result.escalated} monitored position${result.escalated === 1 ? "" : "s"} need action today while ${truth.valid} ${truth.valid === 1 ? "position remains" : "positions remain"} under trusted coverage.`;
     today = `Today’s pressure points are ${formatEscalations(truth.escalated)}.`;
-    tomorrow = `Tomorrow the focus is finishing deeper review on ${topEscalations.map((item) => item.ticker).join(", ")} and confirming whether any thesis updates are needed.`;
+    tomorrow =
+      queuedEscalations.length > 0
+        ? `Tomorrow the focus is the queued deeper review on ${queuedEscalations.map((item) => item.ticker).join(", ")} and confirming whether any thesis updates are needed.`
+        : `Tomorrow the focus is monitoring ${topEscalations.map((item) => item.ticker).join(", ")} and manually deciding whether to start deeper reviews.`;
     marketView = `From your portfolio’s angle, risk is concentrated rather than broad: most monitored names are stable, but the flagged positions need immediate follow-through.`;
     securityNote =
       strongest.length > 0
@@ -200,6 +214,10 @@ export function buildDailyHighlights(
   } else if (truth.truthState === "action_needed") {
     highlights.push("Action needed");
     highlights.push(`${result.escalated} escalated for review`);
+    const queued = result.tickers.filter((item) => item.deepDiveQueued).length;
+    if (queued > 0) {
+      highlights.push(`${queued} deep dive${queued === 1 ? "" : "s"} queued`);
+    }
   } else {
     highlights.push("Calm with trusted coverage");
     highlights.push(`${result.onTrack}/${result.totalChecked} on track`);
@@ -356,6 +374,12 @@ async function appendDailyBriefBatch(
           currentILS: item.currentILS,
           dayChangePct: item.dayChangePct,
           moveReason: item.moveReason,
+          needsEscalation: item.needsEscalation,
+          escalationReason: item.escalationReason,
+          deepDiveQueued: item.deepDiveQueued ?? false,
+          deepDiveJobId: item.deepDiveJobId ?? null,
+          deepDiveQueueStatus: item.deepDiveQueueStatus ?? "not_needed",
+          deepDiveQueueReason: item.deepDiveQueueReason ?? null,
         },
       ])
     ),
@@ -443,6 +467,22 @@ export async function runDailyBriefJob(
             Math.abs(entry.dayChangePct ?? 0) >= 1
               ? `Price moved ${(entry.dayChangePct ?? 0) > 0 ? "+" : ""}${entry.dayChangePct ?? 0}% today; no external catalyst attribution is attached yet.`
               : "Price movement was small; no external catalyst attribution is attached yet.",
+          deepDiveQueued: entry.quickCheck.escalated_to_job_id !== null,
+          deepDiveJobId: entry.quickCheck.escalated_to_job_id,
+          deepDiveQueueStatus: !entry.quickCheck.needs_escalation
+            ? "not_needed" as const
+            : entry.quickCheck.escalated_to_job_id !== null
+              ? "queued" as const
+              : autoQueueTickers.has(entry.ticker)
+                ? "suppressed" as const
+                : "not_selected" as const,
+          deepDiveQueueReason: !entry.quickCheck.needs_escalation
+            ? null
+            : entry.quickCheck.escalated_to_job_id !== null
+              ? "Deep dive was queued or already active for this ticker."
+              : autoQueueTickers.has(entry.ticker)
+                ? "Auto-queue selected this ticker, but a matching escalation was already active or previously recorded."
+                : `Flagged for attention but not auto-queued; daily auto-queue limit is ${DEFAULT_AUTO_DEEP_DIVE_LIMIT}.`,
         })),
     };
     const truth = classifyDailyBriefTruth(entries);

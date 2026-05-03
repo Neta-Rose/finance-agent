@@ -163,12 +163,58 @@ test("daily brief truth is action_needed when trusted coverage has active escala
       escalationReason: entry.quickCheck.escalation_reason,
       verdict: entry.quickCheck.verdict,
       confidence: entry.quickCheck.confidence,
+      deepDiveQueued: entry.ticker === "TSLA",
+      deepDiveJobId: entry.ticker === "TSLA" ? "job_deep_dive_tsla" : null,
+      deepDiveQueueStatus: entry.ticker === "TSLA" ? "queued" as const : "not_needed" as const,
+      deepDiveQueueReason: entry.ticker === "TSLA" ? "Deep dive was queued or already active for this ticker." : null,
     })),
   };
 
   const narrative = buildDailyBriefNarrative(baseResult, truth);
   assert.equal(truth.truthState, "action_needed");
   assert.match(narrative.today, /TSLA: Live price is below an exit threshold/i);
+  assert.match(narrative.tomorrow, /queued deeper review on TSLA/i);
+});
+
+test("daily brief narrative does not claim unqueued escalations have deep dives running", async () => {
+  const { classifyDailyBriefTruth, buildDailyBriefNarrative } = await import("./dailyBriefService.js");
+  const entries = [
+    {
+      ticker: "TSLA",
+      currentILS: 15000,
+      quickCheck: quickCheck("TSLA", "valid", true, "Live price is below an exit threshold"),
+    },
+    {
+      ticker: "QQQ",
+      currentILS: 9000,
+      quickCheck: quickCheck("QQQ", "valid", true, "No future catalyst"),
+    },
+  ];
+
+  const truth = classifyDailyBriefTruth(entries);
+  const baseResult = {
+    generatedAt: new Date().toISOString(),
+    totalChecked: 2,
+    escalated: 2,
+    onTrack: 0,
+    tickers: entries.map((entry) => ({
+      ticker: entry.ticker,
+      score: entry.quickCheck.score,
+      needsEscalation: entry.quickCheck.needs_escalation,
+      escalationReason: entry.quickCheck.escalation_reason,
+      verdict: entry.quickCheck.verdict,
+      confidence: entry.quickCheck.confidence,
+      deepDiveQueued: false,
+      deepDiveJobId: null,
+      deepDiveQueueStatus: "not_selected" as const,
+      deepDiveQueueReason: "Flagged for attention but not auto-queued.",
+    })),
+  };
+
+  const narrative = buildDailyBriefNarrative(baseResult, truth);
+  assert.equal(truth.truthState, "action_needed");
+  assert.match(narrative.tomorrow, /manually deciding whether to start deeper reviews/i);
+  assert.doesNotMatch(narrative.tomorrow, /finishing deeper review/i);
 });
 
 test("daily brief truth is calm_trusted only when all monitored coverage is valid and no escalations exist", async () => {

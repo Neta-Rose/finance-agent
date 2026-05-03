@@ -1147,7 +1147,21 @@ function ReportCard({
     .filter((entry) => Number.isFinite(entry.dayChangePct))
     .sort((a, b) => Math.abs(b.dayChangePct ?? 0) - Math.abs(a.dayChangePct ?? 0))
     .slice(0, 5);
-  const escalatedDailyEntries = entries.filter((entry) => entry.mode === "daily_brief" && entry.reasoning !== "On track");
+  const dailyEntries = entries.filter((entry) => entry.mode === "daily_brief");
+  const hasDailyQueueMetadata = dailyEntries.some(
+    (entry) => typeof entry.needsEscalation === "boolean" || typeof entry.deepDiveQueued === "boolean"
+  );
+  const queuedDailyEntries = dailyEntries.filter((entry) => entry.deepDiveQueued);
+  const attentionDailyEntries = dailyEntries.filter((entry) => {
+    const needsAttention = hasDailyQueueMetadata
+      ? entry.needsEscalation === true
+      : entry.reasoning !== "On track";
+    return needsAttention && !entry.deepDiveQueued;
+  });
+  const nextWatchText =
+    item.mode === "daily_brief" && !hasDailyQueueMetadata && attentionDailyEntries.length > 0
+      ? "These positions were flagged for attention. This older daily brief did not store exact auto-queue metadata, so it should not be read as proof that every listed ticker had a deep dive queued."
+      : item.dailyBrief?.tomorrow;
 
   // Tabs: don't show bear_case as its own tab (rendered inside bull_case tab)
   const visibleTabs = expandedReportTypes.filter((t) => t !== "bear_case");
@@ -1274,15 +1288,30 @@ function ReportCard({
                     </div>
                   </div>
                 ) : null}
-                {escalatedDailyEntries.length > 0 ? (
+                {queuedDailyEntries.length > 0 ? (
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Escalated to deep dive</p>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Queued deep dives</p>
                     <div className="mt-2 space-y-2">
-                      {escalatedDailyEntries.map((entry) => (
+                      {queuedDailyEntries.map((entry) => (
                         <div key={entry.ticker} className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
                           <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
                           <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
-                            {entry.reasoning}. Deep dive is queued or visible in this feed once it completes.
+                            {entry.reasoning}. {entry.deepDiveQueueReason ?? "Deep dive was queued by this daily brief."}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {attentionDailyEntries.length > 0 ? (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Needs attention, not auto-queued</p>
+                    <div className="mt-2 space-y-2">
+                      {attentionDailyEntries.map((entry) => (
+                        <div key={entry.ticker} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
+                          <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
+                          <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
+                            {entry.reasoning}. {entry.deepDiveQueueReason ?? "Flagged for attention; no deep dive queue confirmation is attached to this daily brief."}
                           </p>
                         </div>
                       ))}
@@ -1292,7 +1321,7 @@ function ReportCard({
                 {item.dailyBrief.marketView || item.dailyBrief.tomorrow || item.dailyBrief.securityNote ? (
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Next watch</p>
-                    {item.dailyBrief.tomorrow ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.tomorrow}</p> : null}
+                    {nextWatchText ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{nextWatchText}</p> : null}
                     {item.dailyBrief.marketView ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.marketView}</p> : null}
                     {item.dailyBrief.securityNote ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-default)]">{item.dailyBrief.securityNote}</p> : null}
                   </div>

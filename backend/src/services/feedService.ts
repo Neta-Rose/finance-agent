@@ -20,6 +20,12 @@ export interface StoredBatchEntry {
   currentILS?: number;
   dayChangePct?: number;
   moveReason?: string;
+  needsEscalation?: boolean;
+  escalationReason?: string | null;
+  deepDiveQueued?: boolean;
+  deepDiveJobId?: string | null;
+  deepDiveQueueStatus?: "not_needed" | "not_selected" | "queued" | "suppressed";
+  deepDiveQueueReason?: string | null;
 }
 
 export interface StoredBatch {
