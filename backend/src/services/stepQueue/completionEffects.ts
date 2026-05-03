@@ -3,13 +3,14 @@ import path from "path";
 import type { DataSource } from "typeorm";
 import { buildWorkspace, type UserWorkspace } from "../../middleware/userIsolation.js";
 import { StrategySchema } from "../../schemas/index.js";
-import { syncStateToBaselineCoverage } from "../baselineCoverageService.js";
+import { listPortfolioTickers, syncStateToBaselineCoverage } from "../baselineCoverageService.js";
 import { logger } from "../logger.js";
 import { publishNotification } from "../notificationService.js";
 import { resolveConfiguredPath } from "../paths.js";
+import { upsertTrackedAsset } from "../trackedAssetService.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
-const PRODUCT_EFFECTS_VERSION = 3;
+const PRODUCT_EFFECTS_VERSION = 4;
 
 interface TerminalJobRow {
   id: string;
@@ -26,6 +27,18 @@ interface StrategySnapshot {
   confidence: string;
   reasoning: string;
   timeframe: string;
+  assetScope: "portfolio" | "tracking" | undefined;
+  trackingStatus: "active" | "muted" | "archived" | undefined;
+  stance: "candidate" | "watch" | "pass" | "avoid" | null;
+  potentialScore: number | null;
+  urgencyScore: number | null;
+  urgencyLabel: "low" | "medium" | "high" | "extra_high" | null;
+  portfolioFitScore: number | null;
+  suggestedAllocationPct: number | null;
+  suggestedAllocationILS: number | null;
+  actionCatalysts: Array<{ description: string; expiresAt: string | null; triggered: boolean }>;
+  avoidConditions: string[];
+  nextReviewAt: string | null;
 }
 
 export interface CompletionEffectsOptions {
@@ -51,6 +64,18 @@ async function readStrategySnapshot(ws: UserWorkspace, ticker: string): Promise<
       confidence: parsed.data.confidence,
       reasoning: parsed.data.reasoning,
       timeframe: parsed.data.timeframe,
+      assetScope: parsed.data.assetScope,
+      trackingStatus: parsed.data.trackingStatus,
+      stance: parsed.data.stance ?? null,
+      potentialScore: parsed.data.potentialScore ?? null,
+      urgencyScore: parsed.data.urgencyScore ?? null,
+      urgencyLabel: parsed.data.urgencyLabel ?? null,
+      portfolioFitScore: parsed.data.portfolioFitScore ?? null,
+      suggestedAllocationPct: parsed.data.suggestedAllocationPct ?? null,
+      suggestedAllocationILS: parsed.data.suggestedAllocationILS ?? null,
+      actionCatalysts: parsed.data.actionCatalysts ?? [],
+      avoidConditions: parsed.data.avoidConditions ?? [],
+      nextReviewAt: parsed.data.nextReviewAt ?? null,
     };
   } catch {
     return null;
@@ -175,10 +200,20 @@ export async function applyStepQueueCompletionEffects(
 
   const ws = buildWorkspace(job.user_id, USERS_DIR);
   const completedAt = iso(job.completed_at, new Date());
+  const portfolioTickers = new Set(await listPortfolioTickers(ws).catch(() => []));
   const entries: Record<string, Record<string, unknown>> = {};
   for (const ticker of tickers) {
     const strategy = await readStrategySnapshot(ws, ticker);
     if (!strategy) continue;
+    const isTrackingDeepDive = job.action === "deep_dive" && !portfolioTickers.has(ticker);
+    if (isTrackingDeepDive) {
+      await upsertTrackedAsset({
+        userId: ws.userId,
+        ticker,
+        status: strategy.trackingStatus ?? "active",
+        createdFromJobId: job.id,
+      });
+    }
     entries[ticker] = {
       ticker,
       mode: job.action,
@@ -191,6 +226,18 @@ export async function applyStepQueueCompletionEffects(
         : ["fundamentals", "technical", "sentiment", "macro", "risk"],
       hasBullCase: job.action === "deep_dive",
       hasBearCase: job.action === "deep_dive",
+      assetScope: strategy.assetScope ?? (isTrackingDeepDive ? "tracking" : "portfolio"),
+      trackingStatus: isTrackingDeepDive ? strategy.trackingStatus ?? "active" : null,
+      stance: strategy.stance ?? null,
+      potentialScore: strategy.potentialScore ?? null,
+      urgencyScore: strategy.urgencyScore ?? null,
+      urgencyLabel: strategy.urgencyLabel ?? null,
+      portfolioFitScore: strategy.portfolioFitScore ?? null,
+      suggestedAllocationPct: strategy.suggestedAllocationPct ?? null,
+      suggestedAllocationILS: strategy.suggestedAllocationILS ?? null,
+      actionCatalysts: strategy.actionCatalysts ?? [],
+      avoidConditions: strategy.avoidConditions ?? [],
+      nextReviewAt: strategy.nextReviewAt ?? null,
     };
   }
 

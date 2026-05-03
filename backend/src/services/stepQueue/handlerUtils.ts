@@ -43,14 +43,51 @@ export async function getPortfolioPosition(ws: UserWorkspace, ticker: string): P
   return null;
 }
 
+export interface PortfolioContext {
+  isHeld: boolean;
+  totalPortfolioILS: number;
+  heldTickers: string[];
+  targetPositionILS: number;
+  targetWeightPct: number;
+}
+
+export async function getPortfolioContext(ws: UserWorkspace, ticker: string): Promise<PortfolioContext> {
+  const raw = await fs.readFile(ws.portfolioFile, "utf-8");
+  const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
+  const usdIlsRate = await getUsdIlsRate();
+  const positions = Object.values(portfolio.accounts).flat();
+  const valueILS = (position: typeof positions[number]) => {
+    const unitILS = position.exchange === "TASE"
+      ? position.unitAvgBuyPrice
+      : position.unitAvgBuyPrice * usdIlsRate;
+    return unitILS * position.shares;
+  };
+  const totalPortfolioILS = positions.reduce((sum, position) => sum + valueILS(position), 0);
+  const targetPositionILS = positions
+    .filter((position) => position.ticker === ticker)
+    .reduce((sum, position) => sum + valueILS(position), 0);
+
+  return {
+    isHeld: targetPositionILS > 0,
+    totalPortfolioILS: Math.round(totalPortfolioILS * 100) / 100,
+    heldTickers: Array.from(new Set(positions.map((position) => position.ticker))),
+    targetPositionILS: Math.round(targetPositionILS * 100) / 100,
+    targetWeightPct: totalPortfolioILS > 0 ? Math.round((targetPositionILS / totalPortfolioILS) * 10000) / 100 : 0,
+  };
+}
+
 export async function gatherCommonInputs(step: ClaimedStepWorkItem, ws: UserWorkspace): Promise<Record<string, unknown>> {
-  const position = await getPortfolioPosition(ws, step.ticker);
+  const [position, portfolioContext] = await Promise.all([
+    getPortfolioPosition(ws, step.ticker),
+    getPortfolioContext(ws, step.ticker),
+  ]);
   if (!position) {
     return {
       ticker: step.ticker,
       position: null,
       price: null,
       usdIlsRate: 3.7,
+      portfolioContext,
       currentStrategy: await readJsonIfExists(ws.strategyFile(step.ticker)),
       userProfile: await readTextIfExists(ws.userMdFile),
     };
@@ -62,6 +99,7 @@ export async function gatherCommonInputs(step: ClaimedStepWorkItem, ws: UserWork
     position,
     price,
     usdIlsRate,
+    portfolioContext,
     currentStrategy: await readJsonIfExists(ws.strategyFile(step.ticker)),
     userProfile: await readTextIfExists(ws.userMdFile),
   };

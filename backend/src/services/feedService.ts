@@ -26,6 +26,18 @@ export interface StoredBatchEntry {
   deepDiveJobId?: string | null;
   deepDiveQueueStatus?: "not_needed" | "not_selected" | "queued" | "suppressed";
   deepDiveQueueReason?: string | null;
+  assetScope?: "portfolio" | "tracking";
+  trackingStatus?: "active" | "muted" | "archived" | null;
+  stance?: "candidate" | "watch" | "pass" | "avoid" | null;
+  potentialScore?: number | null;
+  urgencyScore?: number | null;
+  urgencyLabel?: "low" | "medium" | "high" | "extra_high" | null;
+  portfolioFitScore?: number | null;
+  suggestedAllocationPct?: number | null;
+  suggestedAllocationILS?: number | null;
+  actionCatalysts?: Array<{ description: string; expiresAt: string | null; triggered: boolean }>;
+  avoidConditions?: string[];
+  nextReviewAt?: string | null;
 }
 
 export interface StoredBatch {

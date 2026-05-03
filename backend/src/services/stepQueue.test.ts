@@ -283,3 +283,80 @@ test("synthesis handler validates and persists deterministic strategy", async ()
   assert.equal(artifact.ticker, "AAPL");
   assert.equal(artifact.metadata?.status, "validated");
 });
+
+test("synthesis handler writes tracking fields for non-held deep dive ideas", async () => {
+  const ws = await setupWorkspace("handler-synthesis-tracking");
+  const step = claimedStep("synthesis", "GOOGL");
+  const handler = handlerFor("synthesis");
+  const inputs = deterministicInputs(step, ws);
+  inputs.data["portfolioContext"] = {
+    isHeld: false,
+    totalPortfolioILS: 250000,
+    heldTickers: ["AAPL", "MSFT"],
+    targetPositionILS: 0,
+    targetWeightPct: 0,
+  };
+  inputs.data["price"] = {
+    priceNative: 180,
+    priceILS: 666,
+    currency: "USD",
+  };
+  inputs.data["analystArtifacts"] = {
+    ...inputs.data["analystArtifacts"] as Record<string, unknown>,
+    risk: {
+      positionValueILS: 0,
+      portfolioWeightPct: 0,
+      plPct: 0,
+      riskFacts: "Ticker GOOGL is not currently held in this portfolio. Risk snapshot is watchlist-style with 0% current portfolio weight.",
+    },
+    fundamentals: {
+      fundamentalView: "Revenue trend is improving and valuation looks fair.",
+      valuation: { assessment: "fair" },
+    },
+    technical: {
+      technicalView: "Price is near support.",
+      price: { current: 180 },
+      keyLevels: { support: 175, resistance: 210 },
+    },
+    sentiment: {
+      sentimentView: "Narrative is improving.",
+      narrativeShift: "improving",
+      majorNews: [{ sentiment: "positive", headline: "Cloud demand improves" }],
+    },
+  };
+  inputs.data["debate"] = {
+    bullFinalVerdict: "BUY",
+    bearFinalVerdict: "HOLD",
+    keyDisagreement: "Whether valuation leaves enough upside.",
+    synthesisGuidance: "Track as a candidate if portfolio sizing stays conservative.",
+  };
+
+  const prompt = handler.buildPrompt(inputs, "cheap");
+  const raw = await handler.call(prompt, { tier: "cheap", primary: "stub", fallback: null }, step, inputs);
+  const validated = handler.validate(raw, prompt.schema);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+
+  const strategy = validated.artifact as {
+    assetScope?: string;
+    trackingStatus?: string;
+    stance?: string | null;
+    potentialScore?: number | null;
+    urgencyScore?: number | null;
+    portfolioFitScore?: number | null;
+    suggestedAllocationPct?: number | null;
+    suggestedAllocationILS?: number | null;
+    actionCatalysts?: unknown[];
+    avoidConditions?: unknown[];
+  };
+  assert.equal(strategy.assetScope, "tracking");
+  assert.equal(strategy.trackingStatus, "active");
+  assert.equal(strategy.stance, "candidate");
+  assert.ok((strategy.potentialScore ?? -1) >= 0 && (strategy.potentialScore ?? 101) <= 100);
+  assert.ok((strategy.urgencyScore ?? -1) >= 0 && (strategy.urgencyScore ?? 101) <= 100);
+  assert.ok((strategy.portfolioFitScore ?? -1) >= 0 && (strategy.portfolioFitScore ?? 101) <= 100);
+  assert.ok((strategy.suggestedAllocationPct ?? 0) > 0);
+  assert.ok((strategy.suggestedAllocationILS ?? 0) > 0);
+  assert.ok((strategy.actionCatalysts ?? []).length > 0);
+  assert.ok((strategy.avoidConditions ?? []).length > 0);
+});

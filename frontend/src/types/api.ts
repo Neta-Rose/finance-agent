@@ -289,6 +289,18 @@ export interface FeedItemEntry {
  deepDiveJobId?: string | null;
  deepDiveQueueStatus?: "not_needed" | "not_selected" | "queued" | "suppressed";
  deepDiveQueueReason?: string | null;
+ assetScope?: StrategyScope;
+ trackingStatus?: TrackingStatus | null;
+ stance?: TrackingStance | null;
+ potentialScore?: number | null;
+ urgencyScore?: number | null;
+ urgencyLabel?: UrgencyLabel | null;
+ portfolioFitScore?: number | null;
+ suggestedAllocationPct?: number | null;
+ suggestedAllocationILS?: number | null;
+ actionCatalysts?: StrategyCatalyst[];
+ avoidConditions?: string[];
+ nextReviewAt?: string | null;
 }
 
 export interface FeedItem {

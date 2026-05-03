@@ -22,6 +22,7 @@ import type { FeedPageResponse, FeedItem, FeedItemEntry, Job, JobsResponse } fro
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t, tConfidence } from "../store/i18n";
 import { useToastStore } from "../store/toastStore";
+import { formatILS } from "../utils/format";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1143,6 +1144,7 @@ function ReportCard({
   const selectedEntry = selectedTicker ? item.entries[selectedTicker] : entries[0];
   const isMultiTicker = item.tickers.length > 1;
   const isBriefMode = item.mode === "daily_brief" || item.mode === "full_report";
+  const trackingEntry = !isBriefMode && selectedEntry?.assetScope === "tracking" ? selectedEntry : null;
   const portfolioMovers = entries
     .filter((entry) => Number.isFinite(entry.dayChangePct))
     .sort((a, b) => Math.abs(b.dayChangePct ?? 0) - Math.abs(a.dayChangePct ?? 0))
@@ -1229,6 +1231,19 @@ function ReportCard({
 
           {/* Summary */}
           <p className="mt-2 text-[13px] leading-5 text-[var(--color-fg-muted)]">{item.summary}</p>
+          {trackingEntry ? (
+            <div className="mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Tracked idea</p>
+              <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--color-fg-muted)]">
+                {trackingEntry.stance ? <span className="font-semibold text-[var(--color-fg-default)]">{trackingEntry.stance}</span> : null}
+                {typeof trackingEntry.potentialScore === "number" ? <span>{trackingEntry.potentialScore}/100 potential</span> : null}
+                {typeof trackingEntry.urgencyScore === "number" ? <span>{trackingEntry.urgencyScore}/100 urgency</span> : null}
+                {typeof trackingEntry.suggestedAllocationPct === "number" ? (
+                  <span>{trackingEntry.suggestedAllocationPct.toFixed(1)}% / {formatILS(trackingEntry.suggestedAllocationILS)}</span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           {item.dailyBrief?.marketView ? (
             <p className="mt-2 text-[12px] leading-5 text-[var(--color-fg-subtle)]">{item.dailyBrief.marketView}</p>
           ) : null}
