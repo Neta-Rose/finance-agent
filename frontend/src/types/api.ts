@@ -263,6 +263,9 @@ export interface FeedItemEntry {
  analystTypes: string[];
  hasBullCase: boolean;
  hasBearCase: boolean;
+ currentILS?: number;
+ dayChangePct?: number;
+ moveReason?: string;
 }
 
 export interface FeedItem {

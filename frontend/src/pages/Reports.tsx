@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -12,7 +12,7 @@ import {
   Radar,
   Sparkles,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { apiClient } from "../api/client";
 import { cancelJob, resumeJob } from "../api/jobs";
 import { TopBar } from "../components/ui/TopBar";
@@ -1143,6 +1143,11 @@ function ReportCard({
   const selectedEntry = selectedTicker ? item.entries[selectedTicker] : entries[0];
   const isMultiTicker = item.tickers.length > 1;
   const isBriefMode = item.mode === "daily_brief" || item.mode === "full_report";
+  const portfolioMovers = entries
+    .filter((entry) => Number.isFinite(entry.dayChangePct))
+    .sort((a, b) => Math.abs(b.dayChangePct ?? 0) - Math.abs(a.dayChangePct ?? 0))
+    .slice(0, 5);
+  const escalatedDailyEntries = entries.filter((entry) => entry.mode === "daily_brief" && entry.reasoning !== "On track");
 
   // Tabs: don't show bear_case as its own tab (rendered inside bull_case tab)
   const visibleTabs = expandedReportTypes.filter((t) => t !== "bear_case");
@@ -1245,13 +1250,53 @@ function ReportCard({
         <div className="border-t border-[var(--color-border)]">
           {item.dailyBrief ? (
             <div className="px-4 pt-4">
-              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-base)] p-4">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Portfolio briefing</p>
-                {item.dailyBrief.headline ? <p className="mt-2 text-sm font-semibold text-[var(--color-fg-default)]">{item.dailyBrief.headline}</p> : null}
-                {item.dailyBrief.today ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.today}</p> : null}
-                {item.dailyBrief.tomorrow ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.tomorrow}</p> : null}
-                {item.dailyBrief.marketView ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.marketView}</p> : null}
-                {item.dailyBrief.securityNote ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-default)]">{item.dailyBrief.securityNote}</p> : null}
+              <div className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-base)] p-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">What happened today</p>
+                  {item.dailyBrief.headline ? <p className="mt-2 text-sm font-semibold text-[var(--color-fg-default)]">{item.dailyBrief.headline}</p> : null}
+                  {item.dailyBrief.today ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.today}</p> : null}
+                </div>
+                {portfolioMovers.length > 0 ? (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Biggest portfolio movers</p>
+                    <div className="mt-2 space-y-2">
+                      {portfolioMovers.map((entry) => (
+                        <div key={entry.ticker} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</span>
+                            <span className={`text-xs font-bold ${(entry.dayChangePct ?? 0) >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
+                              {(entry.dayChangePct ?? 0) > 0 ? "+" : ""}{entry.dayChangePct ?? 0}%
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">{entry.moveReason ?? entry.reasoning}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {escalatedDailyEntries.length > 0 ? (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Escalated to deep dive</p>
+                    <div className="mt-2 space-y-2">
+                      {escalatedDailyEntries.map((entry) => (
+                        <div key={entry.ticker} className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
+                          <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
+                          <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
+                            {entry.reasoning}. Deep dive is queued or visible in this feed once it completes.
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {item.dailyBrief.marketView || item.dailyBrief.tomorrow || item.dailyBrief.securityNote ? (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Next watch</p>
+                    {item.dailyBrief.tomorrow ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.tomorrow}</p> : null}
+                    {item.dailyBrief.marketView ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.marketView}</p> : null}
+                    {item.dailyBrief.securityNote ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-default)]">{item.dailyBrief.securityNote}</p> : null}
+                  </div>
+                ) : null}
                 {item.dailyBrief.dashboardPath ? (
                   <Link
                     to={item.dailyBrief.dashboardPath}
@@ -1331,6 +1376,8 @@ export function Reports() {
   const language = usePreferencesStore((s) => s.language);
   const queryClient = useQueryClient();
   const showToast = useToastStore((s) => s.show);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedBatchId = searchParams.get("batch");
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<ReportFilter>("all");
   const [search, setSearch] = useState("");
@@ -1409,6 +1456,13 @@ export function Reports() {
     [feedData]
   );
 
+  useEffect(() => {
+    if (!linkedBatchId || expandedBatchId === linkedBatchId) return;
+    if (reportItems.some((item) => item.batchId === linkedBatchId)) {
+      setExpandedBatchId(linkedBatchId);
+    }
+  }, [expandedBatchId, linkedBatchId, reportItems]);
+
   // Derive expanded state
   const expandedItem = reportItems.find((item) => item.batchId === expandedBatchId) ?? null;
   const expandedReportTypes = expandedItem ? reportTypesForItem(expandedItem) : [];
@@ -1427,6 +1481,12 @@ export function Reports() {
   function handleToggle(item: FeedItem) {
     const next = expandedBatchId === item.batchId ? null : item.batchId;
     setExpandedBatchId(next);
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next) params.set("batch", next);
+      else params.delete("batch");
+      return params;
+    }, { replace: true });
     if (next) {
       const bk = item.batchId ?? item.id;
       if (!selectedTickerByBatch[bk] && item.tickers[0]) {

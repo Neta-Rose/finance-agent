@@ -19,6 +19,7 @@ export type DailyBriefTruthState =
 interface DailyBriefEntry {
   ticker: string;
   currentILS: number;
+  dayChangePct?: number;
   quickCheck: QuickCheckOutcome;
 }
 
@@ -47,6 +48,9 @@ export interface DailyBriefResult {
     escalationReason: string | null;
     verdict: string;
     confidence: string;
+    currentILS?: number;
+    dayChangePct?: number;
+    moveReason?: string;
   }>;
 }
 
@@ -232,7 +236,7 @@ export function selectDailyBriefAutoDeepDiveTickers(
 async function topPortfolioTickers(
   ws: UserWorkspace,
   limit: number
-): Promise<Array<{ ticker: string; currentILS: number }>> {
+): Promise<Array<{ ticker: string; currentILS: number; dayChangePct: number }>> {
   const raw = await fs.readFile(ws.portfolioFile, "utf-8");
   const portfolio = PortfolioFileSchema.parse(JSON.parse(raw));
   const usdIlsRate = await getUsdIlsRate();
@@ -245,15 +249,26 @@ async function topPortfolioTickers(
     usdIlsRate
   );
 
-  const totals = new Map<string, number>();
+  const totals = new Map<string, { currentILS: number; weightedChange: number }>();
   for (const pos of flat) {
-    const livePriceILS = prices.get(pos.ticker)?.priceILS ?? 0;
+    const price = prices.get(pos.ticker);
+    const livePriceILS = price?.priceILS ?? 0;
     const currentILS = livePriceILS * pos.shares;
-    totals.set(pos.ticker, (totals.get(pos.ticker) ?? 0) + currentILS);
+    const existing = totals.get(pos.ticker) ?? { currentILS: 0, weightedChange: 0 };
+    totals.set(pos.ticker, {
+      currentILS: existing.currentILS + currentILS,
+      weightedChange: existing.weightedChange + currentILS * (price?.dayChangePct ?? 0),
+    });
   }
 
   return Array.from(totals.entries())
-    .map(([ticker, currentILS]) => ({ ticker, currentILS }))
+    .map(([ticker, value]) => ({
+      ticker,
+      currentILS: value.currentILS,
+      dayChangePct: value.currentILS > 0
+        ? Math.round((value.weightedChange / value.currentILS) * 100) / 100
+        : 0,
+    }))
     .sort((a, b) => b.currentILS - a.currentILS)
     .slice(0, limit === Number.POSITIVE_INFINITY ? undefined : limit);
 }
@@ -306,6 +321,7 @@ async function appendDailyBriefBatch(
   } catch {}
 
   page.batches = page.batches.filter((entry) => entry.batchId !== batchId);
+  const dashboardPath = `/reports?batch=${encodeURIComponent(batchId)}`;
   page.batches.unshift({
     batchId,
     triggeredAt: result.generatedAt,
@@ -321,7 +337,7 @@ async function appendDailyBriefBatch(
       tomorrow: result.summary.tomorrow,
       marketView: result.summary.marketView,
       securityNote: result.summary.securityNote,
-      dashboardPath: result.summary.dashboardPath,
+      dashboardPath,
     },
     highlights: result.highlights,
     entries: Object.fromEntries(
@@ -337,6 +353,9 @@ async function appendDailyBriefBatch(
           analystTypes: ["quick_check"],
           hasBullCase: false,
           hasBearCase: false,
+          currentILS: item.currentILS,
+          dayChangePct: item.dayChangePct,
+          moveReason: item.moveReason,
         },
       ])
     ),
@@ -362,8 +381,8 @@ async function appendDailyBriefBatch(
     title: "Daily brief",
     body:
       escalatedTickers.length > 0
-        ? `${result.summary.headline} Today: ${result.summary.today}`
-        : `${result.summary.headline} ${result.summary.securityNote}`,
+        ? `${result.summary.headline} Today: ${result.summary.today} Open: /reports?batch=${encodeURIComponent(batchId)}`
+        : `${result.summary.headline} ${result.summary.securityNote} Open: /reports?batch=${encodeURIComponent(batchId)}`,
     ticker: result.tickers[0]?.ticker ?? null,
     batchId,
   });
@@ -393,6 +412,7 @@ export async function runDailyBriefJob(
       entries.push({
         ticker: item.ticker,
         currentILS: item.currentILS,
+        dayChangePct: item.dayChangePct,
         quickCheck,
       });
     }
@@ -417,6 +437,12 @@ export async function runDailyBriefJob(
           escalationReason: entry.quickCheck.escalation_reason,
           verdict: entry.quickCheck.verdict,
           confidence: entry.quickCheck.confidence,
+          currentILS: Math.round(entry.currentILS * 100) / 100,
+          dayChangePct: entry.dayChangePct ?? 0,
+          moveReason:
+            Math.abs(entry.dayChangePct ?? 0) >= 1
+              ? `Price moved ${(entry.dayChangePct ?? 0) > 0 ? "+" : ""}${entry.dayChangePct ?? 0}% today; no external catalyst attribution is attached yet.`
+              : "Price movement was small; no external catalyst attribution is attached yet.",
         })),
     };
     const truth = classifyDailyBriefTruth(entries);

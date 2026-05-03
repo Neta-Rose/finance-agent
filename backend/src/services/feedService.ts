@@ -17,6 +17,9 @@ export interface StoredBatchEntry {
   analystTypes: string[];
   hasBullCase: boolean;
   hasBearCase: boolean;
+  currentILS?: number;
+  dayChangePct?: number;
+  moveReason?: string;
 }
 
 export interface StoredBatch {

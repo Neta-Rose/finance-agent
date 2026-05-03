@@ -28,7 +28,6 @@ import {
   setSystemAgentProfile,
 } from "../services/profileService.js";
 import type { PointsBudgetConfig, RateLimits } from "../types/index.js";
-import { DEFAULT_POINTS_BUDGET } from "../types/index.js";
 import type { ProfileDefinition } from "../schemas/profile.js";
 import { eventStore } from "../services/eventStore.js";
 import {
@@ -57,9 +56,15 @@ import {
   classifyUserAgentHealth,
   shouldUserHeartbeatBeEnabled,
 } from "../services/startupService.js";
-import { ensureDefaultModelTierAssignments } from "../services/stepQueue/modelTier.js";
+import {
+  ensureDefaultModelTierAssignments,
+  isModelTier,
+  readUserModelTier,
+  writeUserModelTier,
+} from "../services/stepQueue/modelTier.js";
 import { MODEL_TIERS, STEP_KINDS } from "../services/stepQueue/types.js";
 import type { ModelTier, StepKind } from "../services/stepQueue/types.js";
+import { getAdminDefaults, updateAdminDefaults, type AdminDefaultsPatch } from "../services/adminDefaultsService.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "";
@@ -89,6 +94,38 @@ function handler(fn: AdminHandler) {
     }
   };
 }
+
+// GET /api/admin/defaults
+router.get(
+  "/defaults",
+  handler(async (_req, res) => {
+    res.json({ defaults: await getAdminDefaults() });
+  })
+);
+
+// PATCH /api/admin/defaults
+router.patch(
+  "/defaults",
+  handler(async (req, res) => {
+    const body = req.body as {
+      modelTier?: unknown;
+      pointsBudget?: Partial<PointsBudgetConfig>;
+      updatedBy?: string;
+    };
+    try {
+      const patch: AdminDefaultsPatch = {};
+      if (body.modelTier !== undefined) patch.modelTier = body.modelTier as ModelTier;
+      if (body.pointsBudget !== undefined) patch.pointsBudget = body.pointsBudget;
+      const defaults = await updateAdminDefaults(
+        patch,
+        typeof body.updatedBy === "string" ? body.updatedBy : "admin-ui"
+      );
+      res.json({ defaults });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "invalid_defaults" });
+    }
+  })
+);
 
 function mutationRows<T extends Record<string, unknown>>(result: unknown): T[] {
   if (
@@ -184,6 +221,7 @@ router.get(
       entries = [];
     }
 
+    const defaults = await getAdminDefaults();
     const users = await Promise.all(
       entries.map(async (userId) => {
         const userRoot = path.join(USERS_DIR, userId);
@@ -193,6 +231,7 @@ router.get(
 
         let displayName = userId;
         let createdAt = "";
+        let modelTier: ModelTier = defaults.modelTier;
         const schedule = { dailyBriefTime: "08:00", weeklyResearchDay: "sunday", weeklyResearchTime: "19:00", timezone: "Asia/Jerusalem" };
         const rateLimits = {
           full_report: { maxPerPeriod: 1, periodHours: 168 },
@@ -208,13 +247,14 @@ router.get(
           createdAt = profile.createdAt ?? "";
           if (profile.schedule) Object.assign(schedule, profile.schedule);
           if (profile.rateLimits) Object.assign(rateLimits, profile.rateLimits);
+          modelTier = isModelTier(profile.modelTier) ? profile.modelTier : modelTier;
         } catch { /* no profile */ }
 
-        let pointsBudget: PointsBudgetConfig = { ...DEFAULT_POINTS_BUDGET };
+        let pointsBudget: PointsBudgetConfig = { ...defaults.pointsBudget };
         try {
           pointsBudget = await getUserPointsBudget(userId);
         } catch {
-          pointsBudget = { ...DEFAULT_POINTS_BUDGET };
+          pointsBudget = { ...defaults.pointsBudget };
         }
 
         let state = "UNKNOWN";
@@ -259,6 +299,7 @@ router.get(
           rateLimits,
           schedule,
           pointsBudget,
+          modelTier,
           modelProfile: profileStatus.name,
           profileBroken: profileStatus.broken,
           profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
@@ -300,10 +341,12 @@ router.post(
       new_ideas: { maxPerPeriod: 2, periodHours: 168 },
       quick_check: { maxPerPeriod: 20, periodHours: 24 },
     };
+    const defaults = await getAdminDefaults();
+    const modelTier = isModelTier(body.modelTier) ? body.modelTier : defaults.modelTier;
     const pointsBudget = {
       dailyBudgetPoints: Number(
         (body.pointsBudget as Partial<PointsBudgetConfig> | undefined)?.dailyBudgetPoints ??
-          DEFAULT_POINTS_BUDGET.dailyBudgetPoints
+          defaults.pointsBudget.dailyBudgetPoints
       ),
     };
 
@@ -331,6 +374,7 @@ router.post(
       telegramChatId: telegramChatId ?? null,
       schedule,
       rateLimits,
+      modelTier,
       createdAt: new Date().toISOString(),
     };
     await fs.writeFile(path.join(ws.root, "profile.json"), JSON.stringify(profile, null, 2), "utf-8");
@@ -441,6 +485,25 @@ router.patch(
 router.patch(
   "/users/:userId/token-budgets",
   handler(patchUserPointsBudget)
+);
+
+// PATCH /api/admin/users/:userId/model-tier
+router.patch(
+  "/users/:userId/model-tier",
+  handler(async (req, res) => {
+    const userId = req.params.userId as string;
+    const modelTier = (req.body as { modelTier?: unknown }).modelTier;
+    if (!userId) {
+      res.status(400).json({ error: "userId required" });
+      return;
+    }
+    if (!isModelTier(modelTier)) {
+      res.status(400).json({ error: `modelTier must be one of ${MODEL_TIERS.join(", ")}` });
+      return;
+    }
+    await writeUserModelTier(userId, modelTier);
+    res.json({ userId, modelTier: await readUserModelTier(userId) });
+  })
 );
 
 // POST /api/admin/users/:userId/telegram

@@ -34,6 +34,13 @@ export interface PointsBudget {
   dailyBudgetPoints: number;
 }
 
+export type ModelTier = "free" | "cheap" | "balanced" | "expensive";
+
+export interface AdminDefaults {
+  modelTier: ModelTier;
+  pointsBudget: PointsBudget;
+}
+
 export interface PointsBalance {
   dailyBudgetPoints: number;
   pointsUsed: number;
@@ -63,6 +70,7 @@ export interface UserSummary {
   rateLimits: RateLimits;
   pointsBudget: PointsBudget;
   schedule: Schedule;
+  modelTier: ModelTier;
   modelProfile: string;
   agentHealth: AgentHealth;
   restriction: "readonly" | "blocked" | "suspended" | null;
@@ -262,7 +270,14 @@ function normalizeUserSummary(user: UserSummary & { tokenBudgets?: unknown }): U
   return {
     ...user,
     pointsBudget: normalizePointsBudget(user.pointsBudget),
+    modelTier: normalizeModelTier(user.modelTier),
   };
+}
+
+function normalizeModelTier(value: unknown): ModelTier {
+  return value === "free" || value === "cheap" || value === "expensive" || value === "balanced"
+    ? value
+    : "balanced";
 }
 
 export const adminFetchUsers = async (): Promise<{ users: UserSummary[] }> =>
@@ -298,6 +313,32 @@ export const adminUpdatePointsBudget = async (userId: string, pointsBudget: Part
     method: "PATCH",
     body: JSON.stringify(pointsBudget),
   });
+};
+
+export const adminUpdateUserModelTier = async (userId: string, modelTier: ModelTier): Promise<void> => {
+  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/model-tier`, {
+    method: "PATCH",
+    body: JSON.stringify({ modelTier }),
+  });
+};
+
+export const adminGetDefaults = async (): Promise<AdminDefaults> => {
+  const payload = await adminFetch("/api/admin/defaults") as { defaults?: Partial<AdminDefaults> };
+  return {
+    modelTier: normalizeModelTier(payload.defaults?.modelTier),
+    pointsBudget: normalizePointsBudget(payload.defaults?.pointsBudget),
+  };
+};
+
+export const adminUpdateDefaults = async (patch: Partial<AdminDefaults>): Promise<AdminDefaults> => {
+  const payload = await adminFetch("/api/admin/defaults", {
+    method: "PATCH",
+    body: JSON.stringify({ ...patch, updatedBy: "admin-ui" }),
+  }) as { defaults?: Partial<AdminDefaults> };
+  return {
+    modelTier: normalizeModelTier(payload.defaults?.modelTier),
+    pointsBudget: normalizePointsBudget(payload.defaults?.pointsBudget),
+  };
 };
 
 export const adminAddTelegram = async (userId: string, botToken: string, chatId: string): Promise<void> => {

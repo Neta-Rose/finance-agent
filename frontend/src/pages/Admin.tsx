@@ -6,26 +6,12 @@ import {
   adminDeleteUser,
   adminAddTelegram,
   adminGetStatus,
-  adminGetSystemAgent,
-  adminFetchProfiles,
-  adminCreateProfile,
-  adminUpdateProfile,
-  adminDeleteProfile,
-  adminSetUserProfile,
-  adminSetSystemAgentProfile,
   adminGetUserObservability,
   adminSetUserControl,
   adminClearUserControl,
   adminForceLogout,
   adminGetSystem,
   adminPatchSystem,
-  adminListJobs,
-  adminCreateJob,
-  adminEditJob,
-  adminCancelJob,
-  adminContinueJob,
-  adminWakeUser,
-  adminKillJob,
   adminListStepQueueJobs,
   adminGetStepQueueJob,
   adminGetStepQueueCost,
@@ -35,17 +21,18 @@ import {
   adminListSupportMessages,
   adminUpdateSupportMessageStatus,
   adminUpdatePointsBudget,
+  adminUpdateUserModelTier,
+  adminGetDefaults,
+  adminUpdateDefaults,
   type UserSummary,
-  type SystemAgentSummary,
   type PointsBudget,
+  type ModelTier,
+  type AdminDefaults,
   type AdminStatus,
-  type ProfileDefinition,
-  type ProfilesRegistry,
   type UserObservability,
   type LlmRequestEvent,
   type UserControlPatch,
   type SystemControlPatch,
-  type AdminJob,
   type StepQueueJobSummary,
   type StepQueueStep,
   type StepQueueModelAssignment,
@@ -341,217 +328,6 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           </div>
         </form>
       </div>
-    </div>
-  );
-}
-
-// ---- Profile Editor ----
-function ProfileEditor({
-  initial,
-  onSave,
-  onCancel,
-}: {
-  initial: ProfileDefinition;
-  onSave: (def: ProfileDefinition) => void;
-  onCancel: () => void;
-}) {
-  const language = usePreferencesStore((s) => s.language);
-  const [draft, setDraft] = useState<ProfileDefinition>({ ...initial });
-  const fields: Array<{ key: keyof ProfileDefinition; labelKey: "adminOrchestrator" | "adminAnalysts" | "adminRisk" | "adminResearchers" }> = [
-    { key: "orchestrator", labelKey: "adminOrchestrator" },
-    { key: "analysts", labelKey: "adminAnalysts" },
-    { key: "risk", labelKey: "adminRisk" },
-    { key: "researchers", labelKey: "adminResearchers" },
-  ];
-  return (
-    <div className="space-y-2 pt-1">
-      {fields.map(({ key, labelKey }) => (
-        <div key={key} className="flex items-center gap-2 text-xs">
-          <span className="w-24 shrink-0 text-[var(--color-fg-muted)]">{t(labelKey, language)}</span>
-          <input
-            value={draft[key]}
-            onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
-            className="flex-1 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
-            placeholder={`model id`}
-          />
-        </div>
-      ))}
-      <div className="flex gap-2 pt-2">
-        <button onClick={onCancel} className="flex-1 py-1.5 rounded border border-[var(--color-border)] text-xs text-[var(--color-fg-muted)]">{t("cancel", language)}</button>
-        <button onClick={() => onSave(draft)} className="flex-1 py-1.5 rounded bg-[var(--color-accent-blue)] text-white text-xs font-semibold">{t("save", language)}</button>
-      </div>
-    </div>
-  );
-}
-
-// ---- Profiles Section ----
-function ProfilesSection({ onError }: { onError: (msg: string) => void }) {
-  const language = usePreferencesStore((s) => s.language);
-  const [profiles, setProfiles] = useState<ProfilesRegistry>({});
-  const [editing, setEditing] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newDef, setNewDef] = useState<ProfileDefinition>({ orchestrator: "", analysts: "", risk: "", researchers: "" });
-
-  const load = useCallback(async () => {
-    try {
-      const { profiles: p } = await adminFetchProfiles();
-      setProfiles(p);
-    } catch (e) {
-      onError(e instanceof Error ? e.message : t("adminFailedLoadProfiles", language));
-    }
-  }, [onError, language]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const handleUpdate = async (name: string, def: ProfileDefinition) => {
-    try {
-      await adminUpdateProfile(name, def);
-      setEditing(null);
-      await load();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : t("adminFailedUpdateProfile", language));
-    }
-  };
-
-  const handleCreate = async (def: ProfileDefinition) => {
-    try {
-      await adminCreateProfile(newName.trim(), def);
-      setAdding(false);
-      setNewName("");
-      setNewDef({ orchestrator: "", analysts: "", risk: "", researchers: "" });
-      await load();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : t("adminFailedCreateProfile", language));
-    }
-  };
-
-  const handleDelete = async (name: string) => {
-    if (!confirm(`${t("adminConfirmDeleteProfile", language)} "${name}"?`)) return;
-    try {
-      await adminDeleteProfile(name);
-      await load();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : t("adminFailedDeleteProfile", language));
-    }
-  };
-
-  return (
-    <div className="mb-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-[var(--color-fg-default)]">{t("adminModelProfiles", language)}</h2>
-        <button
-          onClick={() => setAdding(true)}
-          className="text-xs px-3 py-1 rounded-lg bg-[var(--color-accent-blue)] text-white font-semibold"
-        >{t("adminAddProfile", language)}</button>
-      </div>
-      <div className="space-y-2">
-        {Object.entries(profiles).map(([name, def]) => (
-          <div key={name} className="bg-[var(--color-bg-subtle)] rounded-xl px-4 py-3 border border-[var(--color-border)]">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-[var(--color-fg-default)]">{name}</span>
-              <div className="flex gap-3">
-                <button onClick={() => setEditing(editing === name ? null : name)}
-                  className="text-xs text-[var(--color-accent-blue)]">
-                  {editing === name ? t("cancel", language) : t("edit", language)}
-                </button>
-                <button onClick={() => handleDelete(name)}
-                  className="text-xs text-[var(--color-accent-red)]">{t("delete", language)}</button>
-              </div>
-            </div>
-            {editing !== name && (
-              <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
-                {(["orchestrator", "analysts", "risk", "researchers"] as const).map((k) => (
-                  <span key={k} className="text-xs text-[var(--color-fg-muted)]">
-                    <span className="text-[var(--color-fg-subtle)]">{k}: </span>{def[k]}
-                  </span>
-                ))}
-              </div>
-            )}
-            {editing === name && (
-              <div className="mt-2">
-                <ProfileEditor initial={def} onSave={(d) => handleUpdate(name, d)} onCancel={() => setEditing(null)} />
-              </div>
-            )}
-          </div>
-        ))}
-        {adding && (
-          <div className="bg-[var(--color-bg-subtle)] rounded-xl px-4 py-3 border border-[var(--color-accent-blue)]">
-            <div className="mb-2">
-              <label className="text-xs text-[var(--color-fg-muted)] block mb-1">{t("adminProfileName", language)}</label>
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder={t("adminProfileNameHint", language)}
-                className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
-              />
-            </div>
-            <ProfileEditor
-              initial={newDef}
-              onSave={(d) => handleCreate(d)}
-              onCancel={() => { setAdding(false); setNewName(""); }}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---- Profile Badge ----
-function ProfileBadge({
-  userId,
-  current,
-  profiles,
-  onChanged,
-  onError,
-}: {
-  userId: string;
-  current: string;
-  profiles: ProfilesRegistry;
-  onChanged: () => void;
-  onError: (msg: string) => void;
-}) {
-  const language = usePreferencesStore((s) => s.language);
-  const [open, setOpen] = useState(false);
-  const colorMap: Record<string, string> = {
-    testing: "bg-blue-500/20 text-blue-400",
-    production: "bg-green-500/20 text-green-400",
-    free: "bg-gray-500/20 text-gray-400",
-  };
-  const colorClass = colorMap[current] ?? "bg-purple-500/20 text-purple-400";
-
-  const handleSwitch = async (name: string) => {
-    setOpen(false);
-    try {
-      await adminSetUserProfile(userId, name);
-      onChanged();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : t("adminFailedSwitchProfile", language));
-    }
-  };
-
-  return (
-    <div className="relative inline-block">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${colorClass}`}
-      >
-        {current} ▾
-      </button>
-      {open && (
-        <div className="absolute left-0 top-6 z-20 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 min-w-[120px]">
-          {Object.keys(profiles).map((name) => (
-            <button
-              key={name}
-              onClick={() => handleSwitch(name)}
-              className={`w-full text-left text-xs px-3 py-1.5 hover:bg-[var(--color-bg-muted)] ${name === current ? "font-bold text-[var(--color-accent-blue)]" : "text-[var(--color-fg-default)]"}`}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -1247,6 +1023,102 @@ function StepQueueModelsPanel({ onError }: { onError: (message: string) => void 
   );
 }
 
+function AdminDefaultsPanel({
+  onError,
+  onChanged,
+}: {
+  onError: (message: string) => void;
+  onChanged: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-defaults"],
+    queryFn: adminGetDefaults,
+  });
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<AdminDefaults | null>(null);
+
+  useEffect(() => {
+    if (data) setDraft(data);
+  }, [data]);
+
+  useEffect(() => {
+    if (error) onError(error instanceof Error ? error.message : "Failed to load admin defaults");
+  }, [error, onError]);
+
+  const save = async () => {
+    if (!draft) return;
+    setSaving(true);
+    try {
+      await adminUpdateDefaults(draft);
+      await queryClient.invalidateQueries({ queryKey: ["admin-defaults"] });
+      onChanged();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to update admin defaults");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
+      <div className="px-4 py-3" style={{ background: "var(--color-bg-subtle)" }}>
+        <h2 className="text-xs font-bold uppercase tracking-wide">User defaults</h2>
+        <p className="text-[10px] mt-1" style={{ color: "var(--color-fg-subtle)" }}>
+          Defaults applied to newly created users. Existing users can be changed from their user card.
+        </p>
+      </div>
+      <div className="p-4 space-y-3" style={{ background: "var(--color-bg-base)" }}>
+        {isLoading || !draft ? (
+          <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>Loading defaults...</p>
+        ) : (
+          <>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+              Default model tier
+              <select
+                value={draft.modelTier}
+                onChange={(e) => setDraft({ ...draft, modelTier: e.target.value as ModelTier })}
+                className="mt-1 w-full rounded-lg px-3 py-2 text-xs outline-none"
+                style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+              >
+                <option value="free">free - lowest cost, lowest reliability</option>
+                <option value="cheap">cheap - low cost integration/testing tier</option>
+                <option value="balanced">balanced - production default</option>
+                <option value="expensive">expensive - highest quality/cost</option>
+              </select>
+            </label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+              Default daily points budget
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={draft.pointsBudget.dailyBudgetPoints}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    pointsBudget: { dailyBudgetPoints: Math.max(1, Number(e.target.value) || 1) },
+                  })
+                }
+                className="mt-1 w-full rounded-lg px-3 py-2 text-xs outline-none"
+                style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+              />
+            </label>
+            <button
+              onClick={() => void save()}
+              disabled={saving}
+              className="w-full rounded-lg py-2 text-xs font-semibold disabled:opacity-50"
+              style={{ background: "var(--color-accent-blue)", color: "white" }}
+            >
+              {saving ? "Saving..." : "Save defaults"}
+            </button>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ---- User Activity Badge ----
 function UserActivityBadge({ userId }: { userId: string }) {
   const [data, setData] = useState<UserObservability | null>(null);
@@ -1786,8 +1658,6 @@ function BlockControls({
 }
 
 // ── Job status helpers ────────────────────────────────────────────────────────
-const JOB_ACTIONS = ["daily_brief", "full_report", "deep_dive", "new_ideas", "switch_production", "switch_testing"] as const;
-
 const ACTION_LABELS: Record<string, string> = {
   daily_brief: "Daily Brief",
   full_report: "Full Report",
@@ -1797,14 +1667,6 @@ const ACTION_LABELS: Record<string, string> = {
   switch_testing: "→ Testing",
 };
 
-function jobStatusColor(status: AdminJob["status"]): { bg: string; color: string; border: string } {
-  if (status === "running")   return { bg: "rgba(245,158,11,0.10)", color: "#f59e0b", border: "rgba(245,158,11,0.35)" };
-  if (status === "pending")   return { bg: "rgba(59,130,246,0.08)", color: "#3b82f6", border: "rgba(59,130,246,0.3)" };
-  if (status === "completed") return { bg: "rgba(16,185,129,0.08)", color: "#10b981", border: "rgba(16,185,129,0.25)" };
-  if (status === "partial_completed") return { bg: "rgba(245,158,11,0.10)", color: "#f59e0b", border: "rgba(245,158,11,0.35)" };
-  return { bg: "rgba(239,68,68,0.07)", color: "var(--color-accent-red)", border: "rgba(239,68,68,0.25)" };
-}
-
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -1813,287 +1675,6 @@ function timeAgo(iso: string): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
-}
-
-// ── UserJobsPanel ─────────────────────────────────────────────────────────────
-function UserJobsPanel({ userId, onError }: { userId: string; onError: (m: string) => void }) {
-  const [open, setOpen]             = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [jobs, setJobs]             = useState<AdminJob[]>([]);
-  const [editJobId, setEditJobId]   = useState<string | null>(null);
-  const [editAction, setEditAction] = useState<string>("");
-  const [editTicker, setEditTicker] = useState<string>("");
-  const [showAdd, setShowAdd]       = useState(false);
-  const [addAction, setAddAction]   = useState<string>("daily_brief");
-  const [addTicker, setAddTicker]   = useState<string>("");
-
-  const refresh = useCallback(async () => {
-    try {
-      setJobs(await adminListJobs(userId));
-    } catch { /* ignore */ }
-  }, [userId]);
-
-  useEffect(() => {
-    if (!open) return;
-    void refresh();
-    const iv = setInterval(() => { void refresh(); }, 8000);
-    return () => clearInterval(iv);
-  }, [open, refresh]);
-
-  const act = async (fn: () => Promise<void>, optimistic?: () => void) => {
-    setLoading(true);
-    try {
-      optimistic?.();
-      await fn();
-      await refresh();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Action failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleKill     = (jobId: string) => act(() => adminKillJob(userId, jobId));
-  const handleCancel   = (jobId: string) => act(() => adminCancelJob(userId, jobId));
-  const handleContinue = (jobId: string) => act(() => adminContinueJob(userId, jobId));
-  const handleWake     = ()               => act(() => adminWakeUser(userId));
-
-  const handleEditSave = (jobId: string) =>
-    act(async () => {
-      await adminEditJob(userId, jobId, editAction || undefined, editTicker || undefined);
-      setEditJobId(null);
-    });
-
-  const handleAdd = () =>
-    act(async () => {
-      if (addAction === "deep_dive" && !addTicker.trim()) { onError("deep_dive requires a ticker"); return; }
-      await adminCreateJob(userId, addAction, addTicker.trim() || undefined);
-      setShowAdd(false); setAddTicker(""); setAddAction("daily_brief");
-    });
-
-  const pending   = jobs.filter(j => j.status === "pending");
-  const running   = jobs.filter(j => j.status === "running");
-  const failed    = jobs.filter(j => j.status === "failed").slice(0, 5);
-  const completed = jobs.filter(j => j.status === "completed").slice(0, 3);
-
-  const activeCount = pending.length + running.length;
-
-  return (
-    <div className="border-t pt-2" style={{ borderColor: "var(--color-border)" }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between text-[11px] py-1 px-0.5"
-        style={{ color: "var(--color-fg-muted)" }}
-      >
-        <span className="font-semibold uppercase tracking-wide">
-          ⚙ Jobs
-          {activeCount > 0 && (
-            <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-              style={{ background: running.length > 0 ? "rgba(245,158,11,0.2)" : "rgba(59,130,246,0.15)",
-                       color: running.length > 0 ? "#f59e0b" : "#3b82f6" }}>
-              {activeCount}
-            </span>
-          )}
-        </span>
-        <span className="text-[10px]">{open ? "▲" : "▼"}</span>
-      </button>
-
-      {open && (
-        <div className="mt-2 space-y-2">
-
-          {/* Running jobs */}
-          {running.map(job => {
-            const c = jobStatusColor("running");
-            return (
-              <div key={job.id} className="rounded-lg p-2.5 space-y-1.5"
-                style={{ background: c.bg, border: `1px solid ${c.border}` }}>
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[11px] font-semibold" style={{ color: c.color }}>
-                      ● {ACTION_LABELS[job.action] ?? job.action}
-                      {job.ticker && <span className="ml-1 opacity-70">({job.ticker})</span>}
-                    </span>
-                    <span className="ml-2 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
-                      {timeAgo(job.triggered_at)}
-                    </span>
-                  </div>
-                  <div className="flex gap-1.5 shrink-0">
-                    <button disabled={loading} onClick={() => handleContinue(job.id)}
-                      className="text-[10px] px-2 py-0.5 rounded font-medium"
-                      style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
-                      Nudge
-                    </button>
-                    <button disabled={loading} onClick={() => handleKill(job.id)}
-                      className="text-[10px] px-2 py-0.5 rounded font-medium"
-                      style={{ background: "rgba(239,68,68,0.1)", color: "var(--color-accent-red)", border: "1px solid rgba(239,68,68,0.3)" }}>
-                      Kill
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Pending jobs */}
-          {pending.map(job => {
-            const c = jobStatusColor("pending");
-            const isEditing = editJobId === job.id;
-            return (
-              <div key={job.id} className="rounded-lg p-2.5 space-y-1.5"
-                style={{ background: c.bg, border: `1px solid ${c.border}` }}>
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[11px] font-semibold" style={{ color: c.color }}>
-                      ○ {ACTION_LABELS[job.action] ?? job.action}
-                      {job.ticker && <span className="ml-1 opacity-70">({job.ticker})</span>}
-                    </span>
-                    <span className="ml-2 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
-                      {timeAgo(job.triggered_at)}
-                    </span>
-                  </div>
-                  <div className="flex gap-1.5 shrink-0">
-                    <button disabled={loading} onClick={() => { setEditJobId(isEditing ? null : job.id); setEditAction(job.action); setEditTicker(job.ticker ?? ""); }}
-                      className="text-[10px] px-2 py-0.5 rounded font-medium"
-                      style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)", border: "1px solid var(--color-border)" }}>
-                      {isEditing ? "Close" : "Edit"}
-                    </button>
-                    <button disabled={loading} onClick={() => handleContinue(job.id)}
-                      className="text-[10px] px-2 py-0.5 rounded font-medium"
-                      style={{ background: "rgba(16,185,129,0.10)", color: "#10b981", border: "1px solid rgba(16,185,129,0.25)" }}>
-                      Wake
-                    </button>
-                    <button disabled={loading} onClick={() => handleCancel(job.id)}
-                      className="text-[10px] px-2 py-0.5 rounded font-medium"
-                      style={{ background: "rgba(239,68,68,0.08)", color: "var(--color-accent-red)", border: "1px solid rgba(239,68,68,0.25)" }}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-                {isEditing && (
-                  <div className="space-y-1.5 pt-1 border-t" style={{ borderColor: "rgba(59,130,246,0.2)" }}>
-                    <div className="flex gap-1.5">
-                      <select value={editAction} onChange={e => setEditAction(e.target.value)}
-                        className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
-                        style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}>
-                        {JOB_ACTIONS.map(a => <option key={a} value={a}>{ACTION_LABELS[a]}</option>)}
-                      </select>
-                      {(editAction === "deep_dive") && (
-                        <input value={editTicker} onChange={e => setEditTicker(e.target.value.toUpperCase())}
-                          placeholder="TICKER"
-                          className="w-20 text-[11px] rounded px-2 py-1 outline-none uppercase"
-                          style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
-                      )}
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button disabled={loading} onClick={() => handleEditSave(job.id)}
-                        className="flex-1 py-1 text-[10px] rounded font-semibold"
-                        style={{ background: "var(--color-accent-blue)", color: "white" }}>
-                        Save
-                      </button>
-                      <button onClick={() => setEditJobId(null)}
-                        className="px-3 py-1 text-[10px] rounded"
-                        style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Empty active state */}
-          {running.length === 0 && pending.length === 0 && (
-            <p className="text-[10px] text-center py-1" style={{ color: "var(--color-fg-subtle)" }}>No active jobs</p>
-          )}
-
-          {/* Failed jobs */}
-          {failed.length > 0 && (
-            <details className="group">
-              <summary className="text-[10px] cursor-pointer select-none" style={{ color: "var(--color-fg-subtle)" }}>
-                {failed.length} recent failure{failed.length > 1 ? "s" : ""} ▾
-              </summary>
-              <div className="mt-1 space-y-1">
-                {failed.map(job => (
-                  <div key={job.id} className="rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2"
-                    style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-medium" style={{ color: "var(--color-accent-red)" }}>
-                        {ACTION_LABELS[job.action] ?? job.action}{job.ticker ? ` (${job.ticker})` : ""}
-                      </span>
-                      {job.error && (
-                        <p className="text-[9px] truncate" style={{ color: "var(--color-fg-subtle)" }}>{job.error}</p>
-                      )}
-                    </div>
-                    <button disabled={loading} onClick={() => handleContinue(job.id)}
-                      className="shrink-0 text-[10px] px-2 py-0.5 rounded font-medium"
-                      style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.25)" }}>
-                      Retry
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-
-          {/* Completed preview */}
-          {completed.length > 0 && failed.length === 0 && (
-            <div className="space-y-0.5">
-              {completed.slice(0, 2).map(job => (
-                <div key={job.id} className="text-[10px] flex items-center justify-between px-1"
-                  style={{ color: "var(--color-fg-subtle)" }}>
-                  <span>✓ {ACTION_LABELS[job.action] ?? job.action}{job.ticker ? ` (${job.ticker})` : ""}</span>
-                  <span>{timeAgo(job.triggered_at)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Actions bar */}
-          <div className="flex gap-1.5 pt-1">
-            <button onClick={() => { setShowAdd(o => !o); }} disabled={loading}
-              className="text-[10px] px-2.5 py-1 rounded-lg font-medium flex-1"
-              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
-              {showAdd ? "Cancel" : "+ Add Job"}
-            </button>
-            <button onClick={handleWake} disabled={loading}
-              className="text-[10px] px-2.5 py-1 rounded-lg font-medium"
-              style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b" }}>
-              ⚡ Wake All
-            </button>
-          </div>
-
-          {/* Add job form */}
-          {showAdd && (
-            <div className="rounded-lg p-2.5 space-y-2"
-              style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
-              <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
-                New Job for {userId}
-              </p>
-              <div className="flex gap-1.5">
-                <select value={addAction} onChange={e => setAddAction(e.target.value)}
-                  className="flex-1 text-[11px] rounded-lg px-2 py-1.5 outline-none"
-                  style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}>
-                  {JOB_ACTIONS.map(a => <option key={a} value={a}>{ACTION_LABELS[a]}</option>)}
-                </select>
-                {addAction === "deep_dive" && (
-                  <input value={addTicker} onChange={e => setAddTicker(e.target.value.toUpperCase())}
-                    placeholder="TICKER"
-                    className="w-24 text-[11px] rounded-lg px-2 py-1.5 outline-none uppercase"
-                    style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
-                )}
-              </div>
-              <button disabled={loading} onClick={handleAdd}
-                className="w-full py-1.5 rounded-lg text-[11px] font-semibold"
-                style={{ background: "var(--color-accent-blue)", color: "white" }}>
-                {loading ? "Queuing…" : `Queue ${ACTION_LABELS[addAction] ?? addAction}`}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: string) => void }) {
@@ -2163,20 +1744,18 @@ function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: s
 // ---- User Card ----
 function UserCard({
   user,
-  profiles,
   onDelete,
   onUpdatePointsBudget,
+  onUpdateModelTier,
   onAddTelegram,
-  onProfileChanged,
   onControlChanged,
   onError,
 }: {
   user: UserSummary;
-  profiles: ProfilesRegistry;
   onDelete: (userId: string) => void;
   onUpdatePointsBudget: (userId: string, budget: PointsBudget) => Promise<void>;
+  onUpdateModelTier: (userId: string, modelTier: ModelTier) => Promise<void>;
   onAddTelegram: (userId: string, botToken: string, chatId: string) => void;
-  onProfileChanged: () => void;
   onControlChanged: () => void;
   onError: (msg: string) => void;
 }) {
@@ -2187,6 +1766,7 @@ function UserCard({
   const [showTelegram,  setShowTelegram]  = useState(false);
   const [deleting,      setDeleting]      = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [modelTierLoading, setModelTierLoading] = useState(false);
   const [botToken,      setBotToken]      = useState("");
   const [chatId,        setChatId]        = useState(user.telegramChatId ?? "");
 
@@ -2209,6 +1789,17 @@ function UserCard({
     try { await adminForceLogout(user.userId); }
     catch (e) { onError(e instanceof Error ? e.message : "Force logout failed"); }
     finally { setLogoutLoading(false); }
+  };
+
+  const handleModelTierChange = async (modelTier: ModelTier) => {
+    setModelTierLoading(true);
+    try {
+      await onUpdateModelTier(user.userId, modelTier);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to update model tier");
+    } finally {
+      setModelTierLoading(false);
+    }
   };
 
   const stateLabel     = user.state === "ACTIVE" ? t("adminStateActive", language)
@@ -2288,17 +1879,22 @@ function UserCard({
 
       {/* Jobs panel */}
       <UserStepQueueJobs userId={user.userId} onError={onError} />
-      <UserJobsPanel userId={user.userId} onError={onError} />
 
       {/* Actions row */}
       <div className="flex gap-1.5 flex-wrap pt-1 border-t" style={{ borderColor: "var(--color-border)" }}>
-        <ProfileBadge
-          userId={user.userId}
-          current={user.modelProfile}
-          profiles={profiles}
-          onChanged={onProfileChanged}
-          onError={onError}
-        />
+        <select
+          value={user.modelTier}
+          disabled={modelTierLoading}
+          onChange={(e) => void handleModelTierChange(e.target.value as ModelTier)}
+          title="Step-queue model tier for new jobs"
+          className="rounded-lg px-2.5 py-1 text-[10px] font-semibold outline-none disabled:opacity-50"
+          style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.28)", color: "var(--color-accent-blue)" }}
+        >
+          <option value="free">free models</option>
+          <option value="cheap">cheap models</option>
+          <option value="balanced">balanced models</option>
+          <option value="expensive">expensive models</option>
+        </select>
         <button onClick={() => setShowTelegram(!showTelegram)}
           className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
           style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
@@ -2391,104 +1987,13 @@ function UserCard({
   );
 }
 
-function SystemAgentCard({
-  agent,
-  profiles,
-  onProfileChanged,
-  onError,
-}: {
-  agent: SystemAgentSummary;
-  profiles: ProfilesRegistry;
-  onProfileChanged: () => void;
-  onError: (msg: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const handleSwitch = async (profileName: string) => {
-    setOpen(false);
-    try {
-      await adminSetSystemAgentProfile(profileName);
-      onProfileChanged();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Failed to switch system agent profile");
-    }
-  };
-
-  return (
-    <div
-      className="rounded-xl border p-4 space-y-3"
-      style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-sm" style={{ color: "var(--color-fg-default)" }}>
-              Root System Agent
-            </span>
-            <span className="text-[10px] font-mono" style={{ color: "var(--color-fg-subtle)" }}>
-              @{agent.agentId}
-            </span>
-          </div>
-          <p className="text-[10px] font-medium uppercase mt-0.5 text-[var(--color-accent-blue)]">
-            Default PM / developer agent
-          </p>
-        </div>
-        <HealthBadge health={agent.agentHealth} />
-      </div>
-
-      <div className="text-[11px] space-y-0.5" style={{ color: "var(--color-fg-muted)" }}>
-        <p>Workspace: {agent.workspace}</p>
-        <p>{agent.configured ? "Configured in OpenClaw" : "Missing from OpenClaw config"}</p>
-        <p>
-          {agent.hasTelegram
-            ? `Telegram bot bound to account ${agent.telegramAccountId ?? "main"}`
-            : "Telegram bot is not bound to the system agent"}
-        </p>
-        {agent.profileBroken && agent.profileBrokenReason && (
-          <p style={{ color: "var(--color-accent-red)" }}>{agent.profileBrokenReason}</p>
-        )}
-      </div>
-
-      <div className="flex gap-1.5 flex-wrap pt-1 border-t" style={{ borderColor: "var(--color-border)" }}>
-        <div className="relative inline-block">
-          <button
-            onClick={() => setOpen((value) => !value)}
-            className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/20 text-blue-400"
-          >
-            {agent.modelProfile} ▾
-          </button>
-          {open && (
-            <div className="absolute left-0 top-6 z-20 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 min-w-[140px]">
-              {Object.keys(profiles).map((name) => (
-                <button
-                  key={name}
-                  onClick={() => handleSwitch(name)}
-                  className={`w-full text-left text-xs px-3 py-1.5 hover:bg-[var(--color-bg-muted)] ${
-                    name === agent.modelProfile
-                      ? "font-bold text-[var(--color-accent-blue)]"
-                      : "text-[var(--color-fg-default)]"
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ---- Main Admin Page ----
 export function Admin() {
   const language = usePreferencesStore((s) => s.language);
   const isLoggedIn = !!sessionStorage.getItem("admin_key");
   const [loggedIn, setLoggedIn] = useState(isLoggedIn);
   const [status, setStatus] = useState<AdminStatus | null>(null);
-  const [systemAgent, setSystemAgent] = useState<SystemAgentSummary | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
-  const [profiles, setProfiles] = useState<ProfilesRegistry>({});
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2498,16 +2003,12 @@ export function Admin() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, system, { users: u }, { profiles: p }] = await Promise.all([
+      const [s, { users: u }] = await Promise.all([
         adminGetStatus(),
-        adminGetSystemAgent(),
         adminFetchUsers(),
-        adminFetchProfiles(),
       ]);
       setStatus(s);
-      setSystemAgent(system);
       setUsers(u);
-      setProfiles(p);
     } catch {
       // handled by login
     } finally {
@@ -2538,6 +2039,20 @@ export function Admin() {
     );
   };
 
+  const handleUpdateModelTier = async (userId: string, modelTier: ModelTier): Promise<void> => {
+    await adminUpdateUserModelTier(userId, modelTier);
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.userId === userId
+          ? {
+              ...u,
+              modelTier,
+            }
+          : u
+      )
+    );
+  };
+
   const handleAddTelegram = async (userId: string, botToken: string, chatId: string) => {
     await adminAddTelegram(userId, botToken, chatId);
     load();
@@ -2556,7 +2071,7 @@ export function Admin() {
         user.userId,
         user.displayName,
         user.state,
-        user.modelProfile,
+        user.modelTier,
         user.restriction ?? "",
         user.eligibilityIssue ?? "",
       ].some((value) => value.toLowerCase().includes(needle))
@@ -2669,11 +2184,10 @@ export function Admin() {
                   <UserCard
                     key={u.userId}
                     user={u}
-                    profiles={profiles}
                     onDelete={handleDelete}
                     onUpdatePointsBudget={handleUpdatePointsBudget}
+                    onUpdateModelTier={handleUpdateModelTier}
                     onAddTelegram={handleAddTelegram}
-                    onProfileChanged={load}
                     onControlChanged={load}
                     onError={setError}
                   />
@@ -2688,29 +2202,8 @@ export function Admin() {
         {activeSection === "settings" && (
           <>
             <SystemControls onError={(m) => setError(m)} />
-            {systemAgent && (
-              <SystemAgentCard
-                agent={systemAgent}
-                profiles={profiles}
-                onProfileChanged={load}
-                onError={setError}
-              />
-            )}
+            <AdminDefaultsPanel onError={setError} onChanged={load} />
             <StepQueueModelsPanel onError={setError} />
-            <details className="group rounded-xl border overflow-hidden"
-              style={{ borderColor: "var(--color-border)" }}>
-              <summary className="px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none flex items-center justify-between"
-                style={{ background: "var(--color-bg-subtle)", color: "var(--color-fg-muted)", listStyle: "none" }}>
-                <span>Legacy Agent Model Profiles</span>
-                <span className="group-open:rotate-180 transition-transform">▾</span>
-              </summary>
-              <div className="p-4" style={{ background: "var(--color-bg-base)" }}>
-                <p className="mb-3 text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
-                  These profiles still control the legacy OpenClaw chat/agent pipeline. Backend step-queue work uses the Postgres model matrix above.
-                </p>
-                <ProfilesSection onError={setError} />
-              </div>
-            </details>
           </>
         )}
 

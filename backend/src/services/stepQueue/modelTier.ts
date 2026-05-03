@@ -59,7 +59,7 @@ export const DEFAULT_MODEL_TIER_ASSIGNMENTS: Record<ModelTier, Record<StepKind, 
   },
 };
 
-function isModelTier(value: unknown): value is ModelTier {
+export function isModelTier(value: unknown): value is ModelTier {
   return typeof value === "string" && (MODEL_TIERS as readonly string[]).includes(value);
 }
 
@@ -71,6 +71,18 @@ export async function readUserModelTier(userId: string): Promise<ModelTier> {
   } catch {
     return DEFAULT_MODEL_TIER;
   }
+}
+
+export async function writeUserModelTier(userId: string, modelTier: ModelTier): Promise<ModelTier> {
+  const profilePath = path.join(USERS_DIR, userId, "profile.json");
+  const raw = await fs.readFile(profilePath, "utf-8");
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  await fs.writeFile(
+    profilePath,
+    JSON.stringify({ ...parsed, modelTier }, null, 2),
+    "utf-8"
+  );
+  return modelTier;
 }
 
 export function namespaceModelForUser(userId: string, model: string): string {

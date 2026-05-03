@@ -69,8 +69,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const unseen = notifications.items.filter((item) => !seenNotificationIds.current.has(item.id));
     if (unseen.length === 0) return;
     const ids = unseen.map((item) => item.id);
+    const grouped = new Map<string, typeof unseen[number]>();
     for (const item of unseen) {
       seenNotificationIds.current.add(item.id);
+      const key = item.batchId ? `${item.category}:${item.batchId}` : item.id;
+      if (!grouped.has(key)) grouped.set(key, item);
+    }
+    for (const item of grouped.values()) {
       const message = item.body ? `${item.title}: ${item.body}` : item.title;
       showToast(message, item.category === "daily_brief" ? "info" : "warning");
     }
