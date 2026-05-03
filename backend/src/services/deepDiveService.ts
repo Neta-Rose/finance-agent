@@ -543,6 +543,13 @@ export async function reconcileDeepDiveJob(
     return job;
   }
 
+  if (job.status === "completed") {
+    const existingState = await readJsonIfExists<DeepDiveState>(deepDiveStatePath(ws, job.ticker));
+    if (existingState?.jobId === job.id && existingState.status === "completed") {
+      return job;
+    }
+  }
+
   const state = await buildDeepDiveState(ws, job);
 
   if (job.status === "completed" && state.status !== "completed") {
