@@ -7,6 +7,7 @@ import { resolveConfiguredPath } from "../paths.js";
 import { isStepQueueServiceEnabled } from "./featureFlag.js";
 import { handlerFor } from "./handlers.js";
 import { resolveStepModel } from "./modelTier.js";
+import { applyStepQueueCompletionEffects } from "./completionEffects.js";
 import { isStepKind, type ClaimedStepWorkItem, type JobStatus, type StepErrorClass } from "./types.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
@@ -251,7 +252,7 @@ async function finalizeJobIfTickerWorkClosed(ds: DataSource, jobId: string): Pro
         ? `Ticker work failed: ${row.failed_tickers.join(", ")}`
         : "No ticker work completed";
 
-  await ds.query(
+  const result = await ds.query(
     `UPDATE jobs
         SET status = $2::varchar,
             completed_at = NOW(),
@@ -265,7 +266,8 @@ async function finalizeJobIfTickerWorkClosed(ds: DataSource, jobId: string): Pro
               'skippedTickers', $7::text[]
             )
       WHERE id = $1
-        AND status = 'running'`,
+        AND status = 'running'
+      RETURNING id, status`,
     [
       jobId,
       status,
@@ -276,6 +278,10 @@ async function finalizeJobIfTickerWorkClosed(ds: DataSource, jobId: string): Pro
       row.skipped_tickers,
     ]
   );
+  const updated = mutationRows<Record<string, unknown>>(result)[0];
+  if (updated && (status === "completed" || status === "partial_completed")) {
+    await applyStepQueueCompletionEffects(ds, jobId, { publishNotifications: true });
+  }
 }
 
 async function advanceAfterStepCompletion(ds: DataSource, step: ClaimedStepWorkItem): Promise<void> {
@@ -330,7 +336,7 @@ async function markBlockedPendingStepsFailed(ds: DataSource, step: ClaimedStepWo
   );
 }
 
-export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<{ repairedSteps: number; repairedTickers: number; blockedSteps: number; updatedJobs: number }> {
+export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<{ repairedSteps: number; repairedTickers: number; blockedSteps: number; updatedJobs: number; appliedEffects: number }> {
   await ds.query(
     `UPDATE ticker_work_items
         SET failure_reason = NULL,
@@ -438,6 +444,7 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
   }>;
 
   let updatedJobs = 0;
+  let appliedEffects = 0;
   for (const row of jobRows) {
     if (row.open > 0) continue;
     const status = resolveTerminalJobStatus(row);
@@ -475,6 +482,15 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
       ]
     );
     updatedJobs += mutationRows<Record<string, unknown>>(result).length;
+    if (status === "completed" || status === "partial_completed") {
+      try {
+        if (await applyStepQueueCompletionEffects(ds, row.job_id, { publishNotifications: false })) {
+          appliedEffects += 1;
+        }
+      } catch (err) {
+        logger.warn(`Step queue product effects reconciliation failed for ${row.job_id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
   }
 
   return {
@@ -482,6 +498,7 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
     repairedTickers: repairedTickerRows.length,
     blockedSteps: blockedRows.length,
     updatedJobs,
+    appliedEffects,
   };
 }
 
@@ -616,8 +633,8 @@ export function startStepQueueExecutor(): void {
   void getApplicationDataSource()
     .then((ds) => reconcileStepQueueTerminalStates(ds))
     .then((result) => {
-      if (result.repairedSteps > 0 || result.repairedTickers > 0 || result.blockedSteps > 0 || result.updatedJobs > 0) {
-        logger.warn(`Step queue reconciled terminal state: repaired_steps=${result.repairedSteps} repaired_tickers=${result.repairedTickers} blocked_steps=${result.blockedSteps} updated_jobs=${result.updatedJobs}`);
+      if (result.repairedSteps > 0 || result.repairedTickers > 0 || result.blockedSteps > 0 || result.updatedJobs > 0 || result.appliedEffects > 0) {
+        logger.warn(`Step queue reconciled terminal state: repaired_steps=${result.repairedSteps} repaired_tickers=${result.repairedTickers} blocked_steps=${result.blockedSteps} updated_jobs=${result.updatedJobs} applied_effects=${result.appliedEffects}`);
       }
     })
     .catch((err) => logger.warn(`Step queue terminal reconciliation failed: ${err instanceof Error ? err.message : String(err)}`));
