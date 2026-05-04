@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { Card } from "../ui/Card";
 import { VerdictBadge } from "../ui/Badge";
 import { formatILS, formatPct, plColor } from "../../utils/format";
+import { t, tInterpolate } from "../../store/i18n";
+import { usePreferencesStore } from "../../store/preferencesStore";
 import type { PositionRow as PositionRowType, VerdictRow } from "../../types/api";
 
 interface PositionRowProps {
@@ -12,6 +14,35 @@ interface PositionRowProps {
   jobType?: 'quick_check' | 'deep_dive' | null;
   onQuickCheck?: () => void;
   onClick: () => void;
+  /** Health score 0..100. Render only if defined. */
+  score?: number;
+  /** Per-ticker 1-liner. Render alongside chip if defined. */
+  factoid?: string;
+}
+
+function ScoreChip({ score }: { score: number }) {
+  const language = usePreferencesStore((s) => s.language);
+  const color =
+    score >= 85
+      ? "var(--color-accent-green)"
+      : score >= 70
+      ? "var(--color-accent-blue)"
+      : "var(--color-accent-yellow)";
+  const aria = tInterpolate(t("scoreChipAria", language), { score });
+  return (
+    <span
+      className="inline-flex items-center justify-center text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded shrink-0"
+      style={{
+        color,
+        backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
+        minWidth: 28,
+      }}
+      title={aria}
+      aria-label={aria}
+    >
+      {score}
+    </span>
+  );
 }
 
 export function PositionRow({
@@ -22,6 +53,8 @@ export function PositionRow({
   jobType,
   onQuickCheck,
   onClick,
+  score,
+  factoid,
 }: PositionRowProps) {
   const plClass = plColor(position.plPct);
   const dayClass = plColor(position.dayChangePct ?? 0);
@@ -155,6 +188,16 @@ export function PositionRow({
                   )}
                 </div>
               </div>
+              {(score !== undefined || factoid) && (
+                <div className="flex items-center gap-2 mb-1">
+                  {score !== undefined && <ScoreChip score={score} />}
+                  {factoid && (
+                    <span className="text-[11px] text-[var(--color-fg-muted)] truncate">
+                      {factoid}
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-2 text-[11px] text-[var(--color-fg-muted)]">
                 <span className="tabular-nums">{formatILS(position.currentILS)}</span>
                 <span>·</span>
@@ -173,26 +216,38 @@ export function PositionRow({
         className={`hidden md:table-row cursor-pointer border-b border-[var(--color-border-muted)] ${desktopRowClass}`}
       >
         <td className="px-3 py-2.5">
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono font-bold text-sm text-[var(--color-fg-default)]">{position.ticker}</span>
-            <span className="text-[10px] text-[var(--color-fg-subtle)] bg-[var(--color-bg-muted)] px-1 rounded">
-              {position.exchange}
-            </span>
-            {isChecking && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                jobType === 'quick_check'
-                  ? 'bg-[color-mix(in_srgb,var(--color-accent-yellow)_18%,transparent)] text-[var(--color-accent-yellow)]'
-                  : 'bg-[color-mix(in_srgb,var(--color-accent-orange)_18%,transparent)] text-[var(--color-accent-orange)]'
-              }`}>
-                {jobType === 'quick_check' ? 'quick check' : 'deep analysis'}
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono font-bold text-sm text-[var(--color-fg-default)]">{position.ticker}</span>
+              <span className="text-[10px] text-[var(--color-fg-subtle)] bg-[var(--color-bg-muted)] px-1 rounded">
+                {position.exchange}
               </span>
+              {isChecking && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                  jobType === 'quick_check'
+                    ? 'bg-[color-mix(in_srgb,var(--color-accent-yellow)_18%,transparent)] text-[var(--color-accent-yellow)]'
+                    : 'bg-[color-mix(in_srgb,var(--color-accent-orange)_18%,transparent)] text-[var(--color-accent-orange)]'
+                }`}>
+                  {jobType === 'quick_check' ? 'quick check' : 'deep analysis'}
+                </span>
+              )}
+              {!isChecking && hasAlert && (
+                <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-[color-mix(in_srgb,var(--color-accent-yellow)_16%,transparent)] text-[var(--color-accent-yellow)]">
+                  !
+                </span>
+              )}
+              {stale && <span className="text-[10px]" title="Price may be stale">⚠️</span>}
+            </div>
+            {(score !== undefined || factoid) && (
+              <div className="flex items-center gap-1.5">
+                {score !== undefined && <ScoreChip score={score} />}
+                {factoid && (
+                  <span className="text-[10px] text-[var(--color-fg-muted)] truncate max-w-[180px]">
+                    {factoid}
+                  </span>
+                )}
+              </div>
             )}
-            {!isChecking && hasAlert && (
-              <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-[color-mix(in_srgb,var(--color-accent-yellow)_16%,transparent)] text-[var(--color-accent-yellow)]">
-                !
-              </span>
-            )}
-            {stale && <span className="text-[10px]" title="Price may be stale">⚠️</span>}
           </div>
         </td>
         <td className="px-3 py-2.5 text-sm text-[var(--color-fg-default)] tabular-nums text-right">{formatILS(position.livePriceILS)}</td>
