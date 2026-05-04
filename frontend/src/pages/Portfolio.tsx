@@ -15,6 +15,7 @@ import { TopBar } from "../components/ui/TopBar";
 import { SummaryStrip } from "../components/portfolio/SummaryStrip";
 import { PositionRow } from "../components/portfolio/PositionRow";
 import { PositionDetailModal } from "../components/portfolio/PositionDetailModal";
+import { StrategyModal } from "../components/portfolio/StrategyModal";
 import { Spinner } from "../components/ui/Spinner";
 import { ErrorState } from "../components/ui/ErrorState";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -24,7 +25,13 @@ import { usePreferencesStore } from "../store/preferencesStore";
 import { useToastStore } from "../store/toastStore";
 import { t, getGreeting } from "../store/i18n";
 import { AddPositionModal } from "../components/portfolio/AddPositionModal";
-import type { VerdictRow, PositionRow as PositionRowType } from "../types/api";
+import { SetupBanner } from "../components/today/SetupBanner";
+import { HealthHero } from "../components/today/HealthHero";
+import { AttentionBlock } from "../components/today/AttentionBlock";
+import { classifyAttention } from "../utils/today/classifyAttention";
+import { healthScore, portfolioHealthScore, DEFAULT_STOP_LOSS_PCT } from "../utils/today/healthScore";
+import { factoid } from "../utils/today/factoid";
+import type { VerdictRow, PositionRow as PositionRowType, AttentionItem } from "../types/api";
 
 interface AccountSummary {
   name: string;
@@ -187,6 +194,93 @@ export function Portfolio() {
     });
     return map;
   }, [verdictsData]);
+
+  // ============================================================
+  // Today screen — pilot v1 derivations
+  // ============================================================
+  const onboardState = onboardStatus?.state ?? "UNINITIALIZED";
+  const telegramConnected = onboardStatus?.telegramConnected ?? false;
+  const isBootstrapping = onboardState === "BOOTSTRAPPING" || onboardState === "UNINITIALIZED";
+
+  const verdicts = useMemo(() => verdictsData?.verdicts ?? [], [verdictsData]);
+
+  const attentionItems: AttentionItem[] = useMemo(
+    () => classifyAttention(verdicts),
+    [verdicts]
+  );
+
+  const attentionTickerSet = useMemo(
+    () => new Set(attentionItems.map((i) => i.ticker)),
+    [attentionItems]
+  );
+
+  // Per-ticker score map (pure compute over current verdicts + portfolio)
+  const tickerScores = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!portfolio) return map;
+    const positionByTicker = new Map(portfolio.positions.map((p) => [p.ticker, p]));
+    for (const v of verdicts) {
+      const pos = positionByTicker.get(v.ticker);
+      const { score } = healthScore(v, pos, DEFAULT_STOP_LOSS_PCT);
+      map.set(v.ticker, score);
+    }
+    return map;
+  }, [verdicts, portfolio]);
+
+  const tickerFactoids = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of verdicts) {
+      map.set(v.ticker, factoid(v, language));
+    }
+    return map;
+  }, [verdicts, language]);
+
+  // Clear positions = portfolio positions excluding tickers in the attention block.
+  // Sorted worst-score first (so user sees what to watch within the calm list),
+  // then by weight descending. Each row carries _score and _factoid for rendering.
+  const clearPositions = useMemo(() => {
+    if (!portfolio) return [];
+    return portfolio.positions
+      .filter((p) => !attentionTickerSet.has(p.ticker))
+      .map((p) => ({
+        ...p,
+        _score: tickerScores.get(p.ticker),
+        _factoid: tickerFactoids.get(p.ticker),
+      }))
+      .sort((a, b) => {
+        const sa = a._score ?? 100;
+        const sb = b._score ?? 100;
+        if (sa !== sb) return sa - sb;
+        return b.weightPct - a.weightPct;
+      });
+  }, [portfolio, attentionTickerSet, tickerScores, tickerFactoids]);
+
+  // Portfolio health score (clear-state hero)
+  const portfolioHealth = useMemo(() => {
+    const inputs = clearPositions
+      .filter((p) => Number.isFinite(p._score))
+      .map((p) => ({ score: p._score as number, weightPct: p.weightPct }));
+    return portfolioHealthScore(inputs);
+  }, [clearPositions]);
+
+  // Bootstrap progress numbers (from /api/jobs)
+  const bootstrapProgress = useMemo(() => {
+    const ddJobs = (jobsData?.jobs ?? []).filter((j) => j.action === "deep_dive");
+    const completed = ddJobs.filter((j) => j.status === "completed").length;
+    const total = portfolio?.positions.length ?? 0;
+    const inProgress = ddJobs
+      .filter((j) => j.status === "running" || j.status === "pending")
+      .map((j) => j.ticker)
+      .filter((tk): tk is string => !!tk);
+    return { analyzed: Math.min(completed, total), total, inProgress };
+  }, [jobsData, portfolio]);
+
+  // Attention drill-down state (separate from PositionDetailModal which uses selectedPosition)
+  const [strategyTicker, setStrategyTicker] = useState<string | null>(null);
+  const strategyAttentionItem = useMemo(
+    () => attentionItems.find((i) => i.ticker === strategyTicker) ?? null,
+    [attentionItems, strategyTicker]
+  );
 
   useEffect(() => {
     if (editingTicker && portfolio) {
@@ -434,7 +528,7 @@ export function Portfolio() {
   if (isLoading) {
     return (
       <>
-        <TopBar title={t("portfolio", language)} />
+        <TopBar title={t("todayTitle", language)} />
         <div className="flex items-center justify-center h-48">
           <Spinner size="lg" />
         </div>
@@ -445,7 +539,7 @@ export function Portfolio() {
   if (error) {
     return (
       <>
-        <TopBar title={t("portfolio", language)} />
+        <TopBar title={t("todayTitle", language)} />
         <ErrorState message={t("errorLoadPortfolio", language)} onRetry={refetch} />
       </>
     );
@@ -454,7 +548,7 @@ export function Portfolio() {
   if (!portfolio) {
     return (
       <>
-        <TopBar title={t("portfolio", language)} />
+        <TopBar title={t("todayTitle", language)} />
         <EmptyState message={t("emptyPortfolio", language)} icon="📭" />
       </>
     );
@@ -463,14 +557,39 @@ export function Portfolio() {
   return (
     <>
       <TopBar
-        title={t("portfolio", language)}
+        title={t("todayTitle", language)}
         subtitle={formatILS(portfolio.totalILS ?? null)}
         greeting={getGreeting(onboardStatus?.displayName, language)}
         onRefresh={refetch}
         refreshing={isFetching}
       />
 
-      {activeJobs.length > 0 && (
+      {/* Today state block — exactly one of: Setup | Attention | Health */}
+      {isBootstrapping ? (
+        <SetupBanner
+          analyzed={bootstrapProgress.analyzed}
+          total={bootstrapProgress.total}
+          inProgressTickers={bootstrapProgress.inProgress}
+          telegramConnected={telegramConnected}
+        />
+      ) : attentionItems.length > 0 ? (
+        <AttentionBlock
+          items={attentionItems}
+          clearCount={clearPositions.length}
+          onCardClick={(ticker) => setStrategyTicker(ticker)}
+        />
+      ) : portfolioHealth ? (
+        <HealthHero
+          score={portfolioHealth.score}
+          label={portfolioHealth.label}
+          clearCount={clearPositions.length}
+          totalCount={portfolio?.positions.length ?? 0}
+          lastReviewedAt={verdictsData?.updatedAt ?? null}
+        />
+      ) : null}
+
+      {/* Active-jobs banner — hidden during BOOTSTRAPPING (SetupBanner already shows progress) */}
+      {!isBootstrapping && activeJobs.length > 0 && (
         <div className="mx-4 mt-3 mb-1">
           <div className="flex items-center gap-2 text-xs text-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/10 border border-[var(--color-accent-blue)]/30 rounded-lg px-3 py-2">
             <span className="animate-spin">🔄</span>
@@ -511,6 +630,74 @@ export function Portfolio() {
           </button>
         </div>
       </div>
+
+      {/*
+        Unified clear-positions list — renders whenever there's at least one clear position,
+        even during partial bootstrap (strategies arrive live as deep dives complete).
+        Sorted worst-score-first within clear, then by weight descending.
+      */}
+      {clearPositions.length > 0 && (
+        <div className="px-4 pt-3 pb-1">
+          <div className="md:hidden space-y-2">
+            {clearPositions.map((position) => (
+              <PositionRow
+                key={`unified:${position.ticker}`}
+                position={position}
+                verdict={verdictMap[position.ticker]}
+                hasAlert={false}
+                isChecking={activeTickerChecks.has(position.ticker)}
+                jobType={tickerJobType.get(position.ticker)}
+                score={position._score}
+                factoid={position._factoid}
+                onQuickCheck={() => handleQuickCheck(position.ticker)}
+                onClick={() => handlePositionClick(position)}
+              />
+            ))}
+          </div>
+          <div className="hidden md:block">
+            <Card className="overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-[var(--color-border)]">
+                    {[
+                      t("colTicker", language),
+                      t("colLivePrice", language),
+                      t("colDayPct", language),
+                      t("colValue", language),
+                      t("colPlPct", language),
+                      t("colPl", language),
+                      t("colWeight", language),
+                      t("colVerdict", language),
+                    ].map((header) => (
+                      <th
+                        key={`unified:${header}`}
+                        className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {clearPositions.map((position) => (
+                    <PositionRow
+                      key={`unified:${position.ticker}`}
+                      position={position}
+                      verdict={verdictMap[position.ticker]}
+                      hasAlert={false}
+                      isChecking={activeTickerChecks.has(position.ticker)}
+                      jobType={tickerJobType.get(position.ticker)}
+                      score={position._score}
+                      factoid={position._factoid}
+                      onClick={() => handlePositionClick(position)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 pt-2 pb-6 space-y-3">
         {accountSummaries.map((account) => {
@@ -696,6 +883,15 @@ export function Portfolio() {
         onClose={() => setAccountManagerOpen(false)}
         onCreate={handleCreateAccount}
         onDelete={handleDeleteAccount}
+      />
+
+      {/* Attention drill-down — opens when an AttentionCard is tapped.
+          Carries the AttentionItem so the StrategyModal can render the
+          'Why this fired today' pinned strip without re-classifying. */}
+      <StrategyModal
+        ticker={strategyTicker}
+        attentionItem={strategyAttentionItem}
+        onClose={() => setStrategyTicker(null)}
       />
     </>
   );
