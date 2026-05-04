@@ -78,8 +78,10 @@ export function portfolioHealthScore(
 }
 
 export function labelFromScore(score: number): HealthLabel {
-  if (score >= 85) return "healthy";
-  if (score >= 70) return "steady";
+  // Aligned with scoreLevel() in scoreColor.ts — single source of truth for thresholds.
+  // 65+ green/healthy, 45+ amber/steady, <45 red/watch.
+  if (score >= 65) return "healthy";
+  if (score >= 45) return "steady";
   return "watch";
 }
 
