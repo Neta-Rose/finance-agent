@@ -3,29 +3,84 @@
 
 @layer base {
   :root {
-    --color-bg-base: #0d1117;
-    --color-bg-subtle: #161b22;
-    --color-bg-muted: #21262d;
-    --color-border: #30363d;
-    --color-border-muted: #21262d;
-    --color-fg-default: #e6edf3;
-    --color-fg-muted: #8b949e;
-    --color-fg-subtle: #6e7681;
-    --color-accent-green: #3fb950;
-    --color-accent-yellow: #d29922;
-    --color-accent-red: #f85149;
-    --color-accent-blue: #58a6ff;
-    --color-accent-purple: #a371f7;
-    --color-accent-orange: #f97316;
+    /* ============================================================
+       Design pivot tokens (rebalancer.shop spec) — source of truth.
+       Every component imports these. Never hardcode hex outside this file.
+       ============================================================ */
+
+    /* backgrounds */
+    --bg-base: #111111;
+    --bg-surface: rgba(255, 255, 255, 0.04);
+    --bg-surface-hover: rgba(255, 255, 255, 0.07);
+    --bg-border: rgba(255, 255, 255, 0.06);
+    --bg-border-mid: rgba(255, 255, 255, 0.10);
+
+    /* semantic accents — only colors in the app */
+    --color-green: #42C97A;
+    --color-green-bg: rgba(66, 201, 122, 0.10);
+    --color-green-border: rgba(66, 201, 122, 0.20);
+
+    --color-amber: #E0A030;
+    --color-amber-bg: rgba(224, 160, 48, 0.10);
+    --color-amber-border: rgba(224, 160, 48, 0.22);
+
+    --color-red: #E25050;
+    --color-red-bg: rgba(226, 80, 80, 0.10);
+    --color-red-border: rgba(226, 80, 80, 0.22);
+
+    /* text */
+    --text-primary: #FFFFFF;
+    --text-secondary: rgba(255, 255, 255, 0.45);
+    --text-tertiary: rgba(255, 255, 255, 0.25);
+    --text-ghost: rgba(255, 255, 255, 0.12);
+
+    /* radii */
+    --radius-sm: 7px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-pill: 999px;
+
+    /* type scale */
+    --text-hero: 56px;    /* score on detail screen */
+    --text-xl: 26px;      /* portfolio value */
+    --text-lg: 18px;      /* section values */
+    --text-md: 14px;      /* body / holdings */
+    --text-sm: 12px;      /* supporting text */
+    --text-xs: 10px;      /* labels, metadata */
+    --text-2xs: 9px;      /* badges, caps */
+
+    /* weight — two only */
+    --weight-regular: 400;
+    --weight-bold: 700;
+
+    /* ============================================================
+       Legacy tokens — kept during incremental migration.
+       Map to new tokens where reasonable; existing components still reference these.
+       ============================================================ */
+    --color-bg-base: var(--bg-base);
+    --color-bg-subtle: var(--bg-surface);
+    --color-bg-muted: var(--bg-surface-hover);
+    --color-border: var(--bg-border);
+    --color-border-muted: var(--bg-border);
+    --color-fg-default: var(--text-primary);
+    --color-fg-muted: var(--text-secondary);
+    --color-fg-subtle: var(--text-tertiary);
+    --color-accent-green: var(--color-green);
+    --color-accent-yellow: var(--color-amber);
+    --color-accent-red: var(--color-red);
+    --color-accent-blue: var(--color-green);     /* blue retired — re-route to green for any stragglers */
+    --color-accent-purple: var(--color-green);   /* purple retired */
+    --color-accent-orange: var(--color-amber);   /* orange retired */
     color-scheme: dark;
   }
 
   * { -webkit-tap-highlight-color: transparent; }
 
   body {
-    background-color: #0d1117;
-    color: #e6edf3;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: var(--weight-regular);
     -webkit-font-smoothing: antialiased;
     overscroll-behavior: none;
   }

@@ -11,48 +11,32 @@ interface PreferencesState {
   setLanguage: (language: Language) => void;
 }
 
-const THEME_CSS: Record<Theme, Record<string, string>> = {
-  dark: {
-    "--color-bg-base": "#0d1117",
-    "--color-bg-subtle": "#161b22",
-    "--color-bg-muted": "#21262d",
-    "--color-border": "#30363d",
-    "--color-border-muted": "#21262d",
-    "--color-fg-default": "#e6edf3",
-    "--color-fg-muted": "#8b949e",
-    "--color-fg-subtle": "#6e7681",
-    colorScheme: "dark",
-  },
-  middle: {
-    "--color-bg-base": "#0d1421",
-    "--color-bg-subtle": "#111929",
-    "--color-bg-muted": "#1a2235",
-    "--color-border": "#263047",
-    "--color-border-muted": "#1a2235",
-    "--color-fg-default": "#e8edf5",
-    "--color-fg-muted": "#8fa3c0",
-    "--color-fg-subtle": "#5d7a9a",
-    colorScheme: "dark",
-  },
-  bright: {
-    "--color-bg-base": "#ffffff",
-    "--color-bg-subtle": "#f6f8fa",
-    "--color-bg-muted": "#eaeef2",
-    "--color-border": "#d0d7de",
-    "--color-border-muted": "#eaeef2",
-    "--color-fg-default": "#1f2328",
-    "--color-fg-muted": "#656d76",
-    "--color-fg-subtle": "#8b949e",
-    colorScheme: "light",
-  },
+/**
+ * Theme handling — design pivot v2 collapses the previous dark/middle/bright
+ * variants into a single dark palette defined in index.css :root. The picker
+ * is preserved for future light mode reintroduction; for now all 3 values
+ * resolve to the same look. data-theme attribute stays for [data-theme]
+ * selector hooks if needed later.
+ */
+const THEME_COLOR_SCHEME: Record<Theme, "dark" | "light"> = {
+  dark: "dark",
+  middle: "dark",
+  bright: "dark",
 };
 
 function applyTheme(theme: Theme) {
-  const vars = THEME_CSS[theme];
   const root = document.documentElement;
-  for (const [key, value] of Object.entries(vars)) {
-    root.style.setProperty(key, value);
+  // Clear any legacy inline overrides written by previous versions of the app
+  // so the :root tokens in index.css are the single source of truth.
+  const LEGACY_VARS = [
+    "--color-bg-base", "--color-bg-subtle", "--color-bg-muted",
+    "--color-border", "--color-border-muted",
+    "--color-fg-default", "--color-fg-muted", "--color-fg-subtle",
+  ];
+  for (const name of LEGACY_VARS) {
+    root.style.removeProperty(name);
   }
+  root.style.colorScheme = THEME_COLOR_SCHEME[theme];
   root.setAttribute("data-theme", theme);
 }
 
@@ -91,7 +75,7 @@ if (typeof document !== "undefined") {
     try {
       const parsed = JSON.parse(stored);
       const theme = parsed?.state?.theme as Theme | undefined;
-      if (theme && THEME_CSS[theme]) applyTheme(theme);
+      if (theme && THEME_COLOR_SCHEME[theme]) applyTheme(theme);
     } catch { /* ignore */ }
   }
 }
