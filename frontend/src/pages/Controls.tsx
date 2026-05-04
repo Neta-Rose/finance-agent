@@ -88,7 +88,7 @@ function ActionCard({
       <button
         onClick={handleTrigger}
         disabled={blocked || loading || (tickerRequired && !tickerSelection)}
-        className={`w-full py-2 rounded-lg text-xs font-semibold disabled:opacity-50 mt-1 ${
+        className={`w-full py-2 rounded-lg text-xs font-bold disabled:opacity-50 mt-1 ${
           blocked
             ? "border border-[var(--color-border)] bg-[var(--color-bg-muted)] text-[var(--color-fg-subtle)]"
             : "bg-[var(--color-accent-blue)] text-white"
@@ -191,7 +191,7 @@ export function Controls() {
         {/* Active jobs */}
         {activeJobs.length > 0 && (
           <div className="mt-5 space-y-2">
-            <h2 className="text-xs font-semibold text-[var(--color-fg-default)] uppercase border-l-2 border-[var(--color-accent-blue)] pl-2">
+            <h2 className="text-xs font-bold text-[var(--color-fg-default)] uppercase border-l-2 border-[var(--color-accent-blue)] pl-2">
               {t("activeJobs", language)} ({activeJobs.length})
             </h2>
             {activeJobs.map((job) => (
@@ -206,7 +206,7 @@ export function Controls() {
 
         {/* Job history */}
         <div className="mt-6">
-          <h2 className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-3">
+          <h2 className="text-xs font-bold text-[var(--color-fg-subtle)] uppercase mb-3">
             {t("recentJobs", language)}
           </h2>
 

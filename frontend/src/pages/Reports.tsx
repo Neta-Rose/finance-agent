@@ -219,7 +219,7 @@ function Stat({ label, value, sub }: { label: string; value: React.ReactNode; su
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wide text-[var(--color-fg-subtle)]">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold text-[var(--color-fg-default)]">{value}</p>
+      <p className="mt-0.5 text-sm font-bold text-[var(--color-fg-default)]">{value}</p>
       {sub ? <p className="text-[11px] text-[var(--color-fg-muted)]">{sub}</p> : null}
     </div>
   );
@@ -283,7 +283,7 @@ function ActiveJobCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="text-[var(--color-fg-subtle)]">{meta.icon}</span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
               {meta.label}
             </span>
             <span className="rounded-full bg-[var(--color-bg-muted)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--color-fg-subtle)]">
@@ -291,7 +291,7 @@ function ActiveJobCard({
             </span>
           </div>
 
-          <p className="mt-2 text-sm font-semibold text-[var(--color-fg-default)]">
+          <p className="mt-2 text-sm font-bold text-[var(--color-fg-default)]">
             {prog?.currentTicker
               ? `Analyzing ${prog.currentTicker}`
               : job.ticker
@@ -360,7 +360,7 @@ function ActiveJobCard({
               type="button"
               onClick={() => onResume(job)}
               disabled={busy}
-              className="rounded-md bg-[var(--color-accent-blue)] px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+              className="rounded-md bg-[var(--color-accent-blue)] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
             >
               Resume
             </button>
@@ -369,7 +369,7 @@ function ActiveJobCard({
             type="button"
             onClick={() => onCancel(job)}
             disabled={busy}
-            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-fg-muted)] disabled:opacity-50"
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-bold text-[var(--color-fg-muted)] disabled:opacity-50"
           >
             Cancel
           </button>
@@ -403,19 +403,19 @@ function FundamentalsSection({ content: c }: { content: Rec }) {
       {earnings ? (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-[var(--color-fg-default)]">Earnings</p>
+            <p className="text-xs font-bold text-[var(--color-fg-default)]">Earnings</p>
             {result ? <span className={`text-xs font-bold ${resultColor}`}>{result.replace("_", " ")}</span> : null}
           </div>
           <div className="mt-2 grid grid-cols-2 gap-3 text-[11px]">
             <div>
               <p className="text-[var(--color-fg-subtle)]">EPS actual / expected</p>
-              <p className="mt-0.5 font-semibold text-[var(--color-fg-default)]">
+              <p className="mt-0.5 font-bold text-[var(--color-fg-default)]">
                 ${earnings.epsActual as number} / ${earnings.epsExpected as number}
               </p>
             </div>
             <div>
               <p className="text-[var(--color-fg-subtle)]">Revenue actual / expected</p>
-              <p className="mt-0.5 font-semibold text-[var(--color-fg-default)]">
+              <p className="mt-0.5 font-bold text-[var(--color-fg-default)]">
                 ${earnings.revenueActualM as number}M / ${earnings.revenueExpectedM as number}M
               </p>
             </div>
@@ -452,7 +452,7 @@ function FundamentalsSection({ content: c }: { content: Rec }) {
 
       {valuation ? (
         <div>
-          <p className="mb-2 text-xs font-semibold text-[var(--color-fg-default)]">Valuation</p>
+          <p className="mb-2 text-xs font-bold text-[var(--color-fg-default)]">Valuation</p>
           <div className="flex flex-wrap gap-2 text-[11px]">
             <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-2.5 py-1">
               P/E <span className="font-bold text-[var(--color-fg-default)]">{valuation.pe as number}x</span>
@@ -478,7 +478,7 @@ function FundamentalsSection({ content: c }: { content: Rec }) {
       {consensus && total > 0 ? (
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-xs font-semibold text-[var(--color-fg-default)]">Analyst consensus</p>
+            <p className="text-xs font-bold text-[var(--color-fg-default)]">Analyst consensus</p>
             {consensus.avgTargetPrice ? (
               <p className="text-[11px] text-[var(--color-fg-muted)]">
                 Target {(consensus.currency as string | undefined) ?? "$"}{consensus.avgTargetPrice as number}
@@ -544,7 +544,7 @@ function TechnicalSection({ content: c }: { content: Rec }) {
     <div className="space-y-5">
       {price ? (
         <div>
-          <p className="mb-2 text-xs font-semibold text-[var(--color-fg-default)]">52-week range</p>
+          <p className="mb-2 text-xs font-bold text-[var(--color-fg-default)]">52-week range</p>
           <div className="flex items-center gap-2 text-[11px] text-[var(--color-fg-subtle)]">
             <span>${price.week52Low as number}</span>
             <div className="relative h-1.5 flex-1 rounded-full bg-[var(--color-bg-muted)]">
@@ -624,7 +624,7 @@ function SentimentSection({ content: c }: { content: Rec }) {
     <div className="space-y-5">
       {actions && actions.length > 0 ? (
         <div>
-          <p className="mb-2 text-xs font-semibold text-[var(--color-fg-default)]">Analyst actions</p>
+          <p className="mb-2 text-xs font-bold text-[var(--color-fg-default)]">Analyst actions</p>
           <div className="space-y-2">
             {actions.slice(0, 5).map((a, i) => (
               <div key={i} className="flex items-center gap-2 text-[11px]">
@@ -651,7 +651,7 @@ function SentimentSection({ content: c }: { content: Rec }) {
 
       {insiders && insiders.length > 0 ? (
         <div>
-          <p className="mb-2 text-xs font-semibold text-[var(--color-fg-default)]">Insider transactions</p>
+          <p className="mb-2 text-xs font-bold text-[var(--color-fg-default)]">Insider transactions</p>
           <div className="space-y-1.5">
             {insiders.slice(0, 4).map((tx, i) => (
               <div key={i} className="text-[11px]">
@@ -671,7 +671,7 @@ function SentimentSection({ content: c }: { content: Rec }) {
 
       {news && news.length > 0 ? (
         <div>
-          <p className="mb-2 text-xs font-semibold text-[var(--color-fg-default)]">Recent news</p>
+          <p className="mb-2 text-xs font-bold text-[var(--color-fg-default)]">Recent news</p>
           <div className="space-y-2">
             {news.slice(0, 3).map((n, i) => (
               <div key={i} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
@@ -893,7 +893,7 @@ function QuickCheckSection({ content: c }: { content: Rec }) {
 
       {signals && signals.length > 0 ? (
         <div>
-          <p className="mb-2 text-xs font-semibold text-[var(--color-fg-default)]">Signals</p>
+          <p className="mb-2 text-xs font-bold text-[var(--color-fg-default)]">Signals</p>
           <div className="flex flex-wrap gap-1.5">
             {signals.map((s) => (
               <span
@@ -909,7 +909,7 @@ function QuickCheckSection({ content: c }: { content: Rec }) {
 
       {stratHealth && stratHealth.length > 0 ? (
         <div>
-          <p className="mb-1.5 text-xs font-semibold text-[var(--color-fg-default)]">Strategy health</p>
+          <p className="mb-1.5 text-xs font-bold text-[var(--color-fg-default)]">Strategy health</p>
           <div className="space-y-1">
             {stratHealth.map((s) => (
               <p key={s} className="text-[11px] text-[var(--color-fg-muted)]">· {s}</p>
@@ -943,7 +943,7 @@ function StrategySection({ content: c }: { content: Rec }) {
 
       {catalysts && catalysts.length > 0 ? (
         <div>
-          <p className="mb-2 text-xs font-semibold text-[var(--color-fg-default)]">Catalysts</p>
+          <p className="mb-2 text-xs font-bold text-[var(--color-fg-default)]">Catalysts</p>
           <div className="space-y-2">
             {catalysts.map((cat, i) => {
               const expired = cat.expiresAt && new Date(cat.expiresAt) < new Date() && !cat.triggered;
@@ -990,7 +990,7 @@ function StrategySection({ content: c }: { content: Rec }) {
 
       {entryConditions && entryConditions.length > 0 ? (
         <div>
-          <p className="mb-1.5 text-xs font-semibold text-[var(--color-fg-default)]">Entry conditions</p>
+          <p className="mb-1.5 text-xs font-bold text-[var(--color-fg-default)]">Entry conditions</p>
           <div className="space-y-1">
             {entryConditions.map((cond, i) => (
               <p key={i} className="text-[11px] text-[var(--color-fg-muted)]">· {cond}</p>
@@ -1001,7 +1001,7 @@ function StrategySection({ content: c }: { content: Rec }) {
 
       {exitConditions && exitConditions.length > 0 ? (
         <div>
-          <p className="mb-1.5 text-xs font-semibold text-[var(--color-fg-default)]">Exit conditions</p>
+          <p className="mb-1.5 text-xs font-bold text-[var(--color-fg-default)]">Exit conditions</p>
           <div className="space-y-1">
             {exitConditions.map((cond, i) => (
               <p key={i} className="text-[11px] text-[var(--color-fg-muted)]">· {cond}</p>
@@ -1178,7 +1178,7 @@ function ReportCard({
         <div className="p-4">
           {/* Mode + date row */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
               <span>{meta.icon}</span>
               <span>{meta.label}</span>
               {item.tickerCount > 1 ? (
@@ -1198,7 +1198,7 @@ function ReportCard({
             <div className="mt-3">
               <div className="mb-2 flex items-center gap-1.5">
                 <AlertTriangle size={11} className="text-yellow-400" />
-                <span className="text-[11px] font-semibold text-yellow-400">
+                <span className="text-[11px] font-bold text-yellow-400">
                   {escalated.length} position{escalated.length !== 1 ? "s" : ""} flagged
                 </span>
               </div>
@@ -1238,7 +1238,7 @@ function ReportCard({
             <div className="mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Tracked idea</p>
               <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--color-fg-muted)]">
-                {trackingEntry.stance ? <span className="font-semibold text-[var(--color-fg-default)]">{trackingEntry.stance}</span> : null}
+                {trackingEntry.stance ? <span className="font-bold text-[var(--color-fg-default)]">{trackingEntry.stance}</span> : null}
                 {typeof trackingEntry.potentialScore === "number" ? <span>{trackingEntry.potentialScore}/100 potential</span> : null}
                 {typeof trackingEntry.urgencyScore === "number" ? <span>{trackingEntry.urgencyScore}/100 urgency</span> : null}
                 {typeof trackingEntry.suggestedAllocationPct === "number" ? (
@@ -1285,7 +1285,7 @@ function ReportCard({
               <div className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-base)] p-4">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">What happened today</p>
-                  {item.dailyBrief.headline ? <p className="mt-2 text-sm font-semibold text-[var(--color-fg-default)]">{item.dailyBrief.headline}</p> : null}
+                  {item.dailyBrief.headline ? <p className="mt-2 text-sm font-bold text-[var(--color-fg-default)]">{item.dailyBrief.headline}</p> : null}
                   {item.dailyBrief.today ? <p className="mt-2 text-sm leading-6 text-[var(--color-fg-muted)]">{item.dailyBrief.today}</p> : null}
                 </div>
                 {portfolioMovers.length > 0 ? (
@@ -1295,7 +1295,7 @@ function ReportCard({
                       {portfolioMovers.map((entry) => (
                         <div key={entry.ticker} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</span>
+                            <span className="text-sm font-bold text-[var(--color-fg-default)]">{entry.ticker}</span>
                             <span className={`text-xs font-bold ${(entry.dayChangePct ?? 0) >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
                               {(entry.dayChangePct ?? 0) > 0 ? "+" : ""}{entry.dayChangePct ?? 0}%
                             </span>
@@ -1313,7 +1313,7 @@ function ReportCard({
                       {trackingDailyEntries.map((entry) => (
                         <div key={entry.ticker} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
+                            <p className="text-sm font-bold text-[var(--color-fg-default)]">{entry.ticker}</p>
                             {entry.stance ? <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--color-fg-subtle)]">{entry.stance}</span> : null}
                           </div>
                           <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
@@ -1335,7 +1335,7 @@ function ReportCard({
                     <div className="mt-2 space-y-2">
                       {trackingActionEntries.map((entry) => (
                         <div key={entry.ticker} className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
-                          <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
+                          <p className="text-sm font-bold text-[var(--color-fg-default)]">{entry.ticker}</p>
                           <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
                             {entry.deepDiveQueueReason ?? entry.reasoning}
                           </p>
@@ -1350,7 +1350,7 @@ function ReportCard({
                     <div className="mt-2 space-y-2">
                       {queuedDailyEntries.map((entry) => (
                         <div key={entry.ticker} className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2">
-                          <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
+                          <p className="text-sm font-bold text-[var(--color-fg-default)]">{entry.ticker}</p>
                           <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
                             {entry.reasoning}. {entry.deepDiveQueueReason ?? "Deep dive was queued by this daily brief."}
                           </p>
@@ -1365,7 +1365,7 @@ function ReportCard({
                     <div className="mt-2 space-y-2">
                       {attentionDailyEntries.map((entry) => (
                         <div key={entry.ticker} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
-                          <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.ticker}</p>
+                          <p className="text-sm font-bold text-[var(--color-fg-default)]">{entry.ticker}</p>
                           <p className="mt-1 text-xs leading-5 text-[var(--color-fg-muted)]">
                             {entry.reasoning}. {entry.deepDiveQueueReason ?? "Flagged for attention; no deep dive queue confirmation is attached to this daily brief."}
                           </p>
@@ -1613,7 +1613,7 @@ export function Reports() {
                   setFilter(f.id);
                   setPage(1);
                 }}
-                className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
                   filter === f.id
                     ? "bg-[var(--color-accent-blue)] text-white"
                     : "bg-[var(--color-bg-muted)] text-[var(--color-fg-muted)] border border-[var(--color-border)]"

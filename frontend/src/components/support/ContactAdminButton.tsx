@@ -66,7 +66,7 @@ export function ContactAdminButton({
         className={
           variant === "icon"
             ? `inline-flex items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-2 text-[var(--color-fg-muted)] active:bg-[var(--color-bg-base)] ${className}`.trim()
-            : `inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2 text-xs font-semibold text-[var(--color-fg-default)] active:bg-[var(--color-bg-base)] ${className}`.trim()
+            : `inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2 text-xs font-bold text-[var(--color-fg-default)] active:bg-[var(--color-bg-base)] ${className}`.trim()
         }
         aria-label={computedLabel}
       >
@@ -94,7 +94,7 @@ export function ContactAdminButton({
 
             <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
               <div>
-                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)]">
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">
                   {t("contactAdminSubject", language)}
                 </label>
                 <input
@@ -107,7 +107,7 @@ export function ContactAdminButton({
               </div>
 
               <div>
-                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)]">
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">
                   {t("contactAdminMessage", language)}
                 </label>
                 <textarea
@@ -127,7 +127,7 @@ export function ContactAdminButton({
               <button
                 type="button"
                 onClick={resetAndClose}
-                className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-fg-muted)]"
+                className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-xs font-bold text-[var(--color-fg-muted)]"
               >
                 {t("cancel", language)}
               </button>
@@ -135,7 +135,7 @@ export function ContactAdminButton({
                 type="button"
                 onClick={handleSubmit}
                 disabled={!subject.trim() || !message.trim() || submitting}
-                className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-[var(--color-accent-blue)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-[var(--color-accent-blue)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
               >
                 {isHebrew ? (submitting ? t("sending", language) : t("sendMessage", language)) : <Send size={13} />}
                 {isHebrew ? null : (submitting ? t("sending", language) : t("sendMessage", language))}

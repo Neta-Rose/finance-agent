@@ -143,10 +143,10 @@ function BottomBar({ onBack, onNext, nextLabel, nextDisabled = false, showBack =
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border)] p-4 flex gap-3 safe-bottom z-30">
       {showBack ? (
-        <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">{t("back", language)}</button>
+        <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-bold text-[var(--color-fg-muted)]">{t("back", language)}</button>
       ) : <div className="flex-1" />}
       <button onClick={onNext} disabled={nextDisabled}
-        className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50">
+        className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-bold disabled:opacity-50">
         {nextLabel ?? t("next", language)}
       </button>
     </div>
@@ -393,9 +393,9 @@ function Step3({ state, update, onBack, onNext }: { state: OnboardingState; upda
         <FieldError message={error} />
       </div>
       <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border)] p-4 flex gap-3 safe-bottom z-30">
-        {onBack && <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">{t("back", language)}</button>}
-        <button onClick={handleSkip} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">{t("onboardSkip", language)}</button>
-        <button onClick={handleConnect} disabled={loading} className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50">
+        {onBack && <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-bold text-[var(--color-fg-muted)]">{t("back", language)}</button>}
+        <button onClick={handleSkip} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-bold text-[var(--color-fg-muted)]">{t("onboardSkip", language)}</button>
+        <button onClick={handleConnect} disabled={loading} className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-bold disabled:opacity-50">
           {loading ? t("onboardConnecting", language) : t("onboardConnect", language)}
         </button>
       </div>
@@ -519,7 +519,7 @@ function AccountSection({
               autoFocus
             />
           ) : (
-            <span className="text-sm font-semibold text-[var(--color-fg-default)] truncate">{account.name}</span>
+            <span className="text-sm font-bold text-[var(--color-fg-default)] truncate">{account.name}</span>
           )}
           <span className="text-[10px] text-[var(--color-fg-subtle)] bg-[var(--color-bg-base)] px-1.5 py-0.5 rounded">
             {posCount} {posLabel}
@@ -641,7 +641,7 @@ function Step5({ state }: { state: OnboardingState }) {
           {state.userId && (
             <div>
               <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewAccount", language)}</p>
-              <p className="text-sm font-semibold text-[var(--color-fg-default)]">{state.displayName || state.userId}</p>
+              <p className="text-sm font-bold text-[var(--color-fg-default)]">{state.displayName || state.userId}</p>
               {state.userId && <p className="text-xs text-[var(--color-fg-muted)]">@{state.userId}</p>}
             </div>
           )}
@@ -825,13 +825,13 @@ function Step6({
         ))}
       </div>
       <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border)] p-4 flex gap-3 safe-bottom z-30">
-        <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)]">
+        <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-bold text-[var(--color-fg-muted)]">
           {t("back", language)}
         </button>
-        <button onClick={onSkip} disabled={submitting} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-semibold text-[var(--color-fg-muted)] disabled:opacity-50">
+        <button onClick={onSkip} disabled={submitting} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-bold text-[var(--color-fg-muted)] disabled:opacity-50">
           {t("onboardSkip", language)}
         </button>
-        <button onClick={onLaunch} disabled={submitting} className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50">
+        <button onClick={onLaunch} disabled={submitting} className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-bold disabled:opacity-50">
           {submitting ? t("onboardLaunching", language) : t("onboardLaunchBtn", language)}
         </button>
       </div>

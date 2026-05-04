@@ -41,7 +41,7 @@ export function SuspensionPage({ reason }: { reason: string }) {
       {/* Logout */}
       <button
         onClick={logout}
-        className="px-6 py-2.5 rounded-lg text-sm font-semibold"
+        className="px-6 py-2.5 rounded-lg text-sm font-bold"
         style={{
           background: "rgba(239,68,68,0.12)",
           border: "1px solid rgba(239,68,68,0.30)",

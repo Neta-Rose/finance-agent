@@ -10,7 +10,7 @@ import { ScoreBar } from "../design/HeroStatCard";
 import { useToastStore } from "../../store/toastStore";
 import { usePreferencesStore } from "../../store/preferencesStore";
 import { t, tConfidence } from "../../store/i18n";
-import { timeAgo, formatPct } from "../../utils/format";
+import { timeAgo } from "../../utils/format";
 import { whyToday } from "../../utils/today/whyToday";
 import { snippet } from "../../utils/today/classifyAttention";
 import { scoreColor } from "../../utils/today/scoreColor";
@@ -571,5 +571,3 @@ function twoSentences(text: string | null | undefined): string {
   return joined.slice(0, 280).replace(/\s+\S*$/, "") + "…";
 }
 
-/* Used for sign-bug fix in callers that previously did `+${formatPct(...)}` */
-export const __SIGN_FIX_NOTE = formatPct;

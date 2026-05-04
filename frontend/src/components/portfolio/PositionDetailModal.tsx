@@ -210,7 +210,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setEditMode(!editMode)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                   editMode
                     ? "bg-[var(--color-accent-blue)] text-white"
                     : "bg-[var(--color-bg-muted)] text-[var(--color-fg-muted)] border border-[var(--color-border)]"
@@ -232,7 +232,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
               </p>
               <div className="flex items-center gap-2 mt-1.5">
                 {hasDayChange ? (
-                  <span className={`inline-flex items-center gap-1 text-sm font-semibold tabular-nums ${dayClass}`}>
+                  <span className={`inline-flex items-center gap-1 text-sm font-bold tabular-nums ${dayClass}`}>
                     {dayPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
                     {dayPositive ? "+" : ""}{dayChangePct.toFixed(2)}%
                     <span className="font-normal text-xs opacity-75">({dayPositive ? "+" : ""}{formatILS(Math.abs(dayChangeILS))})</span>
@@ -248,8 +248,8 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
             </div>
             <div className="text-right">
               <p className="text-base font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.currentILS)}</p>
-              <p className={`text-sm font-semibold tabular-nums ${plClass}`}>
-                {plPositive ? "+" : ""}{formatPct(position.plPct)}
+              <p className={`text-sm font-bold tabular-nums ${plClass}`}>
+                {formatPct(position.plPct)}
                 <span className="font-normal text-xs ml-1 opacity-75">({plPositive ? "+" : ""}{formatILS(position.plILS)})</span>
               </p>
               <p className="text-[10px] text-[var(--color-fg-subtle)] mt-0.5">{position.weightPct.toFixed(1)}% weight</p>
@@ -300,15 +300,15 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-xl p-3">
                 <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("currentValue", language)}</p>
-                <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.currentILS)}</p>
+                <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.currentILS)}</p>
               </div>
               <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-xl p-3">
                 <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("costBasis", language)}</p>
-                <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.costILS)}</p>
+                <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.costILS)}</p>
               </div>
               <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-xl p-3">
                 <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("weight", language)}</p>
-                <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{position.weightPct.toFixed(1)}%</p>
+                <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{position.weightPct.toFixed(1)}%</p>
               </div>
             </div>
           </div>
@@ -321,7 +321,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
                 {editMode && !hasMultipleAccounts ? (
                   <input type="number" value={editShares} onChange={(e) => setEditShares(e.target.value)} className={inputCls} min="1" />
                 ) : (
-                  <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{position.shares.toLocaleString()}</p>
+                  <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{position.shares.toLocaleString()}</p>
                 )}
               </div>
               <div>
@@ -329,7 +329,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
                 {editMode && !hasMultipleAccounts ? (
                   <input type="number" value={editAvgPrice} onChange={(e) => setEditAvgPrice(e.target.value)} className={inputCls} min="0.01" step="0.01" />
                 ) : (
-                  <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.avgPriceILS)}</p>
+                  <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.avgPriceILS)}</p>
                 )}
               </div>
             </div>
@@ -338,14 +338,14 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
           {/* Multi-account breakdown */}
           {hasMultipleAccounts && (
             <div className="px-4 py-3 border-b border-[var(--color-border)] space-y-2">
-              <p className="text-[11px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider">
+              <p className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
                 {t("accounts", language)}
               </p>
               {position.accountBreakdown.map((entry) => (
                 <div key={entry.account} className="grid grid-cols-3 gap-2 items-end">
                   <div>
                     <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Account</p>
-                    <p className="text-sm font-semibold text-[var(--color-fg-default)]">{entry.account}</p>
+                    <p className="text-sm font-bold text-[var(--color-fg-default)]">{entry.account}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("shares", language)}</p>
@@ -358,7 +358,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
                         min="0"
                       />
                     ) : (
-                      <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{entry.shares.toLocaleString()}</p>
+                      <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{entry.shares.toLocaleString()}</p>
                     )}
                   </div>
                   <div>
@@ -373,7 +373,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
                         step="0.01"
                       />
                     ) : (
-                      <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{formatILS(entry.avgPriceILS)}</p>
+                      <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(entry.avgPriceILS)}</p>
                     )}
                   </div>
                 </div>
@@ -387,7 +387,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
               <button
                 onClick={handleSaveEdit}
                 disabled={saving}
-                className="w-full py-2.5 rounded-xl bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50"
+                className="w-full py-2.5 rounded-xl bg-[var(--color-accent-blue)] text-white text-sm font-bold disabled:opacity-50"
               >
                 {saving ? t("saving", language) : t("saveChanges", language)}
               </button>
@@ -399,7 +399,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
                     try { await onDeletePosition(position); } finally { setDeleting(false); }
                   }}
                   disabled={deleting}
-                  className="w-full py-2.5 rounded-xl border border-[color-mix(in_srgb,var(--color-accent-red)_40%,transparent)] text-[var(--color-accent-red)] text-sm font-semibold disabled:opacity-50"
+                  className="w-full py-2.5 rounded-xl border border-[color-mix(in_srgb,var(--color-accent-red)_40%,transparent)] text-[var(--color-accent-red)] text-sm font-bold disabled:opacity-50"
                 >
                   {deleting ? "Removing..." : "Remove Position"}
                 </button>
@@ -410,7 +410,7 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
           {/* Strategy verdict */}
           {verdict && (
             <div className="px-4 py-3 border-b border-[var(--color-border)]">
-              <p className="text-[11px] font-semibold text-[var(--color-fg-muted)] uppercase tracking-wider mb-2">{t("reasoning", language)}</p>
+              <p className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider mb-2">{t("reasoning", language)}</p>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <VerdictBadge verdict={verdict.verdict} />
                 <ConfidenceBadge confidence={verdict.confidence} size="md" />

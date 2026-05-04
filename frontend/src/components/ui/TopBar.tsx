@@ -68,10 +68,10 @@ export function TopBar({
  background: balance.exhausted ? "rgba(239,68,68,0.08)" : "rgba(59,130,246,0.08)",
  }}
  >
- <span className="hidden sm:inline text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-fg-subtle)]">
+ <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-fg-subtle)]">
  Balance
  </span>
- <span className={balance.exhausted ? "text-[var(--color-accent-red)] text-xs font-semibold" : "text-[var(--color-fg-default)] text-xs font-semibold"}>
+ <span className={balance.exhausted ? "text-[var(--color-accent-red)] text-xs font-bold" : "text-[var(--color-fg-default)] text-xs font-bold"}>
  {formatBalancePoints(balance.pointsRemaining)} pts
  </span>
  </div>

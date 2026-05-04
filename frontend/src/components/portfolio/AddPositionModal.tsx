@@ -185,7 +185,7 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
           <div className="px-4 py-4 space-y-4">
             {/* Ticker search */}
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
                 Search Asset
               </label>
               <TickerSearch
@@ -200,7 +200,7 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
             {/* Clash warning */}
             {selected && hasClash && (
               <div className="bg-[var(--color-accent-red)]/10 border border-[var(--color-accent-red)]/30 rounded-xl p-3 space-y-2">
-                <p className="text-xs font-semibold text-[var(--color-accent-red)]">
+                <p className="text-xs font-bold text-[var(--color-accent-red)]">
                   ⚠️ Already in your portfolio
                 </p>
                 <p className="text-[10px] text-[var(--color-fg-muted)]">
@@ -248,7 +248,7 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
                       Account
                     </label>
                     <select
@@ -262,7 +262,7 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
                       Shares
                     </label>
                     <input
@@ -279,7 +279,7 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-1.5">
                     Avg Buy Price ({currencyLabel})
                   </label>
                   <input
@@ -320,7 +320,7 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
               type="button"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="flex-1 py-2.5 rounded-xl bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-40"
+              className="flex-1 py-2.5 rounded-xl bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-40"
             >
               {submitting ? "Adding…" : "Add Position"}
             </button>

@@ -93,7 +93,7 @@ function BroadcastModal({
         {dismissible && (
           <button
             onClick={onDismiss}
-            className="mt-5 w-full rounded-xl px-4 py-2 text-sm font-semibold"
+            className="mt-5 w-full rounded-xl px-4 py-2 text-sm font-bold"
             style={{ background: s.text, color: "white" }}
           >
             I understand

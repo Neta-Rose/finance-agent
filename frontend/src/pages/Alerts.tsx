@@ -167,14 +167,14 @@ export function Alerts() {
                         </span>
                         <span>{modeLabel(item)}</span>
                       </div>
-                      <h2 className="truncate text-sm font-semibold text-[var(--color-fg-default)]">{item.title}</h2>
+                      <h2 className="truncate text-sm font-bold text-[var(--color-fg-default)]">{item.title}</h2>
                       <p className="mt-1 text-xs text-[var(--color-fg-subtle)]">
                         {new Date(item.createdAt).toLocaleString()}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {item.kind !== "market_news" && (
-                        <div className="rounded-full border border-white/10 bg-black/10 px-2.5 py-1 text-[10px] font-semibold text-[var(--color-fg-muted)]">
+                        <div className="rounded-full border border-white/10 bg-black/10 px-2.5 py-1 text-[10px] font-bold text-[var(--color-fg-muted)]">
                           {item.tickerCount} ticker{item.tickerCount === 1 ? "" : "s"}
                         </div>
                       )}
@@ -202,7 +202,7 @@ export function Alerts() {
                       <div className="space-y-3">
                         <div className="rounded-2xl border border-[var(--color-border)] bg-black/10 p-3">
                           <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Ticker</p>
-                          <p className="mt-2 text-sm font-semibold text-[var(--color-fg-default)]">{item.event?.ticker}</p>
+                          <p className="mt-2 text-sm font-bold text-[var(--color-fg-default)]">{item.event?.ticker}</p>
                         </div>
                         <div className="rounded-2xl border border-[var(--color-border)] bg-black/10 p-3">
                           <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Source</p>
@@ -246,12 +246,12 @@ export function Alerts() {
                             <div key={ticker} className="rounded-2xl border border-[var(--color-border)] bg-black/10 p-3">
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className="font-mono text-sm font-semibold text-[var(--color-fg-default)]">{ticker}</p>
+                                  <p className="font-mono text-sm font-bold text-[var(--color-fg-default)]">{ticker}</p>
                                   <p className="mt-1 text-sm leading-6 text-[var(--color-fg-muted)]">{entry.reasoning}</p>
                                 </div>
                                 <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-right">
                                   <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Verdict</p>
-                                  <p className="mt-1 text-xs font-semibold text-[var(--color-fg-default)]">
+                                  <p className="mt-1 text-xs font-bold text-[var(--color-fg-default)]">
                                     {entry.verdict} · {entry.confidence}
                                   </p>
                                 </div>

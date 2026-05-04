@@ -60,7 +60,7 @@ export function HealthHero({
         <div className="flex items-center gap-2">
           <Activity size={16} style={{ color }} />
           <span
-            className="text-[10px] font-semibold uppercase tracking-wider"
+            className="text-[10px] font-bold uppercase tracking-wider"
             style={{ color }}
           >
             {labelText}

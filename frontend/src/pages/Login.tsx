@@ -61,7 +61,7 @@ export function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[var(--color-accent-blue)] text-white rounded-lg py-3 font-semibold text-sm disabled:opacity-50"
+            className="w-full bg-[var(--color-accent-blue)] text-white rounded-lg py-3 font-bold text-sm disabled:opacity-50"
           >
             {loading ? t("loginSigningIn", language) : t("loginSignIn", language)}
           </button>

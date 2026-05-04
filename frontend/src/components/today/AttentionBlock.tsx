@@ -23,7 +23,7 @@ export function AttentionBlock({ items, clearCount, onCardClick }: AttentionBloc
     <div className="mt-3">
       <div className="mx-4 mb-2 flex items-center gap-2">
         <AlertCircle size={14} className="text-[var(--color-accent-red)] shrink-0" />
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-fg-default)]">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-default)]">
           {header}
         </p>
         <span className="text-[11px] text-[var(--color-fg-subtle)]">· {clearSuffix}</span>

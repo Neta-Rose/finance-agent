@@ -97,7 +97,7 @@ export function Strategies() {
             <button
               key={nextScope}
               onClick={() => setScope(nextScope)}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
                 scope === nextScope
                   ? "bg-[var(--color-bg-subtle)] text-[var(--color-fg-default)] shadow-sm"
                   : "text-[var(--color-fg-muted)]"
@@ -119,7 +119,7 @@ export function Strategies() {
             <button
               key={opt}
               onClick={() => setVerdictFilter(opt)}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
+              className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
                 verdictFilter === opt
                   ? "bg-[var(--color-accent-blue)] text-white"
                   : "bg-[var(--color-bg-muted)] text-[var(--color-fg-muted)] border border-[var(--color-border)]"

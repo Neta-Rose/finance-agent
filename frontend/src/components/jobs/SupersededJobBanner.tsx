@@ -30,7 +30,7 @@ export function SupersededJobBanner({ jobs }: SupersededJobBannerProps) {
         style={{ color: "var(--color-accent-red)" }}
       />
       <div>
-        Your previous <span className="font-semibold">{action.replace("_", " ")}</span>{" "}
+        Your previous <span className="font-bold">{action.replace("_", " ")}</span>{" "}
         ran into a system issue and didn't complete. A new run will be available soon.
         Your portfolio data and existing strategies are untouched.
       </div>

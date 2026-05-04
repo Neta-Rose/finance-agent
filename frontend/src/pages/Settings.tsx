@@ -301,14 +301,14 @@ export function Settings() {
 
         {/* Account */}
         <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <User size={15} /> {t("account", lang).toUpperCase()}
           </h3>
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-[var(--color-fg-muted)]">{t("displayName", lang)}</p>
-                <p className="text-sm font-semibold text-[var(--color-fg-default)]">{onboardStatus?.displayName ?? "—"}</p>
+                <p className="text-sm font-bold text-[var(--color-fg-default)]">{onboardStatus?.displayName ?? "—"}</p>
               </div>
             </div>
           </Card>
@@ -316,7 +316,7 @@ export function Settings() {
 
         {/* Appearance */}
         <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <Sun size={15} /> {t("appearance", lang).toUpperCase()}
           </h3>
           <Card className="p-4 space-y-4">
@@ -372,7 +372,7 @@ export function Settings() {
 
         {/* Security */}
         <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <Lock size={15} /> {t("security", lang).toUpperCase()}
           </h3>
           <Card className="p-0 divide-y divide-[var(--color-border)]">
@@ -387,7 +387,7 @@ export function Settings() {
             ) : (
               <div className="p-4 space-y-3">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-[var(--color-fg-default)]">{t("changePassword", lang)}</p>
+                  <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("changePassword", lang)}</p>
                   <button onClick={() => setShowPasswordForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
                     <X size={16} />
                   </button>
@@ -406,8 +406,8 @@ export function Settings() {
                 </div>
                 {passwordError && <p className="text-[10px] text-[var(--color-accent-red)]">{passwordError}</p>}
                 <div className="flex gap-2">
-                  <button onClick={() => setShowPasswordForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-semibold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
-                  <button onClick={handleChangePassword} disabled={passwordLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50">
+                  <button onClick={() => setShowPasswordForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+                  <button onClick={handleChangePassword} disabled={passwordLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
                     {passwordLoading ? "..." : t("save", lang)}
                   </button>
                 </div>
@@ -418,7 +418,7 @@ export function Settings() {
 
         {/* Schedule */}
         <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <Clock size={15} /> {t("schedule", lang).toUpperCase()}
           </h3>
           {!showScheduleForm ? (
@@ -439,7 +439,7 @@ export function Settings() {
               </div>
               <button
                 onClick={() => setShowScheduleForm(true)}
-                className="w-full mt-2 py-2 rounded-lg border border-[var(--color-border)] text-xs font-semibold text-[var(--color-accent-blue)]"
+                className="w-full mt-2 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-accent-blue)]"
               >
                 {t("edit", lang)}
               </button>
@@ -447,7 +447,7 @@ export function Settings() {
           ) : (
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-[var(--color-fg-default)]">{t("schedule", lang)}</p>
+                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("schedule", lang)}</p>
                 <button onClick={() => setShowScheduleForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
                   <X size={16} />
                 </button>
@@ -479,8 +479,8 @@ export function Settings() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setShowScheduleForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-semibold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
-                <button onClick={handleSaveSchedule} disabled={scheduleLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50">
+                <button onClick={() => setShowScheduleForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+                <button onClick={handleSaveSchedule} disabled={scheduleLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
                   {scheduleLoading ? "..." : t("save", lang)}
                 </button>
               </div>
@@ -490,14 +490,14 @@ export function Settings() {
 
         {/* Telegram */}
         <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <Bot size={15} /> {t("telegram", lang).toUpperCase()}
           </h3>
           {!showTelegramForm ? (
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-[var(--color-fg-default)]">
+                  <p className="text-sm font-bold text-[var(--color-fg-default)]">
                     {telegramConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
                   </p>
                   <p className="text-xs text-[var(--color-fg-muted)] mt-1">
@@ -515,13 +515,13 @@ export function Settings() {
                     setShowTelegramForm(true);
                   }}
                   disabled={telegramLoading}
-                  className="py-1.5 px-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold"
+                  className="py-1.5 px-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold"
                 >
                   {telegramLoading ? "..." : telegramConnected ? t("disconnect", lang) : t("connect", lang)}
                 </button>
               </div>
               <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
-                <p className="text-[11px] font-semibold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+                <p className="text-[11px] font-bold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
                 <ol className="space-y-1">
                   <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
                   <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
@@ -532,7 +532,7 @@ export function Settings() {
           ) : (
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-[var(--color-fg-default)]">{t("telegram", lang)}</p>
+                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("telegram", lang)}</p>
                 <button onClick={() => setShowTelegramForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
                   <X size={16} />
                 </button>
@@ -546,7 +546,7 @@ export function Settings() {
                 <input type="text" value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
               </div>
               <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
-                <p className="text-[11px] font-semibold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+                <p className="text-[11px] font-bold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
                 <ol className="space-y-1">
                   <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
                   <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
@@ -555,8 +555,8 @@ export function Settings() {
               </div>
               {telegramError && <p className="text-[10px] text-[var(--color-accent-red)]">{telegramError}</p>}
               <div className="flex gap-2">
-                <button onClick={() => setShowTelegramForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-semibold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
-                <button onClick={handleConnectTelegram} disabled={telegramLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50">
+                <button onClick={() => setShowTelegramForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+                <button onClick={handleConnectTelegram} disabled={telegramLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
                   {telegramLoading ? "..." : t("connect", lang)}
                 </button>
               </div>
@@ -565,14 +565,14 @@ export function Settings() {
         </section>
 
         <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <MessageCircle size={15} /> {t("whatsapp", lang).toUpperCase()}
           </h3>
           {!showWhatsAppForm ? (
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-[var(--color-fg-default)]">
+                  <p className="text-sm font-bold text-[var(--color-fg-default)]">
                     {whatsappConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
                   </p>
                   <p className="text-xs text-[var(--color-fg-muted)] mt-1">
@@ -590,13 +590,13 @@ export function Settings() {
                     setShowWhatsAppForm(true);
                   }}
                   disabled={whatsAppLoading}
-                  className="py-1.5 px-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold"
+                  className="py-1.5 px-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold"
                 >
                   {whatsAppLoading ? "..." : whatsappConnected ? t("disconnect", lang) : t("connect", lang)}
                 </button>
               </div>
               <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
-                <p className="text-[11px] font-semibold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+                <p className="text-[11px] font-bold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
                 <ol className="space-y-1">
                   <li className={guideItemCls}>1. {t("whatsAppGuideStep1", lang)}</li>
                   <li className={guideItemCls}>2. {t("whatsAppGuideStep2", lang)}</li>
@@ -607,7 +607,7 @@ export function Settings() {
           ) : (
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-[var(--color-fg-default)]">{t("whatsapp", lang)}</p>
+                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("whatsapp", lang)}</p>
                 <button onClick={() => setShowWhatsAppForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
                   <X size={16} />
                 </button>
@@ -625,7 +625,7 @@ export function Settings() {
                 <input type="text" value={whatsAppRecipientPhone} onChange={(e) => setWhatsAppRecipientPhone(e.target.value)} placeholder="+14155550123" className={inputCls} />
               </div>
               <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
-                <p className="text-[11px] font-semibold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+                <p className="text-[11px] font-bold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
                 <ol className="space-y-1">
                   <li className={guideItemCls}>1. {t("whatsAppGuideStep1", lang)}</li>
                   <li className={guideItemCls}>2. {t("whatsAppGuideStep2", lang)}</li>
@@ -634,8 +634,8 @@ export function Settings() {
               </div>
               {whatsAppError && <p className="text-[10px] text-[var(--color-accent-red)]">{whatsAppError}</p>}
               <div className="flex gap-2">
-                <button onClick={() => setShowWhatsAppForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-semibold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
-                <button onClick={handleConnectWhatsApp} disabled={whatsAppLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50">
+                <button onClick={() => setShowWhatsAppForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+                <button onClick={handleConnectWhatsApp} disabled={whatsAppLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
                   {whatsAppLoading ? "..." : t("connect", lang)}
                 </button>
               </div>
@@ -644,7 +644,7 @@ export function Settings() {
         </section>
 
         <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <Bell size={15} /> {t("notifications", lang).toUpperCase()}
           </h3>
           <Card className="p-4 space-y-4">
@@ -726,7 +726,7 @@ export function Settings() {
             <button
               onClick={handleSaveNotifications}
               disabled={notificationsLoading}
-              className="w-full rounded-lg bg-[var(--color-accent-blue)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[var(--color-accent-blue)] px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
             >
               {notificationsLoading ? t("saving", lang) : t("save", lang)}
             </button>
@@ -735,7 +735,7 @@ export function Settings() {
 
         {/* Rate Limits */}
         <section>
-          <h3 className="text-xs font-semibold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <BarChart2 size={15} /> {t("rateLimits", lang).toUpperCase()}
             <Lock size={12} className="ml-auto text-[var(--color-fg-subtle)]" />
           </h3>
@@ -770,7 +770,7 @@ export function Settings() {
         <section>
           <button
             onClick={handleLogout}
-            className="w-full py-3 rounded-lg bg-[var(--color-accent-red)] text-white text-sm font-semibold flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-lg bg-[var(--color-accent-red)] text-white text-sm font-bold flex items-center justify-center gap-2"
           >
             <LogOut size={16} />
             {t("logout", lang)}

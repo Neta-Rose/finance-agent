@@ -111,7 +111,7 @@ export function TickerSearch({ value, onChange, placeholder = "Search ticker…"
           <div className="text-base font-extrabold text-[var(--color-fg-default)] leading-tight">{value.symbol}</div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {priceStr && (
-              <span className="text-sm font-semibold text-[var(--color-accent-green)]">{priceStr}</span>
+              <span className="text-sm font-bold text-[var(--color-accent-green)]">{priceStr}</span>
             )}
             <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-fg-muted)]">
               {ASSET_TYPE_LABELS[value.assetType]}
@@ -189,7 +189,7 @@ export function TickerSearch({ value, onChange, placeholder = "Search ticker…"
                       <span className="text-xs">{r.flag}</span>{r.exchDisp}
                     </div>
                     {priceStr && (
-                      <div className="text-xs font-semibold text-[var(--color-accent-green)]">{priceStr}</div>
+                      <div className="text-xs font-bold text-[var(--color-accent-green)]">{priceStr}</div>
                     )}
                   </div>
                 </button>

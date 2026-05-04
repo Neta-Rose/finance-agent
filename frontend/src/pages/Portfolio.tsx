@@ -87,7 +87,7 @@ function AccountManagerModal({
 
           <div className="px-4 py-4 space-y-4">
             <Card className="p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)] mb-2">
                 Add Account
               </p>
               <div className="flex gap-2">
@@ -109,7 +109,7 @@ function AccountManagerModal({
                       setSaving(false);
                     }
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50"
+                  className="px-4 py-2.5 rounded-xl bg-[var(--color-accent-blue)] text-white text-sm font-bold disabled:opacity-50"
                 >
                   {saving ? "Adding..." : "Add"}
                 </button>
@@ -121,7 +121,7 @@ function AccountManagerModal({
                 <Card key={account.name} className="p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-[var(--color-fg-default)]">{account.name}</p>
+                      <p className="text-sm font-bold text-[var(--color-fg-default)]">{account.name}</p>
                       <p className="text-[11px] text-[var(--color-fg-subtle)]">
                         {account.positions.length} positions · {formatILS(account.totalILS)}
                       </p>

@@ -79,7 +79,7 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
             className="w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]"
           />
           {error && <p className="text-[var(--color-accent-red)] text-sm text-center">{error}</p>}
-          <button type="submit" className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white font-semibold text-sm">
+          <button type="submit" className="w-full py-3 rounded-lg bg-[var(--color-accent-blue)] text-white font-bold text-sm">
             {t("adminSignIn", language)}
           </button>
         </form>
@@ -145,7 +145,7 @@ function PointsBudgetEditor({
         <button
           onClick={handleSave}
           disabled={!validBudget || saving}
-          className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-semibold disabled:opacity-50"
+          className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save"}
         </button>
@@ -248,7 +248,7 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           </div>
 
           <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminTelegramSection", language)}</p>
+            <p className="text-xs font-bold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminTelegramSection", language)}</p>
             <div className="space-y-2">
               <div>
                 <label className={labelCls}>{t("chatId", language)}</label>
@@ -262,7 +262,7 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           </div>
 
           <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminScheduleSection", language)}</p>
+            <p className="text-xs font-bold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminScheduleSection", language)}</p>
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className={labelCls}>{t("adminDailyTime", language)}</label>
@@ -292,7 +292,7 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           </div>
 
           <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-xs font-semibold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminRateLimitsSection", language)}</p>
+            <p className="text-xs font-bold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminRateLimitsSection", language)}</p>
             <div className="space-y-1.5 text-xs">
               {[
                 { key: "full_report", label: t("fullReport", language), maxKey: "full_report_max", periodKey: "full_report_period" },
@@ -322,7 +322,7 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
               {t("cancel", language)}
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 py-2.5 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-semibold disabled:opacity-50">
+              className="flex-1 py-2.5 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-bold disabled:opacity-50">
               {loading ? t("adminCreating", language) : t("adminCreateUser", language)}
             </button>
           </div>
@@ -387,7 +387,7 @@ function StepQueueStatusBadge({ status }: { status: string }) {
             ? "text-[var(--color-accent-blue)] bg-blue-500/10"
             : "text-[var(--color-fg-muted)] bg-[var(--color-bg-muted)]";
   return (
-    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${color}`}>
+    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${color}`}>
       {status.replace("_", " ")}
     </span>
   );
@@ -480,7 +480,7 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold truncate">
+                    <p className="text-xs font-bold truncate">
                       {job.user_id} · {job.action} · {job.model_tier}
                     </p>
                     <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
@@ -519,7 +519,7 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
             </div>
             {runningSteps.length > 0 && (
               <div className="rounded-md border p-2" style={{ borderColor: "rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.08)" }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-accent-blue)" }}>
+                <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-accent-blue)" }}>
                   Running now
                 </p>
                 <div className="mt-1 space-y-1">
@@ -722,7 +722,7 @@ function OperationsOverview({
             <button
               key={key}
               onClick={() => setRangePreset(key as typeof rangePreset)}
-              className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
+              className="px-2.5 py-1 rounded-lg text-[10px] font-bold"
               style={{
                 background: rangePreset === key ? "var(--color-accent-blue)" : "var(--color-bg-muted)",
                 color: rangePreset === key ? "white" : "var(--color-fg-muted)",
@@ -868,7 +868,7 @@ function SupportInbox({ onError }: { onError: (message: string) => void }) {
               }}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold truncate">{message.subject}</span>
+                <span className="text-xs font-bold truncate">{message.subject}</span>
                 <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${message.status === "open" ? "bg-amber-500/10 text-amber-400" : "bg-green-500/10 text-green-400"}`}>
                   {message.status}
                 </span>
@@ -895,7 +895,7 @@ function SupportInbox({ onError }: { onError: (message: string) => void }) {
                 </div>
                 <button
                   onClick={() => void setStatus(selected, selected.status === "open" ? "closed" : "open")}
-                  className="text-[10px] px-3 py-1 rounded-lg font-semibold"
+                  className="text-[10px] px-3 py-1 rounded-lg font-bold"
                   style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
                 >
                   Mark {selected.status === "open" ? "closed" : "open"}
@@ -1073,7 +1073,7 @@ function AdminDefaultsPanel({
           <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>Loading defaults...</p>
         ) : (
           <>
-            <label className="block text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+            <label className="block text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
               Default model tier
               <select
                 value={draft.modelTier}
@@ -1087,7 +1087,7 @@ function AdminDefaultsPanel({
                 <option value="expensive">expensive - highest quality/cost</option>
               </select>
             </label>
-            <label className="block text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+            <label className="block text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
               Default daily points budget
               <input
                 type="number"
@@ -1107,7 +1107,7 @@ function AdminDefaultsPanel({
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="w-full rounded-lg py-2 text-xs font-semibold disabled:opacity-50"
+              className="w-full rounded-lg py-2 text-xs font-bold disabled:opacity-50"
               style={{ background: "var(--color-accent-blue)", color: "white" }}
             >
               {saving ? "Saving..." : "Save defaults"}
@@ -1427,7 +1427,7 @@ function SystemControls({ onError }: { onError: (m: string) => void }) {
         borderColor: isLocked ? "rgba(239,68,68,0.3)" : "var(--color-border)",
       }}>
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
+        <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
           ⚡ System Controls
         </h3>
         {isLocked && (
@@ -1460,7 +1460,7 @@ function SystemControls({ onError }: { onError: (m: string) => void }) {
           </p>
         )}
         <button onClick={handleLockToggle} disabled={isLoading}
-          className="w-full py-2 rounded-lg text-xs font-semibold transition-colors"
+          className="w-full py-2 rounded-lg text-xs font-bold transition-colors"
           style={isLocked
             ? { background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "var(--color-accent-green)" }
             : { background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-accent-red)" }}>
@@ -1472,7 +1472,7 @@ function SystemControls({ onError }: { onError: (m: string) => void }) {
         {sys?.broadcast ? (
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="text-[10px] uppercase font-semibold" style={{ color: "var(--color-fg-muted)" }}>Broadcast active</span>
+              <span className="text-[10px] uppercase font-bold" style={{ color: "var(--color-fg-muted)" }}>Broadcast active</span>
               <p className="text-xs mt-0.5" style={{ color: "var(--color-fg-default)" }}>{sys.broadcast.text}</p>
             </div>
             <button onClick={clearBroadcast}
@@ -1500,7 +1500,7 @@ function SystemControls({ onError }: { onError: (m: string) => void }) {
             </div>
             <div className="flex gap-2">
               <button onClick={handleBroadcast}
-                className="flex-1 py-1.5 rounded-lg text-xs font-semibold"
+                className="flex-1 py-1.5 rounded-lg text-xs font-bold"
                 style={{ background: "var(--color-accent-blue)", color: "white" }}>
                 Send Broadcast
               </button>
@@ -1579,7 +1579,7 @@ function BlockControls({
     <div>
       <div className="flex items-center gap-1.5 flex-wrap">
         {rlabel && (
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
             style={{ background: rlabel.bg, color: rlabel.color, border: `1px solid ${rlabel.color}40` }}>
             {rlabel.label}
           </span>
@@ -1601,7 +1601,7 @@ function BlockControls({
       {open && (
         <div className="mt-2 rounded-xl p-3 space-y-2.5"
           style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
+          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
             Restriction level
           </p>
           <div className="grid grid-cols-3 gap-1.5">
@@ -1610,7 +1610,7 @@ function BlockControls({
               const active = mode === r;
               return (
                 <button key={r} onClick={() => setMode(r)}
-                  className="py-2 rounded-lg text-[11px] font-semibold transition-all"
+                  className="py-2 rounded-lg text-[11px] font-bold transition-all"
                   style={{
                     background: active ? lbl.bg : "var(--color-bg-muted)",
                     border: `1px solid ${active ? lbl.color + "80" : "var(--color-border)"}`,
@@ -1641,7 +1641,7 @@ function BlockControls({
           </div>
           <div className="flex gap-2">
             <button onClick={handleApply} disabled={loading || (mode === "suspended" && !reason.trim())}
-              className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+              className="flex-1 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
               style={{ background: RESTRICTION_LABELS[mode].bg, border: `1px solid ${RESTRICTION_LABELS[mode].color}60`, color: RESTRICTION_LABELS[mode].color }}>
               {loading ? "Applying…" : `Apply ${RESTRICTION_LABELS[mode].label}`}
             </button>
@@ -1691,7 +1691,7 @@ function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: s
   return (
     <div className="border-t pt-2" style={{ borderColor: "var(--color-border)" }}>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
+        <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>
           Step-queue jobs
         </p>
         <button onClick={() => void refetch()} className="text-[10px] underline" style={{ color: "var(--color-accent-blue)" }}>
@@ -1712,7 +1712,7 @@ function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: s
               <div key={job.id} className="rounded-lg border p-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold truncate">
+                    <p className="text-[11px] font-bold truncate">
                       {ACTION_LABELS[job.action] ?? job.action} · {job.model_tier}
                     </p>
                     <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
@@ -1887,7 +1887,7 @@ function UserCard({
           disabled={modelTierLoading}
           onChange={(e) => void handleModelTierChange(e.target.value as ModelTier)}
           title="Step-queue model tier for new jobs"
-          className="rounded-lg px-2.5 py-1 text-[10px] font-semibold outline-none disabled:opacity-50"
+          className="rounded-lg px-2.5 py-1 text-[10px] font-bold outline-none disabled:opacity-50"
           style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.28)", color: "var(--color-accent-blue)" }}
         >
           <option value="free">free models</option>
@@ -1921,7 +1921,7 @@ function UserCard({
       {/* Edit Telegram */}
       {showTelegram && (
         <div className="rounded-lg p-3 space-y-2" style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>{t("adminTelegramSection", language)}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>{t("adminTelegramSection", language)}</p>
           <input value={botToken} onChange={e => setBotToken(e.target.value)} placeholder="Bot token"
             className="w-full text-xs rounded-lg px-3 py-1.5 outline-none"
             style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
@@ -1930,7 +1930,7 @@ function UserCard({
             style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }} />
           <div className="flex gap-2">
             <button onClick={() => { onAddTelegram(user.userId, botToken, chatId); setShowTelegram(false); }}
-              className="flex-1 py-1.5 rounded-lg text-xs font-semibold"
+              className="flex-1 py-1.5 rounded-lg text-xs font-bold"
               style={{ background: "var(--color-accent-blue)", color: "white" }}>
               {t("adminSaveTelegram", language)}
             </button>
@@ -1945,7 +1945,7 @@ function UserCard({
 
       {showPointsBudget && (
         <div className="rounded-lg p-3" style={{ background: "var(--color-bg-base)", border: "1px solid var(--color-border)" }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-fg-muted)" }}>
+          <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-fg-muted)" }}>
             Daily points budget
           </p>
           <PointsBudgetEditor
@@ -1962,7 +1962,7 @@ function UserCard({
       {/* Delete confirm */}
       {showDelete && (
         <div className="rounded-lg p-3 space-y-2" style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.25)" }}>
-          <p className="text-xs font-semibold" style={{ color: "var(--color-accent-red)" }}>
+          <p className="text-xs font-bold" style={{ color: "var(--color-accent-red)" }}>
             {t("adminTypeToConfirm", language)} <code>{user.userId}</code> {t("adminToConfirmDeletion", language)}
           </p>
           <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)}
@@ -1971,7 +1971,7 @@ function UserCard({
             style={{ background: "var(--color-bg-muted)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--color-fg-default)" }} />
           <div className="flex gap-2">
             <button onClick={handleDelete} disabled={deleteConfirm !== user.userId || deleting}
-              className="flex-1 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+              className="flex-1 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
               style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)", color: "var(--color-accent-red)" }}>
               {deleting ? t("adminDeleting", language) : t("adminConfirmDelete", language)}
             </button>
@@ -2116,7 +2116,7 @@ export function Admin() {
             <button
               key={item.key}
               onClick={() => setActiveSection(item.key as typeof activeSection)}
-              className="rounded-lg py-2 text-xs font-semibold"
+              className="rounded-lg py-2 text-xs font-bold"
               style={{
                 background: activeSection === item.key ? "var(--color-accent-blue)" : "transparent",
                 color: activeSection === item.key ? "white" : "var(--color-fg-muted)",
@@ -2162,7 +2162,7 @@ export function Admin() {
                   style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
                 />
                 <button onClick={() => setShowAdd(true)}
-                  className="px-3 py-2 rounded-lg text-xs font-semibold"
+                  className="px-3 py-2 rounded-lg text-xs font-bold"
                   style={{ background: "var(--color-accent-blue)", color: "white" }}>
                   + User
                 </button>

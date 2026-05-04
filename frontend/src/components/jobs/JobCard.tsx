@@ -109,7 +109,7 @@ export function JobCard({ job: initialJob, onPollComplete }: JobCardProps) {
         <div className="flex items-center gap-2 min-w-0">
           {statusIcon(job.status)}
           <div className="min-w-0">
-            <span className="text-xs font-semibold text-[var(--color-fg-default)]">
+            <span className="text-xs font-bold text-[var(--color-fg-default)]">
               {actionLabel(job.action)}
               {job.ticker && (
                 <span className="text-[var(--color-fg-muted)] font-normal"> · {job.ticker}</span>
