@@ -913,13 +913,16 @@ export function Portfolio() {
         onDelete={handleDeleteAccount}
       />
 
-      {/* Attention drill-down — opens when an AttentionCard is tapped.
-          Carries the AttentionItem so the StrategyModal can render the
-          'Why this fired today' pinned strip without re-classifying. */}
+      {/* Attention drill-down — design pivot v2 detail sheet.
+          Receives the AttentionItem (drives "Why this fired"), the score (drives
+          ScoreHero color), and the position (drives Today/Shares stat cells). */}
       <StrategyModal
         ticker={strategyTicker}
         attentionItem={strategyAttentionItem}
+        score={strategyTicker ? tickerScores.get(strategyTicker) : undefined}
+        position={strategyTicker ? portfolio?.positions.find((p) => p.ticker === strategyTicker) ?? null : null}
         onClose={() => setStrategyTicker(null)}
+        onDeepDive={() => setStrategyTicker(null)}
       />
     </>
   );
