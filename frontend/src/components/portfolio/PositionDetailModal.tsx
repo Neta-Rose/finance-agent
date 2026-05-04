@@ -1,35 +1,206 @@
 import { useState, useEffect, useRef } from "react";
-import { X, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Circle, AlertTriangle } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createChart, ColorType, CandlestickSeries, LineSeries } from "lightweight-charts";
-import type { IChartApi, ISeriesApi } from "lightweight-charts";
-import type { CandlestickData, LineData } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, CandlestickData, LineData } from "lightweight-charts";
 import { fetchPositionHistory, updatePosition } from "../../api/portfolio";
+import { fetchStrategy } from "../../api/strategies";
+import { triggerJob } from "../../api/jobs";
 import { useToastStore } from "../../store/toastStore";
 import { usePreferencesStore } from "../../store/preferencesStore";
-import { t } from "../../store/i18n";
-import { formatILS, formatPct } from "../../utils/format";
-import type { PositionRow, VerdictRow } from "../../types/api";
+import { t, tConfidence } from "../../store/i18n";
+import { formatILS, formatPct, timeAgo } from "../../utils/format";
+import { scoreColor } from "../../utils/today/scoreColor";
+import type { PositionRow, VerdictRow, Verdict } from "../../types/api";
 import { Spinner } from "../ui/Spinner";
-import { VerdictBadge, ConfidenceBadge } from "../ui/Badge";
+import { ActionBadge } from "../design/ActionBadge";
+import { ScoreBar } from "../design/HeroStatCard";
+import { StatCell } from "../design/StatCell";
 
 interface PositionDetailModalProps {
   position: PositionRow | null;
   verdict?: VerdictRow;
+  /** Health score 0..100 — drives the score hero color */
+  score?: number;
   onClose: () => void;
   onDeletePosition?: (position: PositionRow) => Promise<void>;
 }
 
 type Timeframe = "1D" | "1W" | "1M" | "3M" | "1Y";
 
+const VERDICT_LINE: Record<Verdict, string> = {
+  BUY: "Add or initiate.",
+  ADD: "Add to position.",
+  HOLD: "Hold steady.",
+  REDUCE: "Trim the position.",
+  SELL: "Reduce or exit.",
+  CLOSE: "Close out.",
+};
+
+const VERDICT_CTA: Record<Verdict, string> = {
+  BUY: "Add to Position",
+  ADD: "Add to Position",
+  HOLD: "Run Deep Dive",
+  REDUCE: "Trim Position",
+  SELL: "Exit Position",
+  CLOSE: "Exit Position",
+};
+
+function ctaBg(verdict?: Verdict): string {
+  switch (verdict) {
+    case "BUY": case "ADD": return "var(--color-green-bg)";
+    case "REDUCE": return "var(--color-amber-bg)";
+    case "SELL": case "CLOSE": return "var(--color-red-bg)";
+    default: return "var(--text-primary)";
+  }
+}
+function ctaColor(verdict?: Verdict): string {
+  switch (verdict) {
+    case "BUY": case "ADD": return "var(--color-green)";
+    case "REDUCE": return "var(--color-amber)";
+    case "SELL": case "CLOSE": return "var(--color-red)";
+    default: return "var(--bg-base)";
+  }
+}
+function ctaBorderColor(verdict?: Verdict): string {
+  switch (verdict) {
+    case "BUY": case "ADD": return "var(--color-green-border)";
+    case "REDUCE": return "var(--color-amber-border)";
+    case "SELL": case "CLOSE": return "var(--color-red-border)";
+    default: return "transparent";
+  }
+}
+
 function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-export function PositionDetailModal({ position, verdict, onClose, onDeletePosition }: PositionDetailModalProps) {
+function Divider() {
+  return <div style={{ height: "0.5px", background: "var(--bg-border)", margin: "4px 0" }} />;
+}
+
+function SectionLabel({ label, meta }: { label: string; meta?: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        padding: "14px 16px 8px",
+      }}
+    >
+      <span
+        style={{
+          fontSize: "var(--text-2xs)",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          color: "var(--text-tertiary)",
+          fontWeight: "var(--weight-regular)",
+        }}
+      >
+        {label}
+      </span>
+      {meta && (
+        <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
+          {meta}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function BullBearCard({ label, color, text }: { label: string; color: string; text: string | null | undefined }) {
+  return (
+    <div
+      style={{
+        background: "var(--bg-surface)",
+        borderRadius: "var(--radius-md)",
+        border: "0.5px solid var(--bg-border)",
+        padding: "10px 12px",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "var(--text-2xs)",
+          fontWeight: "var(--weight-bold)",
+          color,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: "var(--text-sm)",
+          color: "var(--text-secondary)",
+          lineHeight: 1.45,
+          fontWeight: "var(--weight-regular)",
+        }}
+      >
+        {text ?? "—"}
+      </div>
+    </div>
+  );
+}
+
+function ConditionRow({ kind, text, label }: { kind: "entry" | "exit"; text: string; label: string }) {
+  const Icon = Circle;
+  const dotColor = "var(--text-ghost)";
+  void Check;
+  void AlertTriangle;
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+        padding: "8px 0",
+        borderTop: "0.5px solid var(--bg-border)",
+      }}
+    >
+      <Icon size={10} color={dotColor} style={{ marginTop: 4, flexShrink: 0, fill: dotColor }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", lineHeight: 1.4, fontWeight: "var(--weight-regular)" }}>
+          {text}
+        </div>
+      </div>
+      <span
+        style={{
+          fontSize: "var(--text-2xs)",
+          fontWeight: "var(--weight-bold)",
+          color: kind === "entry" ? "var(--color-green)" : "var(--color-amber)",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          flexShrink: 0,
+          marginTop: 2,
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function twoSentences(text: string | null | undefined): string {
+  if (!text) return "";
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  const parts = trimmed.split(/(?<=[.!?])\s+/);
+  const joined = parts.slice(0, 2).join(" ");
+  if (joined.length <= 280) return joined;
+  return joined.slice(0, 280).replace(/\s+\S*$/, "") + "…";
+}
+
+export function PositionDetailModal({ position, verdict, score, onClose, onDeletePosition }: PositionDetailModalProps) {
   const language = usePreferencesStore((s) => s.language);
   const theme = usePreferencesStore((s) => s.theme);
+  const showToast = useToastStore((s) => s.show);
+  const queryClient = useQueryClient();
+
   const [timeframe, setTimeframe] = useState<Timeframe>("1M");
-  const [loading, setLoading] = useState(false);
+  const [loadingChart, setLoadingChart] = useState(false);
   const [chartData, setChartData] = useState<CandlestickData[] | LineData[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [editShares, setEditShares] = useState("");
@@ -37,11 +208,17 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
   const [accountEdits, setAccountEdits] = useState<Record<string, { shares: string; avgPriceILS: string }>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const showToast = useToastStore((s) => s.show);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> | null>(null);
+
+  // Full strategy — for bull/bear, conditions, full reasoning
+  const { data: strategy, isLoading: strategyLoading } = useQuery({
+    queryKey: ["strategy", position?.ticker],
+    queryFn: () => fetchStrategy(position!.ticker),
+    enabled: !!position,
+  });
 
   useEffect(() => {
     if (!position) return;
@@ -55,14 +232,15 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
         ])
       )
     );
+    setEditMode(false);
   }, [position]);
 
   useEffect(() => {
     if (!position) return;
-    setLoading(true);
+    setLoadingChart(true);
     fetchPositionHistory(position.ticker, timeframe)
-      .then((data) => { setChartData(data); setLoading(false); })
-      .catch(() => { setChartData([]); setLoading(false); });
+      .then((data) => { setChartData(data); setLoadingChart(false); })
+      .catch(() => { setChartData([]); setLoadingChart(false); });
   }, [position, timeframe]);
 
   useEffect(() => {
@@ -77,9 +255,9 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
     const bgMuted = cssVar("--color-bg-muted") || "#21262d";
     const border = cssVar("--color-border") || "#30363d";
     const fgMuted = cssVar("--color-fg-muted") || "#8b949e";
-    const accentGreen = cssVar("--color-accent-green") || "#3fb950";
-    const accentRed = cssVar("--color-accent-red") || "#f85149";
-    const accentBlue = cssVar("--color-accent-blue") || "#58a6ff";
+    const accentGreen = cssVar("--color-accent-green") || "#42C97A";
+    const accentRed = cssVar("--color-accent-red") || "#E25050";
+    const accentBlue = cssVar("--color-accent-blue") || "#42C97A";
     const fgSubtle = cssVar("--color-fg-subtle") || "#6e7681";
 
     const chart = createChart(chartContainerRef.current, {
@@ -106,7 +284,6 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
     chartRef.current = chart;
 
     const hasOhlc = chartData.length > 0 && "open" in chartData[0];
-
     if (hasOhlc) {
       const series = chart.addSeries(CandlestickSeries, {
         upColor: accentGreen,
@@ -128,13 +305,9 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: 200,
-        });
+        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth, height: 200 });
       }
     };
-
     handleResize();
     window.addEventListener("resize", handleResize);
 
@@ -148,7 +321,8 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
     if (!position) return;
     setSaving(true);
     try {
-      if ((position.accountBreakdown?.length ?? 0) > 1) {
+      const hasMultiple = (position.accountBreakdown?.length ?? 0) > 1;
+      if (hasMultiple) {
         await Promise.all(
           position.accountBreakdown.map((entry) =>
             updatePosition(position.ticker, {
@@ -174,278 +348,659 @@ export function PositionDetailModal({ position, verdict, onClose, onDeletePositi
     }
   };
 
+  const handleDeepDive = async () => {
+    if (!position) return;
+    try {
+      await triggerJob("deep_dive", position.ticker);
+      await queryClient.invalidateQueries({ queryKey: ["balance"] });
+      showToast(`${t("jobDeepDiveTitle", language)} — ${position.ticker} ${t("jobQueued", language)}`, "success");
+      onClose();
+    } catch (err) {
+      const apiError = err as { response?: { data?: { reason?: string } } };
+      showToast(apiError.response?.data?.reason ?? t("jobFailed", language), "error");
+    }
+  };
+
   if (!position) return null;
 
-  const plPositive = position.plPct >= 0;
-  const plClass = plPositive ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]";
+  const hasScore = score !== undefined && Number.isFinite(score);
+  const scoreVal = score ?? 0;
+  const verdictType = verdict?.verdict ?? strategy?.verdict;
+  const verdictLine = verdictType ? VERDICT_LINE[verdictType] : null;
+  const ctaLabel = verdictType ? VERDICT_CTA[verdictType] : (language === "he" ? "הרץ ניתוח" : "Run Analysis");
+
   const dayChangePct = position.dayChangePct ?? 0;
   const dayChangeILS = position.dayChangeILS ?? 0;
   const hasDayChange = dayChangePct !== 0 || dayChangeILS !== 0;
   const dayPositive = dayChangePct >= 0;
-  const dayClass = dayPositive ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]";
+
   const hasMultipleAccounts = (position.accountBreakdown?.length ?? 0) > 1;
-  const canDeleteSinglePosition = !!onDeletePosition && !hasMultipleAccounts && (position.accounts?.length ?? 0) === 1;
-  const inputCls = "w-full bg-[var(--color-bg-base)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)] tabular-nums";
+  const canDelete = !!onDeletePosition && !hasMultipleAccounts && (position.accounts?.length ?? 0) === 1;
+
+  const inputCls: React.CSSProperties = {
+    width: "100%",
+    background: "var(--bg-surface)",
+    border: "0.5px solid var(--bg-border-mid)",
+    borderRadius: "var(--radius-sm)",
+    padding: "8px 10px",
+    fontSize: "var(--text-sm)",
+    color: "var(--text-primary)",
+    outline: "none",
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: "var(--weight-regular)",
+  };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+      role="dialog"
+      aria-modal="true"
       onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "stretch",
+        justifyContent: "center",
+      }}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative w-full bg-[var(--color-bg-base)] border-t border-[var(--color-border)] md:rounded-2xl md:border md:max-w-lg md:max-h-[88vh] flex flex-col overflow-hidden"
-        style={{ maxHeight: "92vh" }}
+        style={{
+          width: "100%",
+          maxWidth: 560,
+          background: "var(--bg-base)",
+          display: "flex",
+          flexDirection: "column",
+          maxHeight: "100vh",
+          overflow: "hidden",
+        }}
       >
         {/* ── Header ── */}
-        <div className="sticky top-0 z-10 bg-[var(--color-bg-base)] border-b border-[var(--color-border)] px-4 pt-4 pb-3 shrink-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono font-bold text-xl text-[var(--color-fg-default)] tracking-tight">{position.ticker}</span>
-              <span className="text-[10px] text-[var(--color-fg-subtle)] bg-[var(--color-bg-muted)] px-1.5 py-0.5 rounded font-medium">
-                {position.exchange}
-              </span>
-              {verdict && <VerdictBadge verdict={verdict.verdict} />}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 16px",
+            borderBottom: "0.5px solid var(--bg-border)",
+            flexShrink: 0,
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={language === "he" ? "חזור" : "Back"}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              borderRadius: "var(--radius-sm)",
+              background: "transparent",
+              border: "none",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            {language === "he" ? <ArrowRight size={18} /> : <ArrowLeft size={18} />}
+          </button>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: "var(--text-md)",
+                fontWeight: "var(--weight-bold)",
+                color: "var(--text-primary)",
+                fontFamily: "ui-monospace, SFMono-Regular, monospace",
+              }}
+            >
+              {position.ticker}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => setEditMode(!editMode)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                  editMode
-                    ? "bg-[var(--color-accent-blue)] text-white"
-                    : "bg-[var(--color-bg-muted)] text-[var(--color-fg-muted)] border border-[var(--color-border)]"
-                }`}
-              >
-                {editMode ? t("cancel", language) : t("edit", language)}
-              </button>
-              <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-muted)]">
-                <X size={16} />
-              </button>
+            <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)" }}>
+              {position.exchange}
             </div>
           </div>
 
-          {/* Hero metrics */}
-          <div className="mt-3 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-2xl font-bold tabular-nums text-[var(--color-fg-default)] leading-none">
-                {formatILS(position.livePriceILS)}
-              </p>
-              <div className="flex items-center gap-2 mt-1.5">
-                {hasDayChange ? (
-                  <span className={`inline-flex items-center gap-1 text-sm font-bold tabular-nums ${dayClass}`}>
-                    {dayPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-                    {dayPositive ? "+" : ""}{dayChangePct.toFixed(2)}%
-                    <span className="font-normal text-xs opacity-75">({dayPositive ? "+" : ""}{formatILS(Math.abs(dayChangeILS))})</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-sm text-[var(--color-fg-subtle)]">
-                    <Minus size={13} />
-                    <span>—</span>
-                  </span>
-                )}
-                <span className="text-[10px] text-[var(--color-fg-subtle)]">today</span>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-base font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.currentILS)}</p>
-              <p className={`text-sm font-bold tabular-nums ${plClass}`}>
-                {formatPct(position.plPct)}
-                <span className="font-normal text-xs ml-1 opacity-75">({plPositive ? "+" : ""}{formatILS(position.plILS)})</span>
-              </p>
-              <p className="text-[10px] text-[var(--color-fg-subtle)] mt-0.5">{position.weightPct.toFixed(1)}% weight</p>
-            </div>
-          </div>
+          {verdictType && <ActionBadge verdict={verdictType} score={score} />}
+
+          <button
+            type="button"
+            onClick={() => setEditMode((m) => !m)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: "4px 10px",
+              borderRadius: "var(--radius-sm)",
+              background: editMode ? "var(--bg-surface-hover)" : "transparent",
+              border: "0.5px solid var(--bg-border-mid)",
+              color: editMode ? "var(--text-primary)" : "var(--text-secondary)",
+              fontSize: "var(--text-2xs)",
+              fontWeight: "var(--weight-bold)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            {editMode ? t("cancel", language) : t("edit", language)}
+          </button>
         </div>
 
-        {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto">
+        {/* ── Scrollable body ── */}
+        <div style={{ flex: 1, overflowY: "auto" }}>
 
-          {/* Chart */}
-          <div className="px-4 pt-4 pb-2">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-medium text-[var(--color-fg-subtle)] uppercase tracking-wider">{t("priceHistory", language)}</p>
-              <div className="flex gap-1">
+          {/* Score hero — primary visual: "how is this position doing?" */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 16,
+              padding: "20px 16px 8px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span
+                style={{
+                  fontSize: "var(--text-hero)",
+                  fontWeight: "var(--weight-bold)",
+                  lineHeight: 1,
+                  letterSpacing: "-1.5px",
+                  color: hasScore ? scoreColor(scoreVal) : "var(--text-tertiary)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {hasScore ? scoreVal : "—"}
+              </span>
+              <span style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)" }}>/ 100</span>
+            </div>
+
+            <div style={{ textAlign: "end", maxWidth: "52%" }}>
+              {verdictLine && (
+                <div
+                  style={{
+                    fontSize: "var(--text-md)",
+                    color: "var(--text-secondary)",
+                    lineHeight: 1.4,
+                    fontWeight: "var(--weight-regular)",
+                  }}
+                >
+                  {verdictLine}
+                </div>
+              )}
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: "var(--weight-bold)",
+                  color: "var(--text-primary)",
+                  letterSpacing: "-0.5px",
+                  fontVariantNumeric: "tabular-nums",
+                  marginTop: verdictLine ? 4 : 0,
+                  lineHeight: 1,
+                }}
+              >
+                {formatILS(position.currentILS)}
+              </div>
+            </div>
+          </div>
+
+          {hasScore && (
+            <div style={{ paddingBottom: 12 }}>
+              <ScoreBar score={scoreVal} />
+            </div>
+          )}
+
+          <Divider />
+
+          {/* 2×2 stats — financial snapshot */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 8,
+              padding: "12px 16px",
+            }}
+          >
+            <StatCell
+              label={t("currentValue", language)}
+              value={formatILS(position.currentILS)}
+              sub={`${formatILS(position.livePriceILS)} / share`}
+              positive={position.plPct > 0 ? true : position.plPct < 0 ? false : null}
+            />
+            <StatCell
+              label={t("costBasis", language)}
+              value={formatILS(position.costILS)}
+              sub={`${formatILS(position.avgPriceILS)} avg`}
+            />
+            <StatCell
+              label={t("shares", language)}
+              value={position.shares.toLocaleString()}
+              sub={position.accounts.length > 0 ? position.accounts.join(", ") : undefined}
+            />
+            <StatCell
+              label={t("weight", language)}
+              value={`${position.weightPct.toFixed(1)}%`}
+              sub={verdict?.confidence ? tConfidence(verdict.confidence, language) : undefined}
+            />
+          </div>
+
+          {/* Today + All-time P/L row */}
+          <div style={{ padding: "0 16px 12px", display: "flex", flexWrap: "wrap", gap: 16 }}>
+            {hasDayChange && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span
+                  style={{
+                    fontSize: "var(--text-2xs)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    color: "var(--text-tertiary)",
+                    fontWeight: "var(--weight-regular)",
+                  }}
+                >
+                  {language === "he" ? "היום" : "Today"}
+                </span>
+                <span
+                  style={{
+                    fontSize: "var(--text-sm)",
+                    fontWeight: "var(--weight-bold)",
+                    color: dayPositive ? "var(--color-green)" : "var(--color-red)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {dayPositive ? "+" : ""}{dayChangePct.toFixed(2)}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "var(--text-xs)",
+                    color: "var(--text-tertiary)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {dayPositive ? "+" : ""}{formatILS(Math.abs(dayChangeILS))}
+                </span>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  fontSize: "var(--text-2xs)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  color: "var(--text-tertiary)",
+                  fontWeight: "var(--weight-regular)",
+                }}
+              >
+                {language === "he" ? "הכל" : "All-time"}
+              </span>
+              <span
+                style={{
+                  fontSize: "var(--text-sm)",
+                  fontWeight: "var(--weight-bold)",
+                  color: position.plPct >= 0 ? "var(--color-green)" : "var(--color-red)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {formatPct(position.plPct)}
+              </span>
+              <span
+                style={{
+                  fontSize: "var(--text-xs)",
+                  color: "var(--text-tertiary)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {position.plPct >= 0 ? "+" : ""}{formatILS(Math.abs(position.plILS))}
+              </span>
+            </div>
+          </div>
+
+          {/* ── Edit mode inline ── */}
+          {editMode && (
+            <>
+              <Divider />
+              <div style={{ padding: "12px 16px" }}>
+                {!hasMultipleAccounts ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, fontWeight: "var(--weight-regular)" }}>
+                        {t("shares", language)}
+                      </div>
+                      <input
+                        type="number"
+                        value={editShares}
+                        onChange={(e) => setEditShares(e.target.value)}
+                        style={inputCls}
+                        min="1"
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, fontWeight: "var(--weight-regular)" }}>
+                        {t("avgBuyPrice", language)}
+                      </div>
+                      <input
+                        type="number"
+                        value={editAvgPrice}
+                        onChange={(e) => setEditAvgPrice(e.target.value)}
+                        style={inputCls}
+                        min="0.01"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {position.accountBreakdown.map((entry) => (
+                      <div key={entry.account}>
+                        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", marginBottom: 6, fontWeight: "var(--weight-bold)" }}>
+                          {entry.account}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <div>
+                            <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)", marginBottom: 4, fontWeight: "var(--weight-regular)" }}>{t("shares", language)}</div>
+                            <input
+                              type="number"
+                              value={accountEdits[entry.account]?.shares ?? String(entry.shares)}
+                              onChange={(e) => setAccountEdits((cur) => ({ ...cur, [entry.account]: { shares: e.target.value, avgPriceILS: cur[entry.account]?.avgPriceILS ?? String(entry.avgPriceILS) } }))}
+                              style={inputCls}
+                              min="0"
+                            />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)", marginBottom: 4, fontWeight: "var(--weight-regular)" }}>{t("avgBuyPrice", language)}</div>
+                            <input
+                              type="number"
+                              value={accountEdits[entry.account]?.avgPriceILS ?? String(entry.avgPriceILS)}
+                              onChange={(e) => setAccountEdits((cur) => ({ ...cur, [entry.account]: { shares: cur[entry.account]?.shares ?? String(entry.shares), avgPriceILS: e.target.value } }))}
+                              style={inputCls}
+                              min="0.01"
+                              step="0.01"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    disabled={saving}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--text-primary)",
+                      color: "var(--bg-base)",
+                      border: "none",
+                      fontSize: "var(--text-sm)",
+                      fontWeight: "var(--weight-bold)",
+                      cursor: saving ? "not-allowed" : "pointer",
+                      opacity: saving ? 0.5 : 1,
+                    }}
+                  >
+                    {saving ? t("saving", language) : t("saveChanges", language)}
+                  </button>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!onDeletePosition || !position) return;
+                        setDeleting(true);
+                        try { await onDeletePosition(position); } finally { setDeleting(false); }
+                      }}
+                      disabled={deleting}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: "var(--radius-md)",
+                        background: "transparent",
+                        color: "var(--color-red)",
+                        border: "0.5px solid var(--color-red-border)",
+                        fontSize: "var(--text-sm)",
+                        fontWeight: "var(--weight-bold)",
+                        cursor: deleting ? "not-allowed" : "pointer",
+                        opacity: deleting ? 0.5 : 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {deleting ? "Removing…" : (language === "he" ? "הסר" : "Remove")}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Strategy content ── */}
+          {(strategyLoading && !strategy) && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
+              <Spinner size="sm" />
+            </div>
+          )}
+
+          {strategy && (
+            <>
+              <Divider />
+
+              {/* Reasoning */}
+              {strategy.reasoning && (
+                <>
+                  <SectionLabel
+                    label={language === "he" ? "נימוק" : "Advisor reasoning"}
+                    meta={`${language === "he" ? "עודכן" : "updated"} ${timeAgo(strategy.updatedAt)}`}
+                  />
+                  <p
+                    style={{
+                      padding: "0 16px 14px",
+                      fontSize: "var(--text-md)",
+                      lineHeight: 1.5,
+                      color: "var(--text-secondary)",
+                      fontWeight: "var(--weight-regular)",
+                    }}
+                  >
+                    {twoSentences(strategy.reasoning)}
+                  </p>
+                </>
+              )}
+
+              {/* Bull / Bear 2-col */}
+              {(strategy.bullCase || strategy.bearCase) && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 8,
+                    padding: "0 16px 16px",
+                  }}
+                >
+                  <BullBearCard
+                    label={language === "he" ? "בעד" : "Bull"}
+                    color="var(--color-green)"
+                    text={strategy.bullCase}
+                  />
+                  <BullBearCard
+                    label={language === "he" ? "נגד" : "Bear"}
+                    color="var(--color-red)"
+                    text={strategy.bearCase}
+                  />
+                </div>
+              )}
+
+              {/* Conditions */}
+              {(strategy.entryConditions.length + strategy.exitConditions.length) > 0 && (
+                <>
+                  <Divider />
+                  <SectionLabel
+                    label={language === "he" ? "תנאים" : "Conditions"}
+                    meta={String(strategy.entryConditions.length + strategy.exitConditions.length)}
+                  />
+                  <div style={{ padding: "0 16px 16px" }}>
+                    {strategy.entryConditions.map((c, i) => (
+                      <ConditionRow key={`e-${i}`} kind="entry" text={c} label={language === "he" ? "כניסה" : "ENTRY"} />
+                    ))}
+                    {strategy.exitConditions.map((c, i) => (
+                      <ConditionRow key={`x-${i}`} kind="exit" text={c} label={language === "he" ? "יציאה" : "EXIT"} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          <Divider />
+
+          {/* ── Price chart — supporting context, at the bottom ── */}
+          <div style={{ padding: "16px 16px 0" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 10,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "var(--text-2xs)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  color: "var(--text-tertiary)",
+                  fontWeight: "var(--weight-regular)",
+                }}
+              >
+                {t("priceHistory", language)}
+              </span>
+              <div style={{ display: "flex", gap: 4 }}>
                 {(["1D", "1W", "1M", "3M", "1Y"] as Timeframe[]).map((tf) => (
                   <button
                     key={tf}
+                    type="button"
                     onClick={() => setTimeframe(tf)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
-                      timeframe === tf
-                        ? "bg-[var(--color-accent-blue)] text-white"
-                        : "bg-[var(--color-bg-muted)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
-                    }`}
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: "var(--radius-sm)",
+                      border: "0.5px solid var(--bg-border-mid)",
+                      background: timeframe === tf ? "var(--bg-surface-hover)" : "transparent",
+                      color: timeframe === tf ? "var(--text-primary)" : "var(--text-tertiary)",
+                      fontSize: "var(--text-2xs)",
+                      fontWeight: timeframe === tf ? "var(--weight-bold)" : "var(--weight-regular)",
+                      cursor: "pointer",
+                    }}
                   >
                     {tf}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="rounded-xl overflow-hidden bg-[var(--color-bg-subtle)] border border-[var(--color-border)]">
-              {loading ? (
-                <div className="h-[200px] flex items-center justify-center">
+
+            <div
+              style={{
+                borderRadius: "var(--radius-md)",
+                overflow: "hidden",
+                border: "0.5px solid var(--bg-border)",
+                background: "var(--bg-surface)",
+              }}
+            >
+              {loadingChart ? (
+                <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Spinner size="md" />
                 </div>
               ) : chartData.length === 0 ? (
-                <div className="h-[200px] flex items-center justify-center text-xs text-[var(--color-fg-subtle)]">
+                <div
+                  style={{
+                    height: 200,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "var(--text-xs)",
+                    color: "var(--text-tertiary)",
+                  }}
+                >
                   {t("noChartData", language)}
                 </div>
               ) : (
-                <div ref={chartContainerRef} className="w-full" style={{ height: 200 }} />
+                <div ref={chartContainerRef} style={{ width: "100%", height: 200 }} />
               )}
             </div>
           </div>
 
-          {/* Secondary stats */}
-          <div className="px-4 pt-3 pb-2">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-xl p-3">
-                <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("currentValue", language)}</p>
-                <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.currentILS)}</p>
-              </div>
-              <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-xl p-3">
-                <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("costBasis", language)}</p>
-                <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.costILS)}</p>
-              </div>
-              <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-xl p-3">
-                <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("weight", language)}</p>
-                <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{position.weightPct.toFixed(1)}%</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Position detail: shares + avg price (editable) */}
-          <div className="px-4 pt-1 pb-3 border-b border-[var(--color-border)]">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1.5">{t("shares", language)}</p>
-                {editMode && !hasMultipleAccounts ? (
-                  <input type="number" value={editShares} onChange={(e) => setEditShares(e.target.value)} className={inputCls} min="1" />
-                ) : (
-                  <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{position.shares.toLocaleString()}</p>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1.5">{t("avgBuyPrice", language)}</p>
-                {editMode && !hasMultipleAccounts ? (
-                  <input type="number" value={editAvgPrice} onChange={(e) => setEditAvgPrice(e.target.value)} className={inputCls} min="0.01" step="0.01" />
-                ) : (
-                  <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(position.avgPriceILS)}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Multi-account breakdown */}
-          {hasMultipleAccounts && (
-            <div className="px-4 py-3 border-b border-[var(--color-border)] space-y-2">
-              <p className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
-                {t("accounts", language)}
-              </p>
-              {position.accountBreakdown.map((entry) => (
-                <div key={entry.account} className="grid grid-cols-3 gap-2 items-end">
-                  <div>
-                    <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">Account</p>
-                    <p className="text-sm font-bold text-[var(--color-fg-default)]">{entry.account}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("shares", language)}</p>
-                    {editMode ? (
-                      <input
-                        type="number"
-                        value={accountEdits[entry.account]?.shares ?? String(entry.shares)}
-                        onChange={(e) => setAccountEdits((cur) => ({ ...cur, [entry.account]: { shares: e.target.value, avgPriceILS: cur[entry.account]?.avgPriceILS ?? String(entry.avgPriceILS) } }))}
-                        className={inputCls}
-                        min="0"
-                      />
-                    ) : (
-                      <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{entry.shares.toLocaleString()}</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-[var(--color-fg-subtle)] mb-1">{t("avgBuyPrice", language)}</p>
-                    {editMode ? (
-                      <input
-                        type="number"
-                        value={accountEdits[entry.account]?.avgPriceILS ?? String(entry.avgPriceILS)}
-                        onChange={(e) => setAccountEdits((cur) => ({ ...cur, [entry.account]: { shares: cur[entry.account]?.shares ?? String(entry.shares), avgPriceILS: e.target.value } }))}
-                        className={inputCls}
-                        min="0.01"
-                        step="0.01"
-                      />
-                    ) : (
-                      <p className="text-sm font-bold tabular-nums text-[var(--color-fg-default)]">{formatILS(entry.avgPriceILS)}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Edit actions */}
-          {editMode && (
-            <div className="px-4 py-3 space-y-2 border-b border-[var(--color-border)]">
-              <button
-                onClick={handleSaveEdit}
-                disabled={saving}
-                className="w-full py-2.5 rounded-xl bg-[var(--color-accent-blue)] text-white text-sm font-bold disabled:opacity-50"
-              >
-                {saving ? t("saving", language) : t("saveChanges", language)}
-              </button>
-              {canDeleteSinglePosition && (
-                <button
-                  onClick={async () => {
-                    if (!onDeletePosition || !position) return;
-                    setDeleting(true);
-                    try { await onDeletePosition(position); } finally { setDeleting(false); }
-                  }}
-                  disabled={deleting}
-                  className="w-full py-2.5 rounded-xl border border-[color-mix(in_srgb,var(--color-accent-red)_40%,transparent)] text-[var(--color-accent-red)] text-sm font-bold disabled:opacity-50"
-                >
-                  {deleting ? "Removing..." : "Remove Position"}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Strategy verdict */}
-          {verdict && (
-            <div className="px-4 py-3 border-b border-[var(--color-border)]">
-              <p className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider mb-2">{t("reasoning", language)}</p>
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <VerdictBadge verdict={verdict.verdict} />
-                <ConfidenceBadge confidence={verdict.confidence} size="md" />
-                {verdict.timeframe && verdict.timeframe !== "undefined" && (
-                  <span className="text-xs text-[var(--color-fg-subtle)]">· {verdict.timeframe}</span>
-                )}
-              </div>
-              <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                {verdict.reasoning.slice(0, 200)}{verdict.reasoning.length > 200 ? "…" : ""}
-              </p>
-            </div>
-          )}
-
-          {/* Accounts (single account display) */}
-          {!hasMultipleAccounts && position.accounts && position.accounts.length > 0 && (
-            <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--color-border)]">
-              <p className="text-[11px] text-[var(--color-fg-subtle)]">{t("accounts", language)}:</p>
-              {position.accounts.map((acc) => (
-                <span key={acc} className="px-2 py-0.5 bg-[var(--color-bg-muted)] rounded text-xs text-[var(--color-fg-default)]">
-                  {acc}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Stale warning */}
+          {/* Stale price warning */}
           {position.priceStale && (
-            <div className="mx-4 my-3 flex items-center gap-2 p-3 bg-[color-mix(in_srgb,var(--color-accent-yellow)_10%,transparent)] border border-[color-mix(in_srgb,var(--color-accent-yellow)_30%,transparent)] rounded-xl">
-              <span className="text-[var(--color-accent-yellow)] text-sm">⚠</span>
-              <p className="text-xs text-[var(--color-accent-yellow)]">{t("priceStale", language)}</p>
+            <div
+              style={{
+                margin: "12px 16px 0",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 12px",
+                background: "var(--color-amber-bg)",
+                border: "0.5px solid var(--color-amber-border)",
+                borderRadius: "var(--radius-md)",
+              }}
+            >
+              <span style={{ color: "var(--color-amber)", fontSize: "var(--text-sm)" }}>⚠</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--color-amber)", fontWeight: "var(--weight-regular)" }}>
+                {t("priceStale", language)}
+              </span>
             </div>
           )}
 
-          <div className="h-6" />
+          <div style={{ height: 24 }} />
         </div>
+
+        {/* ── Footer CTA — every screen has a job ── */}
+        {!editMode && (
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
+              borderTop: "0.5px solid var(--bg-border)",
+              background: "var(--bg-base)",
+              flexShrink: 0,
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleDeepDive}
+              style={{
+                flex: 1,
+                padding: "12px",
+                borderRadius: "var(--radius-md)",
+                background: ctaBg(verdictType),
+                color: ctaColor(verdictType),
+                border: `0.5px solid ${ctaBorderColor(verdictType)}`,
+                fontSize: "var(--text-sm)",
+                fontWeight: "var(--weight-bold)",
+                cursor: "pointer",
+              }}
+            >
+              {ctaLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: "12px 16px",
+                borderRadius: "var(--radius-md)",
+                background: "transparent",
+                color: "var(--text-secondary)",
+                border: "0.5px solid var(--bg-border)",
+                fontSize: "var(--text-sm)",
+                fontWeight: "var(--weight-regular)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {language === "he" ? "סגור" : "Dismiss"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -45,7 +45,7 @@ export function AlertBanner({ count, onClick }: AlertBannerProps) {
       <span
         style={{
           fontSize: "var(--text-xs)",
-          fontWeight: 500,
+          fontWeight: 400,
           color: "rgba(224, 160, 48, 0.85)",
         }}
       >

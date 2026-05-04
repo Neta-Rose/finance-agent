@@ -218,7 +218,7 @@ export function StrategyModal({
                 color: "var(--text-secondary)",
                 border: "0.5px solid var(--bg-border)",
                 fontSize: "var(--text-sm)",
-                fontWeight: 500,
+                fontWeight: "var(--weight-regular)",
                 cursor: "pointer",
                 whiteSpace: "nowrap",
               }}
@@ -462,7 +462,7 @@ function SectionHeader({ label, meta }: { label: string; meta?: string }) {
           textTransform: "uppercase",
           letterSpacing: "0.06em",
           color: "var(--text-tertiary)",
-          fontWeight: 500,
+          fontWeight: "var(--weight-regular)",
         }}
       >
         {label}
@@ -543,7 +543,7 @@ function ConditionRow({ kind, text, label }: { kind: "entry" | "exit"; text: str
       <span
         style={{
           fontSize: "var(--text-2xs)",
-          fontWeight: 500,
+          fontWeight: "var(--weight-bold)",
           color: kind === "entry" ? "var(--color-green)" : "var(--color-amber)",
           textTransform: "uppercase",
           letterSpacing: "0.06em",

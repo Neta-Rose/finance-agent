@@ -42,7 +42,8 @@ const FIXED_COLOR_SCORE: Partial<Record<DisplayAction, number>> = {
 
 export function ActionBadge({ verdict, score }: ActionBadgeProps) {
   const display = VERDICT_TO_DISPLAY[verdict];
-  const colorScore = FIXED_COLOR_SCORE[display] ?? score ?? 70;
+  // HOLD without a score defaults to 55 (amber) — "unknown/borderline", not falsely "good"
+  const colorScore = FIXED_COLOR_SCORE[display] ?? score ?? 55;
 
   return (
     <span

@@ -37,7 +37,7 @@ export function StatCell({ label, value, sub, positive }: StatCellProps) {
           color: "var(--text-tertiary)",
           textTransform: "uppercase",
           letterSpacing: "0.06em",
-          fontWeight: 500,
+          fontWeight: 400,
           marginBottom: 4,
         }}
       >

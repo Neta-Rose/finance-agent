@@ -51,8 +51,6 @@ export function PositionRow({
     : "var(--text-tertiary)";
 
   const plPct = position.plPct ?? 0;
-  const plColor =
-    plPct > 0 ? "var(--color-green)" : plPct < 0 ? "var(--color-red)" : "var(--text-tertiary)";
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (!onQuickCheck) return;
@@ -125,8 +123,15 @@ export function PositionRow({
               borderRadius: "var(--radius-sm)",
               background: "var(--bg-surface)",
               flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "var(--text-xs)",
+              color: "var(--text-ghost)",
             }}
-          />
+          >
+            —
+          </span>
         )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -183,10 +188,9 @@ export function PositionRow({
           <div
             style={{
               fontSize: "var(--text-xs)",
-              color: plColor,
+              color: "var(--text-tertiary)",
               fontVariantNumeric: "tabular-nums",
               marginTop: 1,
-              opacity: 0.7,
             }}
           >
             {formatPct(plPct)}

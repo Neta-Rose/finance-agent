@@ -3,31 +3,32 @@ import { scoreBg, scoreBorder, scoreColor } from "../../utils/today/scoreColor";
 interface HeroStatCardProps {
   /** Display value, e.g. "₪284,500" */
   value: string;
-  /** All-time P/L line, e.g. "+12.4% all-time" — color follows portfolioScore */
+  /** All-time P/L line, e.g. "+12.4% all-time" — color follows pnlPositive */
   pnlLine: string;
   /** Whether all-time P/L is positive — drives pnlLine color (green/red) */
   pnlPositive: boolean | null;
-  /** Portfolio health score — drives card tint (background + border) */
+  /** Portfolio health score — drives card tint and is the primary visual */
   portfolioScore: number | null;
 }
 
 /**
- * Hero card at top of Portfolio screen — total value + all-time P/L.
+ * Hero card at top of Portfolio screen.
  *
- * Per spec section 3 + section 4:
- *   - Background tint follows portfolio score (green/amber/red)
- *   - Score chip is implicit (no number rendered) — the tint IS the signal
- *   - 26px bold value, 10px P/L line
- *
- * When portfolioScore is null (e.g. during bootstrap with no strategies yet),
- * card falls back to neutral surface bg.
+ * Per spec section 3 + issue #2:
+ *   - Score at 42px, semantic color — this is the primary visual.
+ *     "Should I be worried today?" — score answers it.
+ *   - Portfolio value at 18px, right-aligned — secondary context.
+ *   - P/L line at 10px below value.
+ *   - ScoreBar inline when score is available.
+ *   - Card tint follows score.
  */
 export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: HeroStatCardProps) {
   const hasScore = portfolioScore !== null && Number.isFinite(portfolioScore);
-  const tintScore = hasScore ? (portfolioScore as number) : 70; // neutral fallback
+  const tintScore = hasScore ? (portfolioScore as number) : 70;
 
   const bg = hasScore ? scoreBg(tintScore) : "var(--bg-surface)";
   const border = hasScore ? scoreBorder(tintScore) : "var(--bg-border-mid)";
+  const scoreTextColor = hasScore ? scoreColor(tintScore) : "var(--text-tertiary)";
 
   const pnlColor =
     pnlPositive === true
@@ -42,36 +43,78 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
         background: bg,
         border: `0.5px solid ${border}`,
         borderRadius: "var(--radius-lg)",
-        padding: "14px 16px",
+        padding: "16px 16px 12px",
         margin: "0 16px",
-        display: "flex",
-        alignItems: "baseline",
-        justifyContent: "space-between",
-        gap: 12,
       }}
     >
+      {/* Score (primary) + Value (secondary) */}
       <div
         style={{
-          fontSize: "var(--text-xl)",
-          fontWeight: "var(--weight-bold)",
-          color: "var(--text-primary)",
-          letterSpacing: "-0.5px",
-          fontVariantNumeric: "tabular-nums",
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          gap: 12,
         }}
       >
-        {value}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span
+            style={{
+              fontSize: 42,
+              fontWeight: "var(--weight-bold)",
+              lineHeight: 1,
+              letterSpacing: "-2px",
+              color: scoreTextColor,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {hasScore ? (portfolioScore as number) : "—"}
+          </span>
+          {hasScore && (
+            <span
+              style={{
+                fontSize: "var(--text-xs)",
+                color: "var(--text-tertiary)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              / 100
+            </span>
+          )}
+        </div>
+
+        <div style={{ textAlign: "end" }}>
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: "var(--weight-bold)",
+              color: "var(--text-primary)",
+              letterSpacing: "-0.5px",
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 1,
+            }}
+          >
+            {value}
+          </div>
+          {pnlLine && (
+            <div
+              style={{
+                fontSize: "var(--text-xs)",
+                fontWeight: "var(--weight-regular)",
+                color: pnlColor,
+                fontVariantNumeric: "tabular-nums",
+                marginTop: 3,
+              }}
+            >
+              {pnlLine}
+            </div>
+          )}
+        </div>
       </div>
-      {pnlLine && (
-        <div
-          style={{
-            fontSize: "var(--text-xs)",
-            fontWeight: 500,
-            color: pnlColor,
-            fontVariantNumeric: "tabular-nums",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {pnlLine}
+
+      {/* Score bar — visual position on 0–100 scale */}
+      {hasScore && (
+        <div style={{ marginTop: 12, margin: "12px -16px 0" }}>
+          <ScoreBar score={portfolioScore as number} />
         </div>
       )}
     </div>
@@ -145,6 +188,7 @@ export function ScoreBar({ score }: ScoreBarProps) {
           textTransform: "uppercase",
           letterSpacing: "0.06em",
           fontVariantNumeric: "tabular-nums",
+          fontWeight: "var(--weight-regular)",
         }}
       >
         {SCORE_BAR_ANCHORS.map((a) => (

@@ -570,11 +570,12 @@ export function Portfolio() {
 
       {/* Alert items — one card per flagged position */}
       {!isBootstrapping && attentionItems.length > 0 && (
-        <div style={{ marginTop: 6, marginBottom: 8 }}>
+        <div style={{ marginTop: 6, marginBottom: 8, display: "flex", flexDirection: "column", gap: 6 }}>
           {attentionItems.map((item) => (
             <AttentionCard
               key={item.ticker}
               item={item}
+              score={tickerScores.get(item.ticker)}
               onClick={(ticker) => setStrategyTicker(ticker)}
             />
           ))}
@@ -677,7 +678,7 @@ export function Portfolio() {
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             color: "var(--text-tertiary)",
-            fontWeight: 500,
+            fontWeight: "var(--weight-regular)",
           }}
         >
           Holdings
@@ -752,7 +753,7 @@ export function Portfolio() {
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               color: "var(--text-tertiary)",
-              fontWeight: 500,
+              fontWeight: "var(--weight-regular)",
             }}
           >
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -887,6 +888,7 @@ export function Portfolio() {
       <PositionDetailModal
         position={selectedPosition}
         verdict={selectedPosition ? verdictMap[selectedPosition.ticker] : undefined}
+        score={selectedPosition ? tickerScores.get(selectedPosition.ticker) : undefined}
         onClose={() => {
           setSelectedPosition(null);
           refetch();
