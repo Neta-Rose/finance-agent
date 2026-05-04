@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, Layers3 } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers3, Plus } from "lucide-react";
 import {
   fetchPortfolio,
   fetchVerdicts,
@@ -12,7 +12,6 @@ import { fetchOnboardStatus } from "../api/onboarding";
 import { fetchJobs } from "../api/jobs";
 import { triggerJob } from "../api/jobs";
 import { TopBar } from "../components/ui/TopBar";
-import { SummaryStrip } from "../components/portfolio/SummaryStrip";
 import { PositionRow } from "../components/portfolio/PositionRow";
 import { PositionDetailModal } from "../components/portfolio/PositionDetailModal";
 import { StrategyModal } from "../components/portfolio/StrategyModal";
@@ -20,17 +19,18 @@ import { Spinner } from "../components/ui/Spinner";
 import { ErrorState } from "../components/ui/ErrorState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Card } from "../components/ui/Card";
-import { formatILS } from "../utils/format";
+import { formatILS, timeAgo, formatPct } from "../utils/format";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { useToastStore } from "../store/toastStore";
 import { t, getGreeting } from "../store/i18n";
 import { AddPositionModal } from "../components/portfolio/AddPositionModal";
 import { SetupBanner } from "../components/today/SetupBanner";
-import { HealthHero } from "../components/today/HealthHero";
-import { AttentionBlock } from "../components/today/AttentionBlock";
+import { AttentionCard } from "../components/today/AttentionCard";
+import { AlertBanner } from "../components/design/AlertBanner";
+import { HeroStatCard } from "../components/design/HeroStatCard";
+import { StatCell } from "../components/design/StatCell";
 import { classifyAttention } from "../utils/today/classifyAttention";
 import { healthScore, portfolioHealthScore, DEFAULT_STOP_LOSS_PCT } from "../utils/today/healthScore";
-import { factoid } from "../utils/today/factoid";
 import type { VerdictRow, PositionRow as PositionRowType, AttentionItem } from "../types/api";
 
 interface AccountSummary {
@@ -159,7 +159,6 @@ export function Portfolio() {
   const [addPositionOpen, setAddPositionOpen] = useState(false);
   const [editingTicker, setEditingTicker] = useState<string | null>(null);
   const [accountManagerOpen, setAccountManagerOpen] = useState(false);
-  const [combinedHoldingsOpen, setCombinedHoldingsOpen] = useState(false);
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({});
 
   const { data: portfolio, isLoading, error, refetch, isFetching } = useQuery({
@@ -227,17 +226,9 @@ export function Portfolio() {
     return map;
   }, [verdicts, portfolio]);
 
-  const tickerFactoids = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const v of verdicts) {
-      map.set(v.ticker, factoid(v, language));
-    }
-    return map;
-  }, [verdicts, language]);
-
   // Clear positions = portfolio positions excluding tickers in the attention block.
   // Sorted worst-score first (so user sees what to watch within the calm list),
-  // then by weight descending. Each row carries _score and _factoid for rendering.
+  // then by weight descending. Each row carries _score for rendering.
   const clearPositions = useMemo(() => {
     if (!portfolio) return [];
     return portfolio.positions
@@ -245,7 +236,6 @@ export function Portfolio() {
       .map((p) => ({
         ...p,
         _score: tickerScores.get(p.ticker),
-        _factoid: tickerFactoids.get(p.ticker),
       }))
       .sort((a, b) => {
         const sa = a._score ?? 100;
@@ -253,7 +243,7 @@ export function Portfolio() {
         if (sa !== sb) return sa - sb;
         return b.weightPct - a.weightPct;
       });
-  }, [portfolio, attentionTickerSet, tickerScores, tickerFactoids]);
+  }, [portfolio, attentionTickerSet, tickerScores]);
 
   // Portfolio health score (clear-state hero)
   const portfolioHealth = useMemo(() => {
@@ -289,16 +279,6 @@ export function Portfolio() {
       setEditingTicker(null);
     }
   }, [editingTicker, portfolio]);
-
-  const alertTickers = useMemo(() => {
-    const set = new Set<string>();
-    verdictsData?.verdicts.forEach((verdict) => {
-      if (["SELL", "REDUCE", "CLOSE"].includes(verdict.verdict) || verdict.hasExpiredCatalysts) {
-        set.add(verdict.ticker);
-      }
-    });
-    return set;
-  }, [verdictsData]);
 
   const activeJobs = useMemo(() => {
     if (!jobsData?.jobs) return [];
@@ -564,297 +544,345 @@ export function Portfolio() {
         refreshing={isFetching}
       />
 
-      {/* Today state block — exactly one of: Setup | Attention | Health */}
-      {isBootstrapping ? (
-        <SetupBanner
-          analyzed={bootstrapProgress.analyzed}
-          total={bootstrapProgress.total}
-          inProgressTickers={bootstrapProgress.inProgress}
-          telegramConnected={telegramConnected}
-        />
-      ) : attentionItems.length > 0 ? (
-        <AttentionBlock
-          items={attentionItems}
-          clearCount={clearPositions.length}
-          onCardClick={(ticker) => setStrategyTicker(ticker)}
-        />
-      ) : portfolioHealth ? (
-        <HealthHero
-          score={portfolioHealth.score}
-          label={portfolioHealth.label}
-          clearCount={clearPositions.length}
-          totalCount={portfolio?.positions.length ?? 0}
-          lastReviewedAt={verdictsData?.updatedAt ?? null}
-        />
-      ) : null}
-
-      {/* Active-jobs banner — hidden during BOOTSTRAPPING (SetupBanner already shows progress) */}
-      {!isBootstrapping && activeJobs.length > 0 && (
-        <div className="mx-4 mt-3 mb-1">
-          <div className="flex items-center gap-2 text-xs text-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/10 border border-[var(--color-accent-blue)]/30 rounded-lg px-3 py-2">
-            <span className="animate-spin">🔄</span>
-            <span className="font-medium">
-              {activeJobs.length} {t("jobsRunning", language)}
-            </span>
-            <div className="flex-1" />
-            <div className="h-1.5 w-24 bg-[var(--color-bg-muted)] rounded-full overflow-hidden">
-              <div className="h-full bg-[var(--color-accent-blue)] animate-pulse rounded-full" style={{ width: "60%" }} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <SummaryStrip
-        totalILS={portfolio.totalILS ?? 0}
-        totalPlILS={portfolio.totalPlILS ?? 0}
-        totalPlPct={portfolio.totalPlPct ?? 0}
-        totalDayChangeILS={portfolio.totalDayChangeILS ?? 0}
-        totalDayChangePct={portfolio.totalDayChangePct ?? 0}
-        usdIlsRate={portfolio.usdIlsRate ?? 0}
-        updatedAt={portfolio.updatedAt}
-      />
-
-      <div className="px-4 pt-3 space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setAddPositionOpen(true)}
-            className="py-2.5 rounded-lg border border-dashed border-[var(--color-border)] text-xs text-[var(--color-accent-blue)] font-medium hover:bg-[var(--color-bg-muted)] transition-colors"
-          >
-            {t("addPosition", language)}
-          </button>
-          <button
-            onClick={() => setAccountManagerOpen(true)}
-            className="py-2.5 rounded-lg border border-[var(--color-border)] text-xs text-[var(--color-fg-default)] font-medium hover:bg-[var(--color-bg-muted)] transition-colors"
-          >
-            Manage Accounts
-          </button>
-        </div>
-      </div>
-
       {/*
-        Unified clear-positions list — renders whenever there's at least one clear position,
-        even during partial bootstrap (strategies arrive live as deep dives complete).
-        Sorted worst-score-first within clear, then by weight descending.
+        Layout per design pivot spec section 4:
+        AlertBanner → AlertItem cards → HeroStatCard → StatCell grid → Holdings section.
+        SetupBanner replaces the alert/hero/stats sequence while strategies are still bootstrapping.
       */}
-      {clearPositions.length > 0 && (
-        <div className="px-4 pt-3 pb-1">
-          <div className="md:hidden space-y-2">
-            {clearPositions.map((position) => (
-              <PositionRow
-                key={`unified:${position.ticker}`}
-                position={position}
-                verdict={verdictMap[position.ticker]}
-                hasAlert={false}
-                isChecking={activeTickerChecks.has(position.ticker)}
-                jobType={tickerJobType.get(position.ticker)}
-                score={position._score}
-                factoid={position._factoid}
-                onQuickCheck={() => handleQuickCheck(position.ticker)}
-                onClick={() => handlePositionClick(position)}
-              />
-            ))}
-          </div>
-          <div className="hidden md:block">
-            <Card className="overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--color-border)]">
-                    {[
-                      t("colTicker", language),
-                      t("colLivePrice", language),
-                      t("colDayPct", language),
-                      t("colValue", language),
-                      t("colPlPct", language),
-                      t("colPl", language),
-                      t("colWeight", language),
-                      t("colVerdict", language),
-                    ].map((header) => (
-                      <th
-                        key={`unified:${header}`}
-                        className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase"
-                      >
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {clearPositions.map((position) => (
-                    <PositionRow
-                      key={`unified:${position.ticker}`}
-                      position={position}
-                      verdict={verdictMap[position.ticker]}
-                      hasAlert={false}
-                      isChecking={activeTickerChecks.has(position.ticker)}
-                      jobType={tickerJobType.get(position.ticker)}
-                      score={position._score}
-                      factoid={position._factoid}
-                      onClick={() => handlePositionClick(position)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </Card>
+
+      {isBootstrapping && (
+        <div style={{ marginTop: 12, marginBottom: 4 }}>
+          <SetupBanner
+            analyzed={bootstrapProgress.analyzed}
+            total={bootstrapProgress.total}
+            inProgressTickers={bootstrapProgress.inProgress}
+            telegramConnected={telegramConnected}
+          />
+        </div>
+      )}
+
+      {/* Alert strip — only when attention items exist (silence when zero) */}
+      {!isBootstrapping && attentionItems.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <AlertBanner count={attentionItems.length} />
+        </div>
+      )}
+
+      {/* Alert items — one card per flagged position */}
+      {!isBootstrapping && attentionItems.length > 0 && (
+        <div style={{ marginTop: 6, marginBottom: 8 }}>
+          {attentionItems.map((item) => (
+            <AttentionCard
+              key={item.ticker}
+              item={item}
+              onClick={(ticker) => setStrategyTicker(ticker)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Hero — total value + all-time P/L; bg tint = portfolio score */}
+      {!isBootstrapping && (
+        <div style={{ marginTop: 12 }}>
+          <HeroStatCard
+            value={formatILS(portfolio.totalILS ?? 0)}
+            pnlLine={`${formatPct(portfolio.totalPlPct ?? 0)} all-time`}
+            pnlPositive={(portfolio.totalPlPct ?? 0) >= 0 ? (portfolio.totalPlPct ?? 0) > 0 : false}
+            portfolioScore={portfolioHealth?.score ?? null}
+          />
+        </div>
+      )}
+
+      {/* 2-col stats — today's change | USD/ILS */}
+      {!isBootstrapping && (
+        <div
+          style={{
+            marginTop: 8,
+            padding: "0 16px",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+          }}
+        >
+          <StatCell
+            label="Today"
+            value={
+              (portfolio.totalDayChangePct ?? 0) === 0
+                ? "—"
+                : `${(portfolio.totalDayChangePct ?? 0) >= 0 ? "+" : ""}${(portfolio.totalDayChangePct ?? 0).toFixed(2)}%`
+            }
+            sub={
+              (portfolio.totalDayChangeILS ?? 0) === 0
+                ? undefined
+                : `${(portfolio.totalDayChangeILS ?? 0) >= 0 ? "+" : ""}${formatILS(Math.abs(portfolio.totalDayChangeILS ?? 0))}`
+            }
+            positive={
+              (portfolio.totalDayChangePct ?? 0) === 0
+                ? null
+                : (portfolio.totalDayChangePct ?? 0) > 0
+            }
+          />
+          <StatCell
+            label="USD / ILS"
+            value={(portfolio.usdIlsRate ?? 0).toFixed(2)}
+            sub={portfolio.updatedAt ? `updated ${timeAgo(portfolio.updatedAt)}` : undefined}
+          />
+        </div>
+      )}
+
+      {/* Active jobs strip — minor pill, not a banner */}
+      {!isBootstrapping && activeJobs.length > 0 && (
+        <div style={{ marginTop: 8, padding: "0 16px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 10px",
+              borderRadius: "var(--radius-pill)",
+              background: "var(--bg-surface)",
+              border: "0.5px solid var(--bg-border)",
+              fontSize: "var(--text-xs)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "var(--color-green)",
+                animation: "pulse 1.5s ease-in-out infinite",
+              }}
+            />
+            {activeJobs.length} {t("jobsRunning", language)}
           </div>
         </div>
       )}
 
-      <div className="px-4 pt-2 pb-6 space-y-3">
-        {accountSummaries.map((account) => {
-          const expanded = expandedAccounts[account.name] ?? false;
-          return (
-            <Card key={account.name} className="overflow-hidden">
-              <button
-                onClick={() => toggleAccount(account.name)}
-                className="w-full text-left px-4 py-4 border-b border-[var(--color-border)] bg-[linear-gradient(135deg,rgba(88,166,255,0.12),transparent_60%)]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-bold text-[var(--color-fg-default)]">{account.name}</p>
-                    <p className="text-xs text-[var(--color-fg-subtle)]">
-                      {account.positions.length} positions · {formatILS(account.totalILS)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-sm font-semibold tabular-nums text-[var(--color-fg-default)]">{formatILS(account.totalILS)}</p>
-                      <p className={`text-xs tabular-nums ${account.totalPlPct >= 0 ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
-                        {account.totalPlPct >= 0 ? "+" : ""}{account.totalPlPct.toFixed(2)}%
-                      </p>
-                    </div>
-                    {expanded ? <ChevronUp size={18} className="text-[var(--color-fg-muted)]" /> : <ChevronDown size={18} className="text-[var(--color-fg-muted)]" />}
-                  </div>
-                </div>
-              </button>
-
-              {expanded && (
-                account.positions.length === 0 ? (
-                  <div className="px-4 py-5 text-sm text-[var(--color-fg-subtle)]">
-                    {t("emptyAccount", language)}
-                  </div>
-                ) : (
-                  <>
-                    <div className="md:hidden px-3 py-3 space-y-2">
-                      {account.positions.map((position) => (
-                        <PositionRow
-                          key={`${account.name}:${position.ticker}`}
-                          position={position}
-                          verdict={verdictMap[position.ticker]}
-                          hasAlert={alertTickers.has(position.ticker)}
-                          isChecking={activeTickerChecks.has(position.ticker)}
-                          jobType={tickerJobType.get(position.ticker)}
-                          onQuickCheck={() => handleQuickCheck(position.ticker)}
-                          onClick={() => handlePositionClick(position)}
-                        />
-                      ))}
-                    </div>
-
-                    <div className="hidden md:block">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-[var(--color-border)]">
-                            {[t("colTicker", language), t("colLivePrice", language), t("colDayPct", language), t("colValue", language), t("colPlPct", language), t("colPl", language), t("colWeight", language), t("colVerdict", language)].map((header) => (
-                              <th key={`${account.name}:${header}`} className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase">
-                                {header}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {account.positions.map((position) => (
-                            <PositionRow
-                              key={`${account.name}:${position.ticker}`}
-                              position={position}
-                              verdict={verdictMap[position.ticker]}
-                              hasAlert={alertTickers.has(position.ticker)}
-                              isChecking={activeTickerChecks.has(position.ticker)}
-                              jobType={tickerJobType.get(position.ticker)}
-                              onClick={() => handlePositionClick(position)}
-                            />
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )
-              )}
-            </Card>
-          );
-        })}
-
-        <div>
-          <button
-            onClick={() => setCombinedHoldingsOpen((current) => !current)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--color-bg-muted)] px-3 py-2 text-xs font-medium text-[var(--color-fg-muted)]"
-          >
-            <Layers3 size={14} />
-            {combinedHoldingsOpen ? "Hide Combined Holdings" : "Show Combined Holdings"}
-          </button>
-        </div>
-
-        {combinedHoldingsOpen && (
-          <Card className="overflow-hidden">
-            <div className="px-4 py-4 border-b border-[var(--color-border)] bg-[linear-gradient(135deg,rgba(148,163,184,0.14),transparent_60%)]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-lg font-bold text-[var(--color-fg-default)]">Combined Holdings</p>
-                  <p className="text-xs text-[var(--color-fg-subtle)]">
-                    Aggregated view across all accounts
-                  </p>
-                </div>
-                <button
-                  onClick={() => setCombinedHoldingsOpen(false)}
-                  className="text-xs text-[var(--color-fg-muted)]"
-                >
-                  Hide
-                </button>
-              </div>
-            </div>
-
-            <div className="md:hidden px-3 py-3 space-y-2">
-              {portfolio.positions.map((position) => (
-                <PositionRow
-                  key={position.ticker}
-                  position={position}
-                  verdict={verdictMap[position.ticker]}
-                  hasAlert={alertTickers.has(position.ticker)}
-                  isChecking={activeTickerChecks.has(position.ticker)}
-                  jobType={tickerJobType.get(position.ticker)}
-                  onQuickCheck={() => handleQuickCheck(position.ticker)}
-                  onClick={() => handlePositionClick(position)}
-                />
-              ))}
-            </div>
-
-            <div className="hidden md:block">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--color-border)]">
-                    {[t("colTicker", language), t("colLivePrice", language), t("colDayPct", language), t("colValue", language), t("colPlPct", language), t("colPl", language), t("colWeight", language), t("colVerdict", language)].map((header) => (
-                      <th key={header} className="px-3 py-2 text-left text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase">
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {portfolio.positions.map((position) => (
-                    <PositionRow
-                      key={position.ticker}
-                      position={position}
-                      verdict={verdictMap[position.ticker]}
-                      hasAlert={alertTickers.has(position.ticker)}
-                      isChecking={activeTickerChecks.has(position.ticker)}
-                      jobType={tickerJobType.get(position.ticker)}
-                      onClick={() => handlePositionClick(position)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+      {/* Section label: Holdings · N clear */}
+      <div
+        style={{
+          marginTop: 20,
+          padding: "0 16px",
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "var(--text-2xs)",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "var(--text-tertiary)",
+            fontWeight: 500,
+          }}
+        >
+          Holdings
+        </span>
+        {!isBootstrapping && clearPositions.length > 0 && (
+          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)" }}>
+            {clearPositions.length} clear
+          </span>
         )}
       </div>
+
+      {/* Holding rows — single layout, top borders create the row separators */}
+      {clearPositions.length > 0 && (
+        <div style={{ marginTop: 6 }}>
+          {clearPositions.map((position) => (
+            <PositionRow
+              key={`unified:${position.ticker}`}
+              position={position}
+              verdict={verdictMap[position.ticker]}
+              score={position._score}
+              isChecking={activeTickerChecks.has(position.ticker)}
+              jobType={tickerJobType.get(position.ticker)}
+              onQuickCheck={() => handleQuickCheck(position.ticker)}
+              onClick={() => handlePositionClick(position)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Add Position button — dashed ghost */}
+      <div style={{ padding: "12px 16px 8px" }}>
+        <button
+          type="button"
+          onClick={() => setAddPositionOpen(true)}
+          style={{
+            width: "100%",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            padding: "12px",
+            border: "0.5px dashed var(--bg-border-mid)",
+            borderRadius: "var(--radius-md)",
+            background: "transparent",
+            color: "var(--text-secondary)",
+            fontSize: "var(--text-sm)",
+            cursor: "pointer",
+          }}
+        >
+          <Plus size={14} />
+          {t("addPosition", language)}
+        </button>
+      </div>
+
+      {/* Power-user expander — Group by account, default-collapsed */}
+      {accountSummaries.length > 0 && (
+        <details
+          style={{
+            margin: "16px 16px 8px",
+            borderTop: "0.5px solid var(--bg-border)",
+            paddingTop: 12,
+          }}
+        >
+          <summary
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              listStyle: "none",
+              cursor: "pointer",
+              fontSize: "var(--text-2xs)",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "var(--text-tertiary)",
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Layers3 size={12} /> Group by account ({accountSummaries.length})
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setAccountManagerOpen(true);
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                fontSize: "var(--text-2xs)",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              Manage
+            </button>
+          </summary>
+
+          <div style={{ marginTop: 8 }}>
+            {accountSummaries.map((account) => {
+              const expanded = expandedAccounts[account.name] ?? false;
+              return (
+                <div
+                  key={account.name}
+                  style={{
+                    borderTop: "0.5px solid var(--bg-border)",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleAccount(account.name)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "12px 0",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "start",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "var(--text-md)",
+                          fontWeight: "var(--weight-bold)",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {account.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "var(--text-xs)",
+                          color: "var(--text-tertiary)",
+                          marginTop: 2,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {account.positions.length} positions · {formatILS(account.totalILS)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ textAlign: "end" }}>
+                        <div
+                          style={{
+                            fontSize: "var(--text-sm)",
+                            fontWeight: "var(--weight-bold)",
+                            color:
+                              account.totalPlPct >= 0
+                                ? "var(--color-green)"
+                                : "var(--color-red)",
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {account.totalPlPct >= 0 ? "+" : ""}
+                          {account.totalPlPct.toFixed(2)}%
+                        </div>
+                      </div>
+                      {expanded ? (
+                        <ChevronUp size={16} color="var(--text-tertiary)" />
+                      ) : (
+                        <ChevronDown size={16} color="var(--text-tertiary)" />
+                      )}
+                    </div>
+                  </button>
+
+                  {expanded &&
+                    (account.positions.length === 0 ? (
+                      <div
+                        style={{
+                          padding: "12px 0",
+                          fontSize: "var(--text-sm)",
+                          color: "var(--text-tertiary)",
+                        }}
+                      >
+                        {t("emptyAccount", language)}
+                      </div>
+                    ) : (
+                      <div style={{ marginBottom: 8 }}>
+                        {account.positions.map((position) => (
+                          <PositionRow
+                            key={`${account.name}:${position.ticker}`}
+                            position={position}
+                            verdict={verdictMap[position.ticker]}
+                            score={tickerScores.get(position.ticker)}
+                            isChecking={activeTickerChecks.has(position.ticker)}
+                            jobType={tickerJobType.get(position.ticker)}
+                            onQuickCheck={() => handleQuickCheck(position.ticker)}
+                            onClick={() => handlePositionClick(position)}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
 
       <PositionDetailModal
         position={selectedPosition}
