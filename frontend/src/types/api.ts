@@ -110,6 +110,8 @@ export interface StrategyRow {
  catalysts: StrategyCatalyst[];
  actionCatalysts?: StrategyCatalyst[];
  avoidConditions?: string[];
+ bullCase?: string | null;
+ bearCase?: string | null;
  hasExpiredCatalysts: boolean;
  lastDeepDiveAt: string | null;
  updatedAt: string;

@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 import { fetchStrategy } from "../../api/strategies";
 import { triggerJob } from "../../api/jobs";
 import { Spinner } from "../ui/Spinner";
@@ -7,12 +8,15 @@ import { ErrorState } from "../ui/ErrorState";
 import { VerdictBadge, ConfidenceBadge } from "../ui/Badge";
 import { useToastStore } from "../../store/toastStore";
 import { usePreferencesStore } from "../../store/preferencesStore";
-import { t, tConfidence, tTimeframe } from "../../store/i18n";
+import { t, tTimeframe } from "../../store/i18n";
 import { timeAgo } from "../../utils/format";
-import type { StrategyRow } from "../../types/api";
+import { whyToday } from "../../utils/today/whyToday";
+import type { StrategyRow, AttentionItem } from "../../types/api";
 
 interface StrategyModalProps {
   ticker: string | null;
+  /** When the modal is opened from an AttentionCard, this drives the pinned "Why this fired today" strip. */
+  attentionItem?: AttentionItem | null;
   onClose: () => void;
   onDeepDive?: (ticker: string) => void;
 }
@@ -61,87 +65,151 @@ function CatalystRow({ cat }: { cat: { description: string; expiresAt: string | 
   );
 }
 
-function StrategyContent({ strategy }: { strategy: StrategyRow }) {
-  const language = usePreferencesStore((s) => s.language);
+function Expander({
+  open,
+  onToggle,
+  title,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-4">
-      {/* Meta row */}
-      <div className="flex items-center gap-3 text-[10px] text-[var(--color-fg-muted)]">
-        <ConfidenceBadge confidence={tConfidence(strategy.confidence, language)} />
-        <span>·</span>
-        <span>{t("strategyUpdated", language)} {timeAgo(strategy.updatedAt)}</span>
-        <span>·</span>
-        <span>{tTimeframe(strategy.timeframe, language)}</span>
-      </div>
-
-      {/* Reasoning */}
-      <div>
-        <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">{t("reasoning", language)}</p>
-        <p className="text-sm text-[var(--color-fg-default)] leading-relaxed">{strategy.reasoning}</p>
-      </div>
-
-      {/* Bull Case */}
-      {strategy.verdict !== "BUY" && strategy.verdict !== "ADD" && (
-        <div>
-          <p className="text-[10px] font-medium text-[var(--color-accent-green)] uppercase mb-1.5">{t("bullCase", language)}</p>
-          <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">{t("comingSoon", language)}</p>
-        </div>
-      )}
-
-      {/* Bear Case */}
-      {strategy.verdict !== "SELL" && strategy.verdict !== "CLOSE" && (
-        <div>
-          <p className="text-[10px] font-medium text-[var(--color-accent-red)] uppercase mb-1.5">{t("bearCase", language)}</p>
-          <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">{t("comingSoon", language)}</p>
-        </div>
-      )}
-
-      {/* Entry Conditions */}
-      {strategy.entryConditions.length > 0 && (
-        <div>
-          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">{t("entryConditions", language)}</p>
-          <ul className="space-y-1">
-            {strategy.entryConditions.map((c, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-fg-default)]">
-                <span className="text-[var(--color-accent-blue)] shrink-0">•</span>
-                {c}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Exit Conditions */}
-      {strategy.exitConditions.length > 0 && (
-        <div>
-          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">{t("exitConditions", language)}</p>
-          <ul className="space-y-1">
-            {strategy.exitConditions.map((c, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-fg-default)]">
-                <span className="text-[var(--color-accent-yellow)] shrink-0">•</span>
-                {c}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Catalysts */}
-      {strategy.catalysts.length > 0 && (
-        <div>
-          <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-2">{t("catalysts", language)}</p>
-          <div className="bg-[var(--color-bg-muted)] rounded-lg px-3">
-            {strategy.catalysts.map((cat, i) => (
-              <CatalystRow key={i} cat={cat} />
-            ))}
-          </div>
+    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-medium text-[var(--color-fg-muted)] uppercase tracking-wider"
+      >
+        <span>{title}</span>
+        <ChevronDown
+          size={14}
+          className={`transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="px-3 pb-3 pt-2 border-t border-[var(--color-border)]">
+          {children}
         </div>
       )}
     </div>
   );
 }
 
-export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProps) {
+function StrategyContent({
+  strategy,
+  attentionItem,
+}: {
+  strategy: StrategyRow;
+  attentionItem?: AttentionItem | null;
+}) {
+  const language = usePreferencesStore((s) => s.language);
+  const [conditionsOpen, setConditionsOpen] = useState(false);
+  const [catalystsOpen, setCatalystsOpen] = useState(false);
+
+  const totalConditions = strategy.entryConditions.length + strategy.exitConditions.length;
+  const whyTodayText = attentionItem ? whyToday(attentionItem, language) : null;
+
+  return (
+    <div className="space-y-4">
+      {/* 1. Why this fired today — pinned at top, only when arrived from AttentionCard */}
+      {whyTodayText && (
+        <div className="-mx-4 -mt-4 px-4 py-2.5 border-b border-[color-mix(in_srgb,var(--color-accent-red)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-accent-red)_10%,transparent)]">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-accent-red)] mb-0.5">
+            {t("whyTodayHeader", language)}
+          </p>
+          <p className="text-sm text-[var(--color-fg-default)]">{whyTodayText}</p>
+        </div>
+      )}
+
+      {/* 2. Reasoning — pinned (was buried in middle) */}
+      <div>
+        <p className="text-[10px] font-medium text-[var(--color-fg-subtle)] uppercase mb-1.5">
+          {t("reasoning", language)}
+        </p>
+        <p className="text-sm text-[var(--color-fg-default)] leading-relaxed">
+          {strategy.reasoning}
+        </p>
+      </div>
+
+      {/* 3. Compact meta row */}
+      <div className="flex items-center gap-3 text-[10px] text-[var(--color-fg-muted)]">
+        <ConfidenceBadge confidence={strategy.confidence} />
+        <span>·</span>
+        <span>{t("strategyUpdated", language)} {timeAgo(strategy.updatedAt)}</span>
+        <span>·</span>
+        <span>{tTimeframe(strategy.timeframe, language)}</span>
+      </div>
+
+      {/* 4. Bull / Bear in 2-col (was full-width stacked) */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-[var(--color-bg-muted)] rounded-lg p-2.5">
+          <p className="text-[10px] font-medium text-[var(--color-accent-green)] uppercase mb-1">
+            {t("bullCase", language)}
+          </p>
+          <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
+            {strategy.bullCase ?? t("comingSoon", language)}
+          </p>
+        </div>
+        <div className="bg-[var(--color-bg-muted)] rounded-lg p-2.5">
+          <p className="text-[10px] font-medium text-[var(--color-accent-red)] uppercase mb-1">
+            {t("bearCase", language)}
+          </p>
+          <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
+            {strategy.bearCase ?? t("comingSoon", language)}
+          </p>
+        </div>
+      </div>
+
+      {/* 5. Conditions — collapsed expander */}
+      {totalConditions > 0 && (
+        <Expander
+          open={conditionsOpen}
+          onToggle={() => setConditionsOpen((v) => !v)}
+          title={`${t("entryConditions", language)} / ${t("exitConditions", language)} (${totalConditions})`}
+        >
+          {strategy.entryConditions.length > 0 && (
+            <ul className="space-y-1 mb-3">
+              {strategy.entryConditions.map((c, i) => (
+                <li key={`e-${i}`} className="flex items-start gap-2 text-xs text-[var(--color-fg-default)]">
+                  <span className="text-[var(--color-accent-blue)] shrink-0">•</span>
+                  {c}
+                </li>
+              ))}
+            </ul>
+          )}
+          {strategy.exitConditions.length > 0 && (
+            <ul className="space-y-1">
+              {strategy.exitConditions.map((c, i) => (
+                <li key={`x-${i}`} className="flex items-start gap-2 text-xs text-[var(--color-fg-default)]">
+                  <span className="text-[var(--color-accent-yellow)] shrink-0">•</span>
+                  {c}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Expander>
+      )}
+
+      {/* 6. Catalysts — collapsed expander */}
+      {strategy.catalysts.length > 0 && (
+        <Expander
+          open={catalystsOpen}
+          onToggle={() => setCatalystsOpen((v) => !v)}
+          title={`${t("catalysts", language)} (${strategy.catalysts.length})`}
+        >
+          <div className="bg-[var(--color-bg-muted)] rounded-lg px-3">
+            {strategy.catalysts.map((cat, i) => <CatalystRow key={i} cat={cat} />)}
+          </div>
+        </Expander>
+      )}
+    </div>
+  );
+}
+
+export function StrategyModal({ ticker, attentionItem, onClose, onDeepDive }: StrategyModalProps) {
   const language = usePreferencesStore((s) => s.language);
   const showToast = useToastStore((s) => s.show);
   const queryClient = useQueryClient();
@@ -176,7 +244,8 @@ export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProp
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       {/* Sheet */}
-      <div className="relative w-full bg-[var(--color-bg-subtle)] md:rounded-xl md:max-w-lg md:max-h-[85vh] flex flex-col overflow-hidden"
+      <div
+        className="relative w-full bg-[var(--color-bg-subtle)] md:rounded-xl md:max-w-lg md:max-h-[85vh] flex flex-col overflow-hidden"
         style={{ maxHeight: "92vh" }}
       >
         {/* Header */}
@@ -205,7 +274,7 @@ export function StrategyModal({ ticker, onClose, onDeepDive }: StrategyModalProp
           {error && (
             <ErrorState message={t("failedLoadStrategy", language)} onRetry={() => refetch()} />
           )}
-          {data && <StrategyContent strategy={data} />}
+          {data && <StrategyContent strategy={data} attentionItem={attentionItem ?? null} />}
         </div>
 
         {/* Deep Dive button */}
