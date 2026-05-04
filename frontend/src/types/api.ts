@@ -375,3 +375,41 @@ export interface SummaryStripProps {
   usdIlsRate: number;
   updatedAt: string;
 }
+
+// ============================================================
+// Today screen — pilot v1
+// ============================================================
+
+export type AttentionReason =
+  | "catalyst_expired"
+  | "verdict_close"
+  | "verdict_sell"
+  | "verdict_reduce";
+
+export interface ExpiredCatalystInfo {
+  description: string;
+  daysAgo: number;
+}
+
+export interface AttentionItem {
+  ticker: string;
+  verdict: Verdict;
+  reason: AttentionReason;
+  reasoningSnippet: string;
+  expiredCatalyst: ExpiredCatalystInfo | null;
+}
+
+export interface HealthScoreBreakdown {
+  freshness: number;   // 0..25
+  catalyst: number;    // 0..25
+  exit: number;        // 0..20
+  confidence: number;  // 0..15
+  dayMove: number;     // 0..15
+}
+
+export interface HealthScore {
+  score: number; // 0..100, integer
+  breakdown: HealthScoreBreakdown;
+}
+
+export type HealthLabel = "healthy" | "steady" | "watch";
