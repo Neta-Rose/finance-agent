@@ -139,7 +139,21 @@ export type TranslationKey =
   | "onboardPosition" | "onboardPositions" | "onboardAccountSingular"
   | "onboardAcross" | "onboardAt" | "onboardDailyAt" | "onboardLaunchBtn"
   // Greetings
-  | "greeting1" | "greeting2" | "greeting3" | "greeting4" | "greeting5" | "greeting6";
+  | "greeting1" | "greeting2" | "greeting3" | "greeting4" | "greeting5" | "greeting6"
+  // Today screen — pilot v1
+  | "todayTitle"
+  | "setupBannerTitle" | "setupBannerBodyChannelAgnostic" | "setupBannerBodyTelegram"
+  | "setupBannerProgress" | "setupBannerInProgress"
+  | "healthLabelHealthy" | "healthLabelSteady" | "healthLabelWatch"
+  | "healthHeroSummary"
+  | "attentionHeader" | "attentionClearSuffix"
+  | "factoidEarningsInDays" | "factoidCatalystInDays"
+  | "factoidReviewDue" | "factoidFreshReview" | "factoidThesisOnTrack"
+  | "whyTodayHeader"
+  | "whyTodayCatalystExpired" | "whyTodaySellClose" | "whyTodayReduce"
+  | "whyTodayMarkedForAttention"
+  | "scoreChipAria"
+  | "noClearPositions";
 
 type Translations = Record<Language, Record<TranslationKey, string>>;
 
@@ -577,6 +591,31 @@ export const translations: Translations = {
     greeting4: "Time to check the numbers 📊",
     greeting5: "Welcome back, boss 👑",
     greeting6: "Let's make some gains 💰",
+    // Today screen — pilot v1
+    todayTitle: "Today",
+    setupBannerTitle: "Preparing your portfolio",
+    setupBannerBodyChannelAgnostic: "We'll notify you when ready.",
+    setupBannerBodyTelegram: "We'll notify you on Telegram when ready.",
+    setupBannerProgress: "Analyzed {analyzed} of {total} positions",
+    setupBannerInProgress: "{tickers} in progress",
+    healthLabelHealthy: "Healthy",
+    healthLabelSteady: "Steady",
+    healthLabelWatch: "Watch",
+    healthHeroSummary: "{clear} of {total} clear · reviewed {timeAgo}",
+    attentionHeader: "{count} need attention",
+    attentionClearSuffix: "{count} clear",
+    factoidEarningsInDays: "Earnings in {days}d",
+    factoidCatalystInDays: "Catalyst in {days}d",
+    factoidReviewDue: "Review due in {days}d",
+    factoidFreshReview: "Fresh review · catalyst {date}",
+    factoidThesisOnTrack: "Thesis on track",
+    whyTodayHeader: "Why this fired today",
+    whyTodayCatalystExpired: "{description} expired {days} days ago",
+    whyTodaySellClose: "{verdict} · {reasoning}",
+    whyTodayReduce: "REDUCE · {reasoning}",
+    whyTodayMarkedForAttention: "Marked for attention",
+    scoreChipAria: "Health score {score} of 100",
+    noClearPositions: "All positions are in attention.",
   },
   he: {
     // Navigation
@@ -1011,11 +1050,50 @@ export const translations: Translations = {
     greeting4: "זמן לבדוק את המספרים 📊",
     greeting5: "ברוך שובך 👑",
     greeting6: "בואו נרוויח 💰",
+    // Today screen — pilot v1
+    todayTitle: "היום",
+    setupBannerTitle: "מכין את התיק שלך",
+    setupBannerBodyChannelAgnostic: "נעדכן אותך כשהפעולה תסתיים.",
+    setupBannerBodyTelegram: "נעדכן אותך בטלגרם כשהפעולה תסתיים.",
+    setupBannerProgress: "נותחו {analyzed} מתוך {total} פוזיציות",
+    setupBannerInProgress: "{tickers} בתהליך",
+    healthLabelHealthy: "בריא",
+    healthLabelSteady: "יציב",
+    healthLabelWatch: "מעקב",
+    healthHeroSummary: "{clear} מתוך {total} תקין · נבדק {timeAgo}",
+    attentionHeader: "{count} דורשות תשומת לב",
+    attentionClearSuffix: "{count} תקינות",
+    factoidEarningsInDays: "דוחות בעוד {days} ימים",
+    factoidCatalystInDays: "קטליזטור בעוד {days} ימים",
+    factoidReviewDue: "סקירה בעוד {days} ימים",
+    factoidFreshReview: "סקירה עדכנית · קטליזטור {date}",
+    factoidThesisOnTrack: "התזה על המסלול",
+    whyTodayHeader: "למה זה הופיע היום",
+    whyTodayCatalystExpired: "{description} פג לפני {days} ימים",
+    whyTodaySellClose: "{verdict} · {reasoning}",
+    whyTodayReduce: "צמצם · {reasoning}",
+    whyTodayMarkedForAttention: "סומן לתשומת לב",
+    scoreChipAria: "ציון בריאות {score} מתוך 100",
+    noClearPositions: "כל הפוזיציות דורשות תשומת לב.",
   },
 };
 
 export function t(key: TranslationKey, language: Language): string {
   return translations[language][key] ?? translations.en[key] ?? key;
+}
+
+/**
+ * Substitute {name}-style placeholders in a translated template.
+ * Unknown placeholders are left intact (visible in dev) rather than blanked.
+ */
+export function tInterpolate(
+  template: string,
+  vars: Record<string, string | number>
+): string {
+  return template.replace(/\{(\w+)\}/g, (_match, name: string) => {
+    const v = vars[name];
+    return v === undefined || v === null ? `{${name}}` : String(v);
+  });
 }
 
 export function tConfidence(confidence: string, language: Language): string {
