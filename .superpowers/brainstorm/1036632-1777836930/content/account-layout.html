@@ -1,0 +1,348 @@
+<style>
+  .phone {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 18px;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #c9d1d9;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .phone .topbar {
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid #21262d;
+    background: #0d1117;
+  }
+  .phone .topbar .greeting { font-size: 10px; color: #6e7681; }
+  .phone .topbar .title { font-size: 15px; font-weight: 700; color: #f0f6fc; }
+  .phone .topbar .subtitle { font-size: 11px; color: #8b949e; }
+
+  .attn-banner {
+    margin: 10px 12px;
+    padding: 9px 11px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, rgba(248, 81, 73, 0.10), rgba(248, 81, 73, 0.02));
+    border: 1px solid rgba(248, 81, 73, 0.25);
+    font-size: 11px;
+  }
+  .attn-banner.calm {
+    background: linear-gradient(135deg, rgba(46, 160, 67, 0.10), rgba(46, 160, 67, 0.02));
+    border-color: rgba(46, 160, 67, 0.25);
+  }
+  .attn-banner .count { font-weight: 700; color: #f0f6fc; font-size: 12px; }
+
+  .attn-card {
+    margin: 6px 12px;
+    padding: 9px 11px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-left: 3px solid #f85149;
+    border-radius: 9px;
+  }
+  .attn-card.warn { border-left-color: #d29922; }
+  .attn-card .ticker { font-weight: 700; color: #f0f6fc; font-size: 12px; }
+  .attn-card .badge { font-size: 9px; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
+  .attn-card .badge.sell { background: rgba(248,81,73,0.18); color: #ff7b72; }
+  .attn-card .badge.reduce { background: rgba(210,153,34,0.18); color: #e3b341; }
+  .attn-card .reason { color: #8b949e; font-size: 10px; margin-top: 3px; }
+
+  .strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin: 10px 12px;
+  }
+  .strip .cell {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 7px;
+    padding: 7px 8px;
+  }
+  .strip .label { font-size: 9px; color: #6e7681; text-transform: uppercase; }
+  .strip .value { font-size: 11px; font-weight: 700; color: #f0f6fc; }
+  .strip .value.green { color: #56d364; }
+  .strip .value.red { color: #ff7b72; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    padding: 7px 12px;
+    border-bottom: 1px solid #21262d;
+    font-size: 11px;
+    gap: 8px;
+  }
+  .row .ticker { font-weight: 700; color: #f0f6fc; flex: 0 0 auto; }
+  .row .chip {
+    background: #21262d;
+    color: #8b949e;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .row .day { margin-left: auto; font-size: 10px; }
+  .row .day.up { color: #56d364; }
+  .row .day.down { color: #ff7b72; }
+
+  .acct-card {
+    margin: 8px 12px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  .acct-card .head {
+    padding: 9px 11px;
+    background: linear-gradient(135deg, rgba(88,166,255,0.10), transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .acct-card .head .name { font-weight: 700; color: #f0f6fc; font-size: 12px; }
+  .acct-card .head .meta { font-size: 9px; color: #8b949e; }
+  .acct-card .head .val { font-size: 11px; font-weight: 700; color: #f0f6fc; }
+  .acct-card .chev { color: #8b949e; }
+
+  .section-head {
+    margin: 12px 12px 6px;
+    font-size: 9px;
+    color: #6e7681;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .collapsed-bar {
+    margin: 8px 12px;
+    padding: 8px 11px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 7px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: #8b949e;
+  }
+
+  .opt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+  @media (max-width: 900px) {
+    .opt-grid { grid-template-columns: 1fr; }
+  }
+  .opt-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .opt-card:hover { border-color: #58a6ff; transform: translateY(-2px); }
+  .opt-card.selected { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,0.25); }
+  .opt-card h3 { color: #f0f6fc; margin: 0 0 4px; font-size: 14px; }
+  .opt-card .pick { font-size: 10px; color: #58a6ff; font-weight: 700; letter-spacing: 0.08em; }
+  .opt-card .blurb { font-size: 11px; color: #8b949e; margin: 6px 0 12px; line-height: 1.45; }
+  .opt-card .reco { font-size: 10px; color: #56d364; margin-top: 8px; font-style: italic; }
+</style>
+
+<h2>Q3 — Account groupings on Today</h2>
+<p class="subtitle">Same data in all three. Click a phone to choose the layout.</p>
+
+<div class="opt-grid">
+
+  <!-- ============ OPTION A: FLAT ============ -->
+  <div class="opt-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="pick">OPTION A</div>
+    <h3>Flatten on Today</h3>
+    <p class="blurb">Single unified list. Account shown as small chip on each row. Accounts page lives elsewhere.</p>
+    <div class="phone">
+      <div class="topbar">
+        <div class="greeting">Good morning</div>
+        <div class="title">Today</div>
+        <div class="subtitle">12 positions · ₪284,500</div>
+      </div>
+
+      <div class="attn-banner">
+        <span class="count">3 need attention</span> · 9 clear
+      </div>
+
+      <div class="attn-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="ticker">TSM</span>
+          <span class="badge sell">SELL</span>
+        </div>
+        <div class="reason">Earnings missed · catalyst expired 2d ago</div>
+      </div>
+      <div class="attn-card warn">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="ticker">AAPL</span>
+          <span class="badge reduce">REDUCE</span>
+        </div>
+        <div class="reason">Down 18% · thesis weakening</div>
+      </div>
+      <div class="attn-card warn">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="ticker">NFLX</span>
+          <span class="badge reduce">REDUCE</span>
+        </div>
+        <div class="reason">Hold window expired · re-evaluate</div>
+      </div>
+
+      <div class="strip">
+        <div class="cell"><div class="label">Today</div><div class="value red">−0.8%</div></div>
+        <div class="cell"><div class="label">Total</div><div class="value">₪284K</div></div>
+        <div class="cell"><div class="label">P/L</div><div class="value green">+12.4%</div></div>
+      </div>
+
+      <div class="section-head">All positions</div>
+      <div class="row"><span class="ticker">NVDA</span><span class="chip">IBKR</span><span class="day up">+1.2%</span></div>
+      <div class="row"><span class="ticker">MSFT</span><span class="chip">IBKR</span><span class="day up">+0.4%</span></div>
+      <div class="row"><span class="ticker">TEVA</span><span class="chip">Hapoalim</span><span class="day down">−0.6%</span></div>
+      <div class="row"><span class="ticker">META</span><span class="chip">IBKR</span><span class="day up">+2.1%</span></div>
+      <div class="row" style="color:#6e7681;">+ 8 more positions ↓</div>
+    </div>
+  </div>
+
+  <!-- ============ OPTION B: DEMOTE ============ -->
+  <div class="opt-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="pick">OPTION B · RECOMMENDED</div>
+    <h3>Keep accounts, demote</h3>
+    <p class="blurb">Today story dominates. Account cards collapsed below. One tap reveals brokerage breakdown.</p>
+    <div class="phone">
+      <div class="topbar">
+        <div class="greeting">Good morning</div>
+        <div class="title">Today</div>
+        <div class="subtitle">12 positions · ₪284,500</div>
+      </div>
+
+      <div class="attn-banner">
+        <span class="count">3 need attention</span> · 9 clear
+      </div>
+
+      <div class="attn-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="ticker">TSM</span>
+          <span class="badge sell">SELL</span>
+        </div>
+        <div class="reason">Earnings missed · catalyst expired 2d ago</div>
+      </div>
+      <div class="attn-card warn">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="ticker">AAPL</span>
+          <span class="badge reduce">REDUCE</span>
+        </div>
+        <div class="reason">Down 18% · thesis weakening</div>
+      </div>
+      <div class="attn-card warn">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="ticker">NFLX</span>
+          <span class="badge reduce">REDUCE</span>
+        </div>
+        <div class="reason">Hold window expired · re-evaluate</div>
+      </div>
+
+      <div class="strip">
+        <div class="cell"><div class="label">Today</div><div class="value red">−0.8%</div></div>
+        <div class="cell"><div class="label">Total</div><div class="value">₪284K</div></div>
+        <div class="cell"><div class="label">P/L</div><div class="value green">+12.4%</div></div>
+      </div>
+
+      <div class="section-head">9 clear positions</div>
+      <div class="collapsed-bar">
+        <span>Show all 9 ▾</span>
+      </div>
+
+      <div class="section-head">By account</div>
+      <div class="acct-card">
+        <div class="head">
+          <div>
+            <div class="name">Interactive Brokers</div>
+            <div class="meta">8 positions · ₪192K</div>
+          </div>
+          <span class="chev">▾</span>
+        </div>
+      </div>
+      <div class="acct-card">
+        <div class="head">
+          <div>
+            <div class="name">Bank Hapoalim</div>
+            <div class="meta">4 positions · ₪92K</div>
+          </div>
+          <span class="chev">▾</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ OPTION C: ADDITIVE ============ -->
+  <div class="opt-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="pick">OPTION C</div>
+    <h3>Add Today on top</h3>
+    <p class="blurb">Lowest-risk cut: insert Today block above current account cards, leave existing layout untouched.</p>
+    <div class="phone">
+      <div class="topbar">
+        <div class="greeting">Good morning</div>
+        <div class="title">Today</div>
+        <div class="subtitle">12 positions · ₪284,500</div>
+      </div>
+
+      <div class="attn-banner">
+        <span class="count">3 need attention</span> · 9 clear
+      </div>
+
+      <div class="attn-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="ticker">TSM</span>
+          <span class="badge sell">SELL</span>
+        </div>
+        <div class="reason">Earnings missed</div>
+      </div>
+      <div class="attn-card warn">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="ticker">AAPL</span>
+          <span class="badge reduce">REDUCE</span>
+        </div>
+        <div class="reason">Down 18%</div>
+      </div>
+
+      <div class="strip">
+        <div class="cell"><div class="label">Today</div><div class="value red">−0.8%</div></div>
+        <div class="cell"><div class="label">Total</div><div class="value">₪284K</div></div>
+        <div class="cell"><div class="label">P/L</div><div class="value green">+12.4%</div></div>
+      </div>
+
+      <div class="acct-card">
+        <div class="head">
+          <div>
+            <div class="name">Interactive Brokers</div>
+            <div class="meta">8 positions · ₪192K</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="val">₪192K</div>
+            <div style="color:#56d364;font-size:9px;">+11.2%</div>
+          </div>
+        </div>
+        <div class="row"><span class="ticker">NVDA</span><span class="day up">+1.2%</span></div>
+        <div class="row"><span class="ticker">MSFT</span><span class="day up">+0.4%</span></div>
+        <div class="row"><span class="ticker">META</span><span class="day up">+2.1%</span></div>
+      </div>
+      <div class="acct-card">
+        <div class="head">
+          <div>
+            <div class="name">Bank Hapoalim</div>
+            <div class="meta">4 positions · ₪92K</div>
+          </div>
+          <span class="chev">▾</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

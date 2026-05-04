@@ -1,0 +1,22 @@
+[
+  {
+    "id": "support_1777720935829_cd5ab7",
+    "userId": "soofke",
+    "subject": "test",
+    "message": "test",
+    "source": "topbar",
+    "page": "/controls",
+    "createdAt": "2026-05-02T11:22:15.829Z",
+    "status": "closed"
+  },
+  {
+    "id": "support_1777720843080_043d9f",
+    "userId": "soofke",
+    "subject": "my full report is stuck",
+    "message": "i cant get to get my full report to complete and hence also dailies doesnt work.",
+    "source": "topbar",
+    "page": "/controls",
+    "createdAt": "2026-05-02T11:20:43.080Z",
+    "status": "closed"
+  }
+]

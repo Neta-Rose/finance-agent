@@ -1,0 +1,354 @@
+<style>
+  .phone {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 18px;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #c9d1d9;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .sheet-header {
+    padding: 11px 13px;
+    border-bottom: 1px solid #21262d;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .sheet-header .x { color: #8b949e; font-size: 16px; }
+  .sheet-header .ticker { font-weight: 700; color: #f0f6fc; font-size: 14px; font-family: monospace; }
+  .sheet-header .badge {
+    font-size: 9px; padding: 2px 7px; border-radius: 8px; font-weight: 700;
+    background: rgba(248,81,73,0.18); color: #ff7b72;
+  }
+
+  .meta-row {
+    padding: 7px 13px;
+    border-bottom: 1px solid #21262d;
+    font-size: 10px;
+    color: #6e7681;
+    display: flex;
+    gap: 6px;
+  }
+  .meta-row .conf { color: #56d364; }
+  .meta-row .sep { color: #30363d; }
+
+  .section {
+    padding: 11px 13px;
+    border-bottom: 1px solid #21262d;
+  }
+  .section .label {
+    font-size: 9px;
+    color: #6e7681;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .section .body {
+    color: #c9d1d9;
+    font-size: 12px;
+  }
+  .section.pinned {
+    background: linear-gradient(135deg, rgba(248,81,73,0.06), transparent);
+    border-left: 3px solid rgba(248,81,73,0.4);
+  }
+  .section.pinned .label { color: #ff7b72; }
+
+  .why-today {
+    padding: 11px 13px;
+    background: linear-gradient(135deg, rgba(248,81,73,0.10), rgba(248,81,73,0.02));
+    border-bottom: 1px solid #21262d;
+  }
+  .why-today .label {
+    font-size: 9px; color: #ff7b72; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;
+  }
+  .why-today .text { color: #f0f6fc; font-size: 12px; font-weight: 500; }
+
+  .bullbear {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #21262d;
+  }
+  .bullbear > div {
+    background: #0d1117;
+    padding: 9px 11px;
+  }
+  .bullbear .l-bull { color: #56d364; font-size: 9px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+  .bullbear .l-bear { color: #ff7b72; font-size: 9px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+  .bullbear .text { font-size: 11px; color: #8b949e; }
+
+  .expander {
+    padding: 9px 13px;
+    border-bottom: 1px solid #21262d;
+    color: #8b949e;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .expander .label { color: #6e7681; font-size: 10px; text-transform: uppercase; }
+  .expander .chev { color: #8b949e; }
+
+  .li {
+    display: flex;
+    gap: 7px;
+    align-items: flex-start;
+    margin: 4px 0;
+    font-size: 11px;
+  }
+  .li .dot { color: #58a6ff; font-weight: 700; }
+  .li.exit .dot { color: #d29922; }
+
+  .catalyst {
+    background: #161b22;
+    border-radius: 7px;
+    padding: 8px 10px;
+    margin-top: 4px;
+  }
+  .catalyst .desc { color: #c9d1d9; font-size: 11px; }
+  .catalyst .when { color: #ff7b72; font-size: 10px; margin-top: 2px; }
+
+  .cta {
+    padding: 11px 13px;
+    border-top: 1px solid #21262d;
+    background: #0d1117;
+  }
+  .cta button {
+    width: 100%;
+    padding: 9px;
+    border-radius: 7px;
+    background: #6e40c9;
+    color: white;
+    font-weight: 700;
+    font-size: 12px;
+    border: none;
+  }
+
+  .link-back {
+    padding: 11px 13px;
+    border-top: 1px solid #21262d;
+    text-align: center;
+    color: #58a6ff;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .opt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+  @media (max-width: 900px) {
+    .opt-grid { grid-template-columns: 1fr; }
+  }
+  .opt-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .opt-card:hover { border-color: #58a6ff; transform: translateY(-2px); }
+  .opt-card.selected { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,0.25); }
+  .opt-card h3 { color: #f0f6fc; margin: 0 0 4px; font-size: 14px; }
+  .opt-card .pick { font-size: 10px; color: #58a6ff; font-weight: 700; letter-spacing: 0.08em; }
+  .opt-card .blurb { font-size: 11px; color: #8b949e; margin: 6px 0 12px; line-height: 1.45; }
+  .opt-card .effort { font-size: 10px; color: #8b949e; margin-top: 8px; }
+  .opt-card .reco { font-size: 10px; color: #56d364; margin-top: 6px; font-style: italic; }
+
+  .scenario-banner {
+    background: rgba(88,166,255,0.10);
+    border: 1px solid rgba(88,166,255,0.3);
+    color: #79c0ff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 12px;
+  }
+</style>
+
+<h2>Q4 — Drill-down: tap "TSM · SELL" → what opens?</h2>
+<p class="subtitle">All three sheets show the SAME underlying strategy data, arranged differently.</p>
+
+<div class="scenario-banner">
+  <strong>Scenario:</strong> User just tapped the TSM SELL attention card on the Today screen.
+  Strategy says: "Earnings missed analyst expectations. Margin compression. Catalyst expired."
+</div>
+
+<div class="opt-grid">
+
+  <!-- ============ A: REUSE AS-IS ============ -->
+  <div class="opt-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="pick">OPTION A</div>
+    <h3>Reuse StrategyModal as-is</h3>
+    <p class="blurb">Existing modal. Reasoning sits between Bull/Bear cases and Entry/Exit conditions. Everything visible at once.</p>
+
+    <div class="phone">
+      <div class="sheet-header">
+        <span class="x">✕</span>
+        <span class="ticker">TSM</span>
+        <span class="badge">SELL</span>
+      </div>
+
+      <div class="meta-row">
+        <span class="conf">High</span>
+        <span class="sep">·</span>
+        <span>Updated 2h ago</span>
+        <span class="sep">·</span>
+        <span>Months</span>
+      </div>
+
+      <div class="section">
+        <div class="label">Reasoning</div>
+        <div class="body">Q3 earnings missed estimates. Operating margin compressed 280bps YoY. Forward guidance cut. Catalyst (Q3 earnings beat) expired and resolved unfavorably.</div>
+      </div>
+
+      <div class="section">
+        <div class="label" style="color:#56d364;">Bull Case</div>
+        <div class="body" style="color:#8b949e;font-size:11px;">Foundry leadership intact, AI demand still strong long-term...</div>
+      </div>
+
+      <div class="section">
+        <div class="label" style="color:#ff7b72;">Bear Case</div>
+        <div class="body" style="color:#8b949e;font-size:11px;">Inventory glut, China geopolitical risk, capex cycle...</div>
+      </div>
+
+      <div class="section">
+        <div class="label">Entry Conditions</div>
+        <div class="li"><span class="dot">•</span> Margin recovers above 50%</div>
+        <div class="li"><span class="dot">•</span> Guidance revised upward</div>
+      </div>
+
+      <div class="section">
+        <div class="label">Exit Conditions</div>
+        <div class="li exit"><span class="dot">•</span> Stop loss at $85</div>
+      </div>
+
+      <div class="section" style="border-bottom:none;">
+        <div class="label">Catalysts</div>
+        <div class="catalyst">
+          <div class="desc">Q3 earnings beat</div>
+          <div class="when">🔴 Expired 2 days ago</div>
+        </div>
+      </div>
+
+      <div class="cta">
+        <button>Run Deep Dive</button>
+      </div>
+    </div>
+
+    <p class="effort">Effort: ~0 hrs (already exists)</p>
+  </div>
+
+  <!-- ============ B: PUNCHED UP ============ -->
+  <div class="opt-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="pick">OPTION B · RECOMMENDED</div>
+    <h3>StrategyModal, reordered</h3>
+    <p class="blurb">"Why today" pinned at top. Reasoning is the headline. Everything else collapses into expanders.</p>
+
+    <div class="phone">
+      <div class="sheet-header">
+        <span class="x">✕</span>
+        <span class="ticker">TSM</span>
+        <span class="badge">SELL</span>
+      </div>
+
+      <div class="why-today">
+        <div class="label">Why this fired today</div>
+        <div class="text">Q3 earnings catalyst expired 2 days ago — earnings missed.</div>
+      </div>
+
+      <div class="section pinned">
+        <div class="label">Reasoning</div>
+        <div class="body">Q3 earnings missed estimates. Operating margin compressed 280bps YoY. Forward guidance cut. Catalyst (Q3 earnings beat) expired and resolved unfavorably.</div>
+      </div>
+
+      <div class="meta-row">
+        <span class="conf">High confidence</span>
+        <span class="sep">·</span>
+        <span>Updated 2h ago</span>
+      </div>
+
+      <div class="section" style="padding:0;border:none;">
+        <div class="bullbear">
+          <div>
+            <div class="l-bull">Bull</div>
+            <div class="text">Foundry leadership, AI demand long-term...</div>
+          </div>
+          <div>
+            <div class="l-bear">Bear</div>
+            <div class="text">Inventory glut, China risk, capex...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="expander">
+        <span class="label">Conditions (3)</span>
+        <span class="chev">▾</span>
+      </div>
+      <div class="expander">
+        <span class="label">Catalysts (1)</span>
+        <span class="chev">▾</span>
+      </div>
+
+      <div class="cta">
+        <button>Run Deep Dive</button>
+      </div>
+    </div>
+
+    <p class="effort">Effort: ~2 hrs (rearrange existing component)</p>
+    <p class="reco">Best balance for tomorrow's pilot</p>
+  </div>
+
+  <!-- ============ C: NEW WHY-TODAY SHEET ============ -->
+  <div class="opt-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="pick">OPTION C</div>
+    <h3>New "Why today" sheet</h3>
+    <p class="blurb">Brand new minimal sheet. 2-paragraph reasoning + the catalyst. "See full strategy" links to existing modal underneath.</p>
+
+    <div class="phone">
+      <div class="sheet-header">
+        <span class="x">✕</span>
+        <span class="ticker">TSM</span>
+        <span class="badge">SELL</span>
+      </div>
+
+      <div class="why-today" style="padding:14px;">
+        <div class="label">Why this fired today</div>
+        <div class="text" style="font-size:13px;">Q3 earnings catalyst expired 2 days ago. Earnings missed estimates by 8%.</div>
+      </div>
+
+      <div class="section" style="padding:14px;">
+        <div class="label">What's happening</div>
+        <div class="body">Q3 earnings missed estimates. Operating margin compressed 280bps YoY. Forward guidance cut.</div>
+      </div>
+
+      <div class="section" style="padding:14px;">
+        <div class="label">The catalyst that fired</div>
+        <div class="catalyst">
+          <div class="desc">Q3 earnings beat</div>
+          <div class="when">🔴 Expired 2 days ago — missed</div>
+        </div>
+      </div>
+
+      <div class="link-back">See full strategy →</div>
+
+      <div class="cta">
+        <button>Run Deep Dive</button>
+      </div>
+    </div>
+
+    <p class="effort">Effort: ~3-4 hrs (new component)</p>
+  </div>
+
+</div>
