@@ -17,21 +17,24 @@
 
     /* semantic accents — only colors in the app */
     --color-green: #42C97A;
-    --color-green-bg: rgba(66, 201, 122, 0.10);
-    --color-green-border: rgba(66, 201, 122, 0.20);
+    --color-green-bg: rgba(66, 201, 122, 0.15);    /* chip/badge fill */
+    --color-green-tint: rgba(66, 201, 122, 0.07);  /* alert card surface */
+    --color-green-border: rgba(66, 201, 122, 0.25);
 
     --color-amber: #E0A030;
-    --color-amber-bg: rgba(224, 160, 48, 0.10);
-    --color-amber-border: rgba(224, 160, 48, 0.22);
+    --color-amber-bg: rgba(224, 160, 48, 0.15);    /* chip/badge fill */
+    --color-amber-tint: rgba(224, 160, 48, 0.07);  /* alert card surface */
+    --color-amber-border: rgba(224, 160, 48, 0.25);
 
     --color-red: #E25050;
-    --color-red-bg: rgba(226, 80, 80, 0.10);
-    --color-red-border: rgba(226, 80, 80, 0.22);
+    --color-red-bg: rgba(226, 80, 80, 0.15);       /* chip/badge fill */
+    --color-red-tint: rgba(226, 80, 80, 0.07);     /* alert card surface */
+    --color-red-border: rgba(226, 80, 80, 0.25);
 
     /* text */
     --text-primary: #FFFFFF;
     --text-secondary: rgba(255, 255, 255, 0.45);
-    --text-tertiary: rgba(255, 255, 255, 0.25);
+    --text-tertiary: rgba(255, 255, 255, 0.28);
     --text-ghost: rgba(255, 255, 255, 0.12);
 
     /* radii */

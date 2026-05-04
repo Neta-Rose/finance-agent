@@ -7,11 +7,13 @@ interface ScoreChipProps {
 }
 
 /**
- * Square score badge — 26x26 px.
- * Color is always derived from score via the central scoreColor() helper.
- * Used everywhere a ticker is listed (holdings rows, attention cards, detail screens).
+ * 26×26 rounded-square score badge.
  *
- * Per spec: this component has only one prop. No size/variant/anything else.
+ * Shape: border-radius 7px (hardcoded — must never be circular).
+ * Color: background and foreground always from the central scoreColor/scoreBg functions.
+ * Content: score number, 10px bold, centered.
+ *
+ * One prop. No size variant. No color override. Used everywhere a score is listed.
  */
 export function ScoreChip({ score }: ScoreChipProps) {
   const language = usePreferencesStore((s) => s.language);
@@ -27,10 +29,11 @@ export function ScoreChip({ score }: ScoreChipProps) {
         justifyContent: "center",
         width: 26,
         height: 26,
-        borderRadius: "var(--radius-sm)",
-        fontSize: "var(--text-xs)",
-        fontWeight: "var(--weight-bold)",
+        borderRadius: 7,
+        fontSize: 10,
+        fontWeight: 700,
         fontVariantNumeric: "tabular-nums",
+        lineHeight: 1,
         background: scoreBg(score),
         color: scoreColor(score),
         flexShrink: 0,

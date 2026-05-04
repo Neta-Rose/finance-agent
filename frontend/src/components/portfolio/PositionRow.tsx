@@ -175,22 +175,25 @@ export function PositionRow({
         </div>
 
         <div style={{ textAlign: "end", flexShrink: 0 }}>
+          {/* Primary number — day change. 13px bold semantic color. */}
           <div
             style={{
-              fontSize: "var(--text-sm)",
-              fontWeight: "var(--weight-bold)",
+              fontSize: 13,
+              fontWeight: 700,
               color: dayColor,
               fontVariantNumeric: "tabular-nums",
             }}
           >
             {hasDay ? `${dayChangePct >= 0 ? "+" : ""}${dayChangePct.toFixed(2)}%` : "—"}
           </div>
+          {/* Secondary — all-time P/L. 10px regular tertiary. Context, not signal. */}
           <div
             style={{
-              fontSize: "var(--text-xs)",
+              fontSize: 10,
+              fontWeight: 400,
               color: "var(--text-tertiary)",
               fontVariantNumeric: "tabular-nums",
-              marginTop: 1,
+              marginTop: 2,
             }}
           >
             {formatPct(plPct)}

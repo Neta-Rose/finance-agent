@@ -1,6 +1,5 @@
-import { ChevronRight } from "lucide-react";
-import { ScoreChip } from "../design/ScoreChip";
 import { ActionBadge } from "../design/ActionBadge";
+import { scoreColor } from "../../utils/today/scoreColor";
 import { whyToday } from "../../utils/today/whyToday";
 import { usePreferencesStore } from "../../store/preferencesStore";
 import type { AttentionItem } from "../../types/api";
@@ -8,6 +7,7 @@ import type { AttentionItem } from "../../types/api";
 interface AttentionCardProps {
   item: AttentionItem;
   score?: number;
+  weightPct?: number;
   onClick: (ticker: string) => void;
 }
 
@@ -20,14 +20,14 @@ const REASON_TO_SEVERITY: Record<AttentionItem["reason"], Severity> = {
   verdict_reduce: "amber",
 };
 
-const SEVERITY_STYLES: Record<Severity, { bg: string; border: string; accent: string }> = {
+const SEVERITY_STYLES: Record<Severity, { tint: string; border: string; accent: string }> = {
   amber: {
-    bg: "var(--color-amber-bg)",
+    tint: "var(--color-amber-tint)",
     border: "var(--color-amber-border)",
     accent: "var(--color-amber)",
   },
   red: {
-    bg: "var(--color-red-bg)",
+    tint: "var(--color-red-tint)",
     border: "var(--color-red-border)",
     accent: "var(--color-red)",
   },
@@ -36,18 +36,22 @@ const SEVERITY_STYLES: Record<Severity, { bg: string; border: string; accent: st
 /**
  * One ticker that needs attention today.
  *
+ * Layout per spec:
+ *   Left:  ticker (bold mono) → reason text (10px tertiary) → score (20px bold, score color)
+ *   Right: verdict badge → weight% (9px tertiary)
+ *
  * Per spec section 3:
- *   - Severity-tinted background (amber or red based on reason)
- *   - 0.5px border in severity color
- *   - 2px left-edge accent border (preattentive signal)
- *   - ScoreChip left — score-in-color is the at-a-glance reading
- *   - Tap → opens StrategyModal
+ *   - background: severity-tinted (amber 0.07 / red 0.07)
+ *   - border: 0.5px solid severity-border
+ *   - 2px left-edge accent (preattentive signal)
+ *   - padding 11px 13px
  */
-export function AttentionCard({ item, score, onClick }: AttentionCardProps) {
+export function AttentionCard({ item, score, weightPct, onClick }: AttentionCardProps) {
   const language = usePreferencesStore((s) => s.language);
   const why = whyToday(item, language);
   const severity = REASON_TO_SEVERITY[item.reason];
   const styles = SEVERITY_STYLES[severity];
+  const scoreTextColor = score !== undefined ? scoreColor(score) : styles.accent;
 
   return (
     <button
@@ -56,72 +60,79 @@ export function AttentionCard({ item, score, onClick }: AttentionCardProps) {
       style={{
         display: "flex",
         alignItems: "flex-start",
+        justifyContent: "space-between",
         gap: 12,
         width: "calc(100% - 32px)",
         margin: "0 16px",
-        padding: "12px 14px",
-        background: styles.bg,
+        padding: "11px 13px",
+        background: styles.tint,
         border: `0.5px solid ${styles.border}`,
         borderInlineStartWidth: 2,
         borderInlineStartColor: styles.accent,
-        borderRadius: "var(--radius-md)",
+        borderRadius: 12,
         textAlign: "start",
         cursor: "pointer",
       }}
     >
-      {score !== undefined ? (
-        <ScoreChip score={score} />
-      ) : (
+      {/* Left: ticker → reason → score number */}
+      <div style={{ flex: 1, minWidth: 0 }}>
         <span
-          aria-hidden
           style={{
-            width: 26,
-            height: 26,
-            borderRadius: "var(--radius-sm)",
-            background: styles.bg,
-            border: `0.5px solid ${styles.border}`,
-            flexShrink: 0,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "var(--text-xs)",
-            color: styles.accent,
+            display: "block",
+            fontFamily: "ui-monospace, SFMono-Regular, monospace",
+            fontWeight: 700,
+            fontSize: 14,
+            color: "var(--text-primary)",
+            lineHeight: 1.2,
           }}
         >
-          —
+          {item.ticker}
         </span>
-      )}
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span
-            style={{
-              fontFamily: "ui-monospace, SFMono-Regular, monospace",
-              fontWeight: "var(--weight-bold)",
-              fontSize: "var(--text-md)",
-              color: "var(--text-primary)",
-            }}
-          >
-            {item.ticker}
-          </span>
-          <ActionBadge verdict={item.verdict} score={score} />
-        </div>
-        <p
+        <span
           style={{
-            fontSize: "var(--text-xs)",
-            color: "var(--text-secondary)",
+            display: "block",
+            fontSize: 10,
+            fontWeight: 400,
+            color: "var(--text-tertiary)",
             lineHeight: 1.4,
-            fontWeight: "var(--weight-regular)",
+            marginTop: 3,
           }}
         >
           {why}
-        </p>
+        </span>
+        {score !== undefined && (
+          <span
+            style={{
+              display: "block",
+              fontSize: 20,
+              fontWeight: 700,
+              color: scoreTextColor,
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 1,
+              marginTop: 6,
+            }}
+          >
+            {score}
+          </span>
+        )}
       </div>
 
-      <ChevronRight
-        size={16}
-        style={{ color: "var(--text-tertiary)", flexShrink: 0, marginTop: 2 }}
-      />
+      {/* Right: badge → weight */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+        <ActionBadge verdict={item.verdict} score={score} />
+        {weightPct !== undefined && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 400,
+              color: "var(--text-tertiary)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {weightPct.toFixed(1)}%
+          </span>
+        )}
+      </div>
     </button>
   );
 }

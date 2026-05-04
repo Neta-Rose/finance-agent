@@ -26,7 +26,6 @@ import { t, getGreeting } from "../store/i18n";
 import { AddPositionModal } from "../components/portfolio/AddPositionModal";
 import { SetupBanner } from "../components/today/SetupBanner";
 import { AttentionCard } from "../components/today/AttentionCard";
-import { AlertBanner } from "../components/design/AlertBanner";
 import { HeroStatCard } from "../components/design/HeroStatCard";
 import { StatCell } from "../components/design/StatCell";
 import { classifyAttention } from "../utils/today/classifyAttention";
@@ -245,13 +244,15 @@ export function Portfolio() {
       });
   }, [portfolio, attentionTickerSet, tickerScores]);
 
-  // Portfolio health score (clear-state hero)
+  // Portfolio health score — uses ALL positions with computed scores (not just clearPositions),
+  // so the hero card shows a score even when every scored position is in the attention section.
   const portfolioHealth = useMemo(() => {
-    const inputs = clearPositions
-      .filter((p) => Number.isFinite(p._score))
-      .map((p) => ({ score: p._score as number, weightPct: p.weightPct }));
+    if (!portfolio) return null;
+    const inputs = portfolio.positions
+      .map((p) => ({ score: tickerScores.get(p.ticker), weightPct: p.weightPct }))
+      .filter((p): p is { score: number; weightPct: number } => Number.isFinite(p.score));
     return portfolioHealthScore(inputs);
-  }, [clearPositions]);
+  }, [portfolio, tickerScores]);
 
   // Bootstrap progress numbers (from /api/jobs)
   const bootstrapProgress = useMemo(() => {
@@ -307,6 +308,12 @@ export function Portfolio() {
   }, [activeJobs]);
 
 
+
+  const positionWeightMap = useMemo(() => {
+    const map = new Map<string, number>();
+    portfolio?.positions.forEach((p) => map.set(p.ticker, p.weightPct));
+    return map;
+  }, [portfolio]);
 
   const accountSummaries = useMemo<AccountSummary[]>(() => {
     if (!portfolio) return [];
@@ -561,25 +568,39 @@ export function Portfolio() {
         </div>
       )}
 
-      {/* Alert strip — only when attention items exist (silence when zero) */}
+      {/* "NEEDS ATTENTION" section + cards — only when attention items exist */}
       {!isBootstrapping && attentionItems.length > 0 && (
-        <div style={{ marginTop: 12 }}>
-          <AlertBanner count={attentionItems.length} />
-        </div>
-      )}
-
-      {/* Alert items — one card per flagged position */}
-      {!isBootstrapping && attentionItems.length > 0 && (
-        <div style={{ marginTop: 6, marginBottom: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-          {attentionItems.map((item) => (
-            <AttentionCard
-              key={item.ticker}
-              item={item}
-              score={tickerScores.get(item.ticker)}
-              onClick={(ticker) => setStrategyTicker(ticker)}
-            />
-          ))}
-        </div>
+        <>
+          <div
+            style={{
+              marginTop: 20,
+              padding: "0 16px 8px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 400,
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+                color: "var(--text-tertiary)",
+              }}
+            >
+              Needs attention
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+            {attentionItems.map((item) => (
+              <AttentionCard
+                key={item.ticker}
+                item={item}
+                score={tickerScores.get(item.ticker)}
+                weightPct={positionWeightMap.get(item.ticker)}
+                onClick={(ticker) => setStrategyTicker(ticker)}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {/* Hero — total value + all-time P/L; bg tint = portfolio score */}

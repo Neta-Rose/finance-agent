@@ -3,24 +3,23 @@ import { scoreBg, scoreBorder, scoreColor } from "../../utils/today/scoreColor";
 interface HeroStatCardProps {
   /** Display value, e.g. "₪284,500" */
   value: string;
-  /** All-time P/L line, e.g. "+12.4% all-time" — color follows pnlPositive */
+  /** All-time P/L line, e.g. "+12.4% all-time" */
   pnlLine: string;
-  /** Whether all-time P/L is positive — drives pnlLine color (green/red) */
+  /** true → green, false → red, null → secondary */
   pnlPositive: boolean | null;
-  /** Portfolio health score — drives card tint and is the primary visual */
+  /** Portfolio health score — primary visual on the card */
   portfolioScore: number | null;
 }
 
 /**
- * Hero card at top of Portfolio screen.
+ * Hero card — score left, value right, score bar below.
  *
- * Per spec section 3 + issue #2:
- *   - Score at 42px, semantic color — this is the primary visual.
- *     "Should I be worried today?" — score answers it.
- *   - Portfolio value at 18px, right-aligned — secondary context.
- *   - P/L line at 10px below value.
- *   - ScoreBar inline when score is available.
- *   - Card tint follows score.
+ * Per spec task 5:
+ *   Left:  score at 42px bold, color from score function.
+ *          "Portfolio score" label 9px uppercase tertiary below it.
+ *   Right: ₪value at 18px bold white. pnlLine 10px score-color below.
+ *   Below: 3px score bar, rgba(255,255,255,0.07) track, fill = score%, fill color = score color.
+ *   Anchors: "0 exit" left · "50 hold" center · "100 strong buy" right, 9px rgba(255,255,255,0.28).
  */
 export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: HeroStatCardProps) {
   const hasScore = portfolioScore !== null && Number.isFinite(portfolioScore);
@@ -43,11 +42,11 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
         background: bg,
         border: `0.5px solid ${border}`,
         borderRadius: "var(--radius-lg)",
-        padding: "16px 16px 12px",
+        padding: "16px 16px 14px",
         margin: "0 16px",
       }}
     >
-      {/* Score (primary) + Value (secondary) */}
+      {/* Score (primary) ←→ Value (secondary) */}
       <div
         style={{
           display: "flex",
@@ -56,11 +55,12 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
           gap: 12,
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span
+        {/* Left: score number + label */}
+        <div>
+          <div
             style={{
               fontSize: 42,
-              fontWeight: "var(--weight-bold)",
+              fontWeight: 700,
               lineHeight: 1,
               letterSpacing: "-2px",
               color: scoreTextColor,
@@ -68,25 +68,27 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
             }}
           >
             {hasScore ? (portfolioScore as number) : "—"}
-          </span>
-          {hasScore && (
-            <span
-              style={{
-                fontSize: "var(--text-xs)",
-                color: "var(--text-tertiary)",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              / 100
-            </span>
-          )}
+          </div>
+          <div
+            style={{
+              fontSize: 9,
+              fontWeight: 400,
+              color: "var(--text-tertiary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.07em",
+              marginTop: 4,
+            }}
+          >
+            Portfolio score
+          </div>
         </div>
 
+        {/* Right: ₪value + pnl */}
         <div style={{ textAlign: "end" }}>
           <div
             style={{
               fontSize: 18,
-              fontWeight: "var(--weight-bold)",
+              fontWeight: 700,
               color: "var(--text-primary)",
               letterSpacing: "-0.5px",
               fontVariantNumeric: "tabular-nums",
@@ -98,11 +100,11 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
           {pnlLine && (
             <div
               style={{
-                fontSize: "var(--text-xs)",
-                fontWeight: "var(--weight-regular)",
+                fontSize: 10,
+                fontWeight: 400,
                 color: pnlColor,
                 fontVariantNumeric: "tabular-nums",
-                marginTop: 3,
+                marginTop: 4,
               }}
             >
               {pnlLine}
@@ -111,19 +113,56 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
         </div>
       </div>
 
-      {/* Score bar — visual position on 0–100 scale */}
-      {hasScore && (
-        <div style={{ marginTop: 12, margin: "12px -16px 0" }}>
-          <ScoreBar score={portfolioScore as number} />
+      {/* Score bar — 3px track, fill = score%, no cursor dot */}
+      <div style={{ marginTop: 14 }}>
+        <div
+          style={{
+            position: "relative",
+            height: 3,
+            borderRadius: 2,
+            background: "rgba(255,255,255,0.07)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              insetInlineStart: 0,
+              top: 0,
+              bottom: 0,
+              width: hasScore ? `${Math.max(0, Math.min(100, portfolioScore as number))}%` : "0%",
+              background: scoreTextColor,
+              borderRadius: 2,
+              transition: "width 260ms ease",
+            }}
+          />
         </div>
-      )}
+
+        {/* Anchor labels */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: 5,
+            fontSize: 9,
+            fontWeight: 400,
+            color: "rgba(255,255,255,0.2)",
+            textTransform: "lowercase",
+            letterSpacing: "0.02em",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          <span>0 exit</span>
+          <span>50 hold</span>
+          <span>100 strong buy</span>
+        </div>
+      </div>
     </div>
   );
 }
 
 /**
- * Score-anchor labels for the score bar on the position detail screen.
- * Exported here so position-detail can stay thin.
+ * Score-anchor constants for the detail-screen ScoreBar.
  */
 export const SCORE_BAR_ANCHORS = [
   { at: 0, label: "exit" },
@@ -132,8 +171,8 @@ export const SCORE_BAR_ANCHORS = [
 ] as const;
 
 /**
- * Linear score bar (0..100) with 3 anchored labels.
- * Render the cursor at `score` along the track, color from scoreColor().
+ * Detail-screen score bar — used in StrategyModal and PositionDetailModal.
+ * Wider track than the hero card (6px vs 3px) to work at full column width.
  */
 interface ScoreBarProps {
   score: number;
@@ -147,9 +186,9 @@ export function ScoreBar({ score }: ScoreBarProps) {
         style={{
           position: "relative",
           height: 6,
-          borderRadius: "var(--radius-pill)",
-          background: "var(--bg-surface)",
-          overflow: "visible",
+          borderRadius: 3,
+          background: "rgba(255,255,255,0.07)",
+          overflow: "hidden",
         }}
       >
         <div
@@ -160,21 +199,8 @@ export function ScoreBar({ score }: ScoreBarProps) {
             bottom: 0,
             width: `${pct}%`,
             background: color,
-            borderRadius: "var(--radius-pill)",
+            borderRadius: 3,
             transition: "width 220ms ease",
-          }}
-        />
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            insetInlineStart: `calc(${pct}% - 6px)`,
-            top: -3,
-            width: 12,
-            height: 12,
-            borderRadius: "50%",
-            background: color,
-            border: "2px solid var(--bg-base)",
           }}
         />
       </div>
@@ -183,12 +209,12 @@ export function ScoreBar({ score }: ScoreBarProps) {
           display: "flex",
           justifyContent: "space-between",
           marginTop: 6,
-          fontSize: "var(--text-2xs)",
-          color: "var(--text-tertiary)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
+          fontSize: 9,
+          fontWeight: 400,
+          color: "rgba(255,255,255,0.2)",
+          textTransform: "lowercase",
+          letterSpacing: "0.02em",
           fontVariantNumeric: "tabular-nums",
-          fontWeight: "var(--weight-regular)",
         }}
       >
         {SCORE_BAR_ANCHORS.map((a) => (
