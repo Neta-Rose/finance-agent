@@ -1,27 +1,15 @@
 import { scoreBg, scoreBorder, scoreColor } from "../../utils/today/scoreColor";
 
 interface HeroStatCardProps {
-  /** Display value, e.g. "₪284,500" */
   value: string;
-  /** All-time P/L line, e.g. "+12.4% all-time" */
   pnlLine: string;
-  /** true → green, false → red, null → secondary */
   pnlPositive: boolean | null;
-  /** Portfolio health score — primary visual on the card */
   portfolioScore: number | null;
+  /** Optional one-liner prose beneath the score bar (e.g., "Mostly on track…") */
+  description?: string;
 }
 
-/**
- * Hero card — score left, value right, score bar below.
- *
- * Per spec task 5:
- *   Left:  score at 42px bold, color from score function.
- *          "Portfolio score" label 9px uppercase tertiary below it.
- *   Right: ₪value at 18px bold white. pnlLine 10px score-color below.
- *   Below: 3px score bar, rgba(255,255,255,0.07) track, fill = score%, fill color = score color.
- *   Anchors: "0 exit" left · "50 hold" center · "100 strong buy" right, 9px rgba(255,255,255,0.28).
- */
-export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: HeroStatCardProps) {
+export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore, description }: HeroStatCardProps) {
   const hasScore = portfolioScore !== null && Number.isFinite(portfolioScore);
   const tintScore = hasScore ? (portfolioScore as number) : 70;
 
@@ -46,16 +34,16 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
         margin: "0 16px",
       }}
     >
-      {/* Score (primary) ←→ Value (secondary) */}
+      {/* Top row: score ←→ value */}
       <div
         style={{
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           gap: 12,
         }}
       >
-        {/* Left: score number + label */}
+        {/* Left: score number + "Portfolio score" label */}
         <div>
           <div
             style={{
@@ -113,7 +101,7 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
         </div>
       </div>
 
-      {/* Score bar — 3px track, fill = score%, no cursor dot */}
+      {/* Score bar — 3px track */}
       <div style={{ marginTop: 14 }}>
         <div
           style={{
@@ -157,23 +145,31 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore }: He
           <span>100 strong buy</span>
         </div>
       </div>
+
+      {/* Description prose — optional one-liner summary */}
+      {description && (
+        <p
+          style={{
+            margin: "12px 0 0",
+            fontSize: "var(--text-sm)",
+            lineHeight: 1.5,
+            color: "var(--text-secondary)",
+            fontWeight: 400,
+          }}
+        >
+          {description}
+        </p>
+      )}
     </div>
   );
 }
 
-/**
- * Score-anchor constants for the detail-screen ScoreBar.
- */
 export const SCORE_BAR_ANCHORS = [
   { at: 0, label: "exit" },
   { at: 50, label: "hold" },
   { at: 100, label: "strong buy" },
 ] as const;
 
-/**
- * Detail-screen score bar — used in StrategyModal and PositionDetailModal.
- * Wider track than the hero card (6px vs 3px) to work at full column width.
- */
 interface ScoreBarProps {
   score: number;
 }

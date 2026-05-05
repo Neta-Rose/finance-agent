@@ -32,6 +32,16 @@ import { classifyAttention } from "../utils/today/classifyAttention";
 import { healthScore, portfolioHealthScore, DEFAULT_STOP_LOSS_PCT } from "../utils/today/healthScore";
 import type { VerdictRow, PositionRow as PositionRowType, AttentionItem } from "../types/api";
 
+/** One-liner portfolio health summary for the HeroStatCard description slot. */
+function buildPortfolioDescription(attentionCount: number, total: number): string {
+  if (total === 0) return "";
+  if (attentionCount === 0)
+    return `All ${total} position${total === 1 ? "" : "s"} on track. Nothing needs your attention right now.`;
+  if (attentionCount === 1)
+    return "Mostly on track. One position flagged for review — everything else is sitting well.";
+  return `${attentionCount} positions need attention. The rest of your portfolio is on track.`;
+}
+
 interface AccountSummary {
   name: string;
   positions: PositionRowType[];
@@ -551,11 +561,48 @@ export function Portfolio() {
         refreshing={isFetching}
       />
 
-      {/*
-        Layout per design pivot spec section 4:
-        AlertBanner → AlertItem cards → HeroStatCard → StatCell grid → Holdings section.
-        SetupBanner replaces the alert/hero/stats sequence while strategies are still bootstrapping.
-      */}
+      {/* ── Inline greeting / portfolio headline ── */}
+      {!isBootstrapping && (
+        <div style={{ padding: "20px 16px 4px" }}>
+          {onboardStatus?.displayName && (
+            <p
+              style={{
+                fontSize: "var(--text-sm)",
+                color: "var(--text-secondary)",
+                marginBottom: 4,
+                fontWeight: "var(--weight-regular)",
+              }}
+            >
+              Hey {onboardStatus.displayName} —
+            </p>
+          )}
+          <h2
+            style={{
+              fontSize: "var(--text-lg)",
+              fontWeight: "var(--weight-bold)",
+              color: "var(--text-primary)",
+              lineHeight: 1.25,
+              margin: 0,
+            }}
+          >
+            {attentionItems.length === 0 ? (
+              <>
+                Portfolio's doing well.{" "}
+                <span style={{ color: "var(--color-green)" }}>All clear.</span>
+              </>
+            ) : (
+              <>
+                Portfolio's doing well,{" "}
+                <span style={{ color: "var(--color-amber)" }}>
+                  {attentionItems.length === 1
+                    ? "one thing to look at."
+                    : `${attentionItems.length} things to look at.`}
+                </span>
+              </>
+            )}
+          </h2>
+        </div>
+      )}
 
       {isBootstrapping && (
         <div style={{ marginTop: 12, marginBottom: 4 }}>
@@ -596,6 +643,7 @@ export function Portfolio() {
                 item={item}
                 score={tickerScores.get(item.ticker)}
                 weightPct={positionWeightMap.get(item.ticker)}
+                updatedAt={verdictMap[item.ticker]?.updatedAt ?? null}
                 onClick={(ticker) => setStrategyTicker(ticker)}
               />
             ))}
@@ -611,6 +659,7 @@ export function Portfolio() {
             pnlLine={`${formatPct(portfolio.totalPlPct ?? 0)} all-time`}
             pnlPositive={(portfolio.totalPlPct ?? 0) >= 0 ? (portfolio.totalPlPct ?? 0) > 0 : false}
             portfolioScore={portfolioHealth?.score ?? null}
+            description={buildPortfolioDescription(attentionItems.length, portfolio.positions.length)}
           />
         </div>
       )}
@@ -942,6 +991,11 @@ export function Portfolio() {
       <StrategyModal
         ticker={strategyTicker}
         attentionItem={strategyAttentionItem}
+        attentionRank={
+          strategyTicker
+            ? attentionItems.findIndex((i) => i.ticker === strategyTicker) + 1
+            : undefined
+        }
         score={strategyTicker ? tickerScores.get(strategyTicker) : undefined}
         position={strategyTicker ? portfolio?.positions.find((p) => p.ticker === strategyTicker) ?? null : null}
         onClose={() => setStrategyTicker(null)}

@@ -4,6 +4,8 @@ interface StatCellProps {
   sub?: string;
   /** When set, value renders green (true) / red (false) / default white (null) */
   positive?: boolean | null;
+  /** Explicit color override — takes precedence over positive prop (e.g. semantic confidence color) */
+  valueColor?: string;
 }
 
 /**
@@ -15,13 +17,14 @@ interface StatCellProps {
  *   - Value: 15px bold (white default; green/red via positive prop)
  *   - Sub: 10px tertiary
  */
-export function StatCell({ label, value, sub, positive }: StatCellProps) {
+export function StatCell({ label, value, sub, positive, valueColor: valueColorProp }: StatCellProps) {
   const valueColor =
-    positive === true
+    valueColorProp ??
+    (positive === true
       ? "var(--color-green)"
       : positive === false
       ? "var(--color-red)"
-      : "var(--text-primary)";
+      : "var(--text-primary)");
 
   return (
     <div

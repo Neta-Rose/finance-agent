@@ -10,7 +10,7 @@ import { ScoreBar } from "../design/HeroStatCard";
 import { useToastStore } from "../../store/toastStore";
 import { usePreferencesStore } from "../../store/preferencesStore";
 import { t, tConfidence } from "../../store/i18n";
-import { timeAgo } from "../../utils/format";
+import { formatILS, timeAgo } from "../../utils/format";
 import { whyToday } from "../../utils/today/whyToday";
 import { snippet } from "../../utils/today/classifyAttention";
 import { scoreColor } from "../../utils/today/scoreColor";
@@ -18,20 +18,15 @@ import type { StrategyRow, AttentionItem, PositionRow, Verdict } from "../../typ
 
 interface StrategyModalProps {
   ticker: string | null;
-  /** Drives the "Why this fired" section when arrived from an AttentionCard. */
   attentionItem?: AttentionItem | null;
-  /** Health score 0..100 for the ScoreHero + StatCell colors. */
+  /** 1-indexed rank in the attention list — shown as "PR {N}" in "Why this fired" header */
+  attentionRank?: number;
   score?: number;
-  /** Position used for Today's change and shares stat cells. */
   position?: PositionRow | null;
   onClose: () => void;
   onDeepDive?: (ticker: string) => void;
 }
 
-/**
- * Plain-English one-line verdict — used in the ScoreHero next to the score number.
- * No system internals; user-facing only.
- */
 const VERDICT_LINE: Record<Verdict, string> = {
   BUY: "Add or initiate.",
   ADD: "Add to position.",
@@ -41,13 +36,44 @@ const VERDICT_LINE: Record<Verdict, string> = {
   CLOSE: "Close out.",
 };
 
-/**
- * Position detail sheet — new layout per design pivot spec section 5.
- * Replaces the old StrategyModal flow when arrived from an AttentionCard.
- */
+/** Primary CTA label per verdict. HOLD → undefined = no primary button shown. */
+const VERDICT_CTA: Partial<Record<Verdict, string>> = {
+  REDUCE: "Reduce position",
+  SELL: "Sell position",
+  CLOSE: "Sell position",
+  BUY: "Add to position",
+  ADD: "Add to position",
+};
+
+function ctaBg(verdict: Verdict): string {
+  switch (verdict) {
+    case "BUY": case "ADD":    return "var(--color-green-bg)";
+    case "REDUCE":             return "var(--color-amber-bg)";
+    case "SELL": case "CLOSE": return "var(--color-red-bg)";
+    default:                   return "var(--bg-surface)";
+  }
+}
+function ctaFg(verdict: Verdict): string {
+  switch (verdict) {
+    case "BUY": case "ADD":    return "var(--color-green)";
+    case "REDUCE":             return "var(--color-amber)";
+    case "SELL": case "CLOSE": return "var(--color-red)";
+    default:                   return "var(--text-primary)";
+  }
+}
+function ctaBorder(verdict: Verdict): string {
+  switch (verdict) {
+    case "BUY": case "ADD":    return "var(--color-green-border)";
+    case "REDUCE":             return "var(--color-amber-border)";
+    case "SELL": case "CLOSE": return "var(--color-red-border)";
+    default:                   return "var(--bg-border)";
+  }
+}
+
 export function StrategyModal({
   ticker,
   attentionItem,
+  attentionRank,
   score,
   position,
   onClose,
@@ -78,6 +104,9 @@ export function StrategyModal({
 
   if (!ticker) return null;
 
+  const verdictType = data?.verdict;
+  const ctaLabel = verdictType ? (VERDICT_CTA[verdictType] ?? null) : null;
+
   return (
     <div
       role="dialog"
@@ -105,7 +134,7 @@ export function StrategyModal({
           overflow: "hidden",
         }}
       >
-        {/* TopBar — back | ticker · exchange | ActionBadge */}
+        {/* Header */}
         <div
           style={{
             display: "flex",
@@ -148,14 +177,14 @@ export function StrategyModal({
             </div>
             {position && (
               <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-tertiary)" }}>
-                {position.exchange}
+                {position.exchange === "TASE" ? "Tel Aviv Stock Exchange" : position.exchange}
               </div>
             )}
           </div>
           {data && <ActionBadge verdict={data.verdict} score={score} />}
         </div>
 
-        {/* Body — scroll */}
+        {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto" }}>
           {isLoading && (
             <div style={{ display: "flex", justifyContent: "center", padding: "48px 0" }}>
@@ -169,6 +198,7 @@ export function StrategyModal({
             <DetailContent
               strategy={data}
               attentionItem={attentionItem ?? null}
+              attentionRank={attentionRank}
               score={score}
               position={position ?? null}
               language={language}
@@ -176,7 +206,7 @@ export function StrategyModal({
           )}
         </div>
 
-        {/* ActionRow — primary Deep Dive | secondary Dismiss */}
+        {/* Footer — verdict-aware: no primary CTA for HOLD */}
         {data && (
           <div
             style={{
@@ -188,7 +218,7 @@ export function StrategyModal({
               flexShrink: 0,
             }}
           >
-            {onDeepDive !== undefined && (
+            {ctaLabel && verdictType && (
               <button
                 type="button"
                 onClick={handleDeepDive}
@@ -196,23 +226,23 @@ export function StrategyModal({
                   flex: 1,
                   padding: "12px",
                   borderRadius: "var(--radius-md)",
-                  background: "var(--text-primary)",
-                  color: "var(--bg-base)",
-                  border: "none",
+                  background: ctaBg(verdictType),
+                  color: ctaFg(verdictType),
+                  border: `0.5px solid ${ctaBorder(verdictType)}`,
                   fontSize: "var(--text-sm)",
                   fontWeight: "var(--weight-bold)",
                   cursor: "pointer",
                 }}
               >
-                {t("runDeepDive", language)}
+                {ctaLabel}
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
               style={{
-                flex: onDeepDive !== undefined ? 0 : 1,
-                padding: "12px 16px",
+                flex: ctaLabel ? 0 : 1,
+                padding: "12px 20px",
                 borderRadius: "var(--radius-md)",
                 background: "transparent",
                 color: "var(--text-secondary)",
@@ -223,7 +253,7 @@ export function StrategyModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {language === "he" ? "סגור" : "Dismiss"}
+              {language === "he" ? "סגור" : "Dismiss · keep"}
             </button>
           </div>
         )}
@@ -235,12 +265,14 @@ export function StrategyModal({
 function DetailContent({
   strategy,
   attentionItem,
+  attentionRank,
   score,
   position,
   language,
 }: {
   strategy: StrategyRow;
   attentionItem: AttentionItem | null;
+  attentionRank?: number;
   score?: number;
   position: PositionRow | null;
   language: "en" | "he";
@@ -249,34 +281,47 @@ function DetailContent({
   const heroScore = score ?? 0;
   const hasScore = score !== undefined && Number.isFinite(score);
 
-  // Why this fired — prefer the AttentionItem's whyToday; fall back for non-attention drill-downs.
   const whyText = attentionItem
     ? whyToday(attentionItem, language)
     : strategy.reasoning
     ? snippet(strategy.reasoning, 140)
     : null;
 
-  // Rationale — first 2 sentences max, plain language.
   const rationale = twoSentences(strategy.reasoning);
 
   const dayChangePct = position?.dayChangePct ?? 0;
+  const dayChangeILS = position?.dayChangeILS ?? 0;
   const hasDay = dayChangePct !== 0;
+
+  const confidenceColor =
+    strategy.confidence === "high"
+      ? "var(--color-green)"
+      : strategy.confidence === "low"
+      ? "var(--color-amber)"
+      : "var(--text-secondary)";
+
+  const timeframeLabel =
+    strategy.timeframe && strategy.timeframe !== "undefined"
+      ? ` · ${strategy.timeframe.replace(/_/g, " ")} horizon`
+      : "";
 
   return (
     <div>
-      {/* ScoreHero — large number left, verdict line right */}
+      {/* ScoreHero — score left, verdict + updated right */}
       <div
         style={{
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           gap: 16,
-          padding: "20px 16px 12px",
+          padding: "20px 16px 8px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        {/* Left: big score number + "POSITION SCORE" label */}
+        <div>
           <span
             style={{
+              display: "block",
               fontSize: "var(--text-hero)",
               fontWeight: "var(--weight-bold)",
               lineHeight: 1,
@@ -289,28 +334,44 @@ function DetailContent({
           </span>
           <span
             style={{
-              fontSize: "var(--text-md)",
+              display: "block",
+              fontSize: 9,
+              fontWeight: 400,
               color: "var(--text-tertiary)",
-              fontVariantNumeric: "tabular-nums",
+              textTransform: "uppercase",
+              letterSpacing: "0.07em",
+              marginTop: 4,
             }}
           >
-            / 100
+            Position score
           </span>
         </div>
-        <div
-          style={{
-            textAlign: "end",
-            fontSize: "var(--text-md)",
-            color: "var(--text-secondary)",
-            maxWidth: "55%",
-            lineHeight: 1.4,
-          }}
-        >
-          {verdictLine}
+
+        {/* Right: verdict line + updated timestamp + timeframe */}
+        <div style={{ textAlign: "end", maxWidth: "55%" }}>
+          <div
+            style={{
+              fontSize: "var(--text-md)",
+              color: "var(--text-secondary)",
+              lineHeight: 1.4,
+            }}
+          >
+            {verdictLine}
+          </div>
+          <div
+            style={{
+              fontSize: "var(--text-xs)",
+              color: "var(--text-tertiary)",
+              marginTop: 4,
+            }}
+          >
+            {language === "he" ? "עודכן" : "Updated"} {timeAgo(strategy.updatedAt)}
+            {timeframeLabel}
+          </div>
         </div>
       </div>
 
-      {/* ScoreBar */}
+      {/* Score bar */}
       {hasScore && (
         <div style={{ paddingBottom: 16 }}>
           <ScoreBar score={heroScore} />
@@ -319,7 +380,7 @@ function DetailContent({
 
       <Divider />
 
-      {/* 2x2 stats: Weight | Shares | Today | Confidence */}
+      {/* 2×2 stat grid */}
       <div
         style={{
           display: "grid",
@@ -331,30 +392,49 @@ function DetailContent({
         <StatCell
           label={language === "he" ? "משקל" : "Weight"}
           value={`${(strategy.positionWeightPct ?? position?.weightPct ?? 0).toFixed(1)}%`}
+          sub="of portfolio"
         />
         <StatCell
-          label={language === "he" ? "מניות" : "Shares"}
+          label={language === "he" ? "מניות" : "Shares held"}
           value={position?.shares !== undefined ? String(position.shares) : "—"}
+          sub={
+            position?.shares === 1
+              ? "single unit"
+              : position?.shares !== undefined
+              ? `${position.shares} shares`
+              : undefined
+          }
         />
         <StatCell
           label={language === "he" ? "היום" : "Today"}
           value={hasDay ? `${dayChangePct >= 0 ? "+" : ""}${dayChangePct.toFixed(2)}%` : "—"}
+          sub={
+            hasDay && dayChangeILS !== 0
+              ? `${dayChangeILS >= 0 ? "+" : ""}${formatILS(Math.abs(dayChangeILS))}`
+              : undefined
+          }
           positive={hasDay ? dayChangePct > 0 : null}
         />
         <StatCell
           label={language === "he" ? "ביטחון" : "Confidence"}
           value={tConfidence(strategy.confidence, language)}
+          valueColor={confidenceColor}
+          sub={strategy.confidence === "low" ? "partial data" : undefined}
         />
       </div>
 
       <Divider />
 
-      {/* Why this fired + tiny metadata */}
+      {/* Why this fired */}
       {whyText && (
         <>
           <SectionHeader
             label={language === "he" ? "למה זה עלה" : "Why this fired"}
-            meta={`${language === "he" ? "עודכן" : "updated"} ${timeAgo(strategy.updatedAt)}`}
+            meta={
+              attentionRank !== undefined && attentionRank > 0
+                ? `Deterministic · PR ${attentionRank}`
+                : `${language === "he" ? "עודכן" : "updated"} ${timeAgo(strategy.updatedAt)}`
+            }
           />
           <p
             style={{
@@ -370,7 +450,7 @@ function DetailContent({
         </>
       )}
 
-      {/* Rationale */}
+      {/* Rationale — first 2 sentences, secondary color */}
       {rationale && rationale !== whyText && (
         <p
           style={{
@@ -385,7 +465,7 @@ function DetailContent({
         </p>
       )}
 
-      {/* Bull/Bear 2-col */}
+      {/* Bull / Bear 2-col */}
       {(strategy.bullCase || strategy.bearCase) && (
         <div
           style={{
@@ -396,13 +476,13 @@ function DetailContent({
           }}
         >
           <BullBearCard
-            label={language === "he" ? "בעד" : "Bull"}
-            color="var(--color-green)"
+            kind="bull"
+            label={language === "he" ? "בעד" : "Bull case"}
             text={strategy.bullCase}
           />
           <BullBearCard
-            label={language === "he" ? "נגד" : "Bear"}
-            color="var(--color-red)"
+            kind="bear"
+            label={language === "he" ? "נגד" : "Bear case"}
             text={strategy.bearCase}
           />
         </div>
@@ -410,26 +490,26 @@ function DetailContent({
 
       <Divider />
 
-      {/* Conditions */}
+      {/* Conditions — exit first (most actionable), then entry */}
       <SectionHeader
-        label={language === "he" ? "תנאים" : "Conditions"}
-        meta={`${strategy.entryConditions.length + strategy.exitConditions.length}`}
+        label={language === "he" ? "תנאים" : "Exit conditions"}
+        meta={`${strategy.entryConditions.length + strategy.exitConditions.length} active`}
       />
       <div style={{ padding: "0 16px 24px" }}>
-        {strategy.entryConditions.map((c, i) => (
-          <ConditionRow
-            key={`e-${i}`}
-            kind="entry"
-            text={c}
-            label={language === "he" ? "כניסה" : "ENTRY"}
-          />
-        ))}
         {strategy.exitConditions.map((c, i) => (
           <ConditionRow
             key={`x-${i}`}
             kind="exit"
             text={c}
             label={language === "he" ? "יציאה" : "EXIT"}
+          />
+        ))}
+        {strategy.entryConditions.map((c, i) => (
+          <ConditionRow
+            key={`e-${i}`}
+            kind="entry"
+            text={c}
+            label={language === "he" ? "כניסה" : "ENTRY"}
           />
         ))}
         {strategy.entryConditions.length + strategy.exitConditions.length === 0 && (
@@ -482,12 +562,25 @@ function SectionHeader({ label, meta }: { label: string; meta?: string }) {
   );
 }
 
-function BullBearCard({ label, color, text }: { label: string; color: string; text: string | null | undefined }) {
+function BullBearCard({
+  kind,
+  label,
+  text,
+}: {
+  kind: "bull" | "bear";
+  label: string;
+  text: string | null | undefined;
+}) {
+  const bg = kind === "bull" ? "rgba(66,201,122,0.10)" : "rgba(226,80,80,0.10)";
+  const border = kind === "bull" ? "var(--color-green-border)" : "var(--color-red-border)";
+  const labelColor = kind === "bull" ? "var(--color-green)" : "var(--color-red)";
+
   return (
     <div
       style={{
-        background: "var(--bg-surface)",
+        background: bg,
         borderRadius: "var(--radius-md)",
+        border: `0.5px solid ${border}`,
         padding: "10px 12px",
       }}
     >
@@ -495,7 +588,7 @@ function BullBearCard({ label, color, text }: { label: string; color: string; te
         style={{
           fontSize: "var(--text-2xs)",
           fontWeight: "var(--weight-bold)",
-          color,
+          color: labelColor,
           textTransform: "uppercase",
           letterSpacing: "0.06em",
           marginBottom: 4,
@@ -516,12 +609,17 @@ function BullBearCard({ label, color, text }: { label: string; color: string; te
   );
 }
 
-function ConditionRow({ kind, text, label }: { kind: "entry" | "exit"; text: string; label: string }) {
-  // v1: no per-condition met/unmet/warn data — render with neutral dot.
-  // Phase 2: backend will produce structured condition state; switch icon accordingly.
-  const Icon = Circle;
-  const dotColor = "var(--text-ghost)";
-  // Reserved for Phase 2 — keep imports referenced so they survive future use.
+function ConditionRow({
+  kind,
+  text,
+  label,
+}: {
+  kind: "entry" | "exit";
+  text: string;
+  label: string;
+}) {
+  const dotColor = kind === "exit" ? "var(--color-amber)" : "var(--text-ghost)";
+  // Reserved for Phase 2 per-condition state icons
   void Check;
   void AlertTriangle;
   return (
@@ -534,7 +632,11 @@ function ConditionRow({ kind, text, label }: { kind: "entry" | "exit"; text: str
         borderTop: "0.5px solid var(--bg-border)",
       }}
     >
-      <Icon size={10} color={dotColor} style={{ marginTop: 4, flexShrink: 0, fill: dotColor }} />
+      <Circle
+        size={10}
+        color={dotColor}
+        style={{ marginTop: 4, flexShrink: 0, fill: dotColor }}
+      />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", lineHeight: 1.4 }}>
           {text}
@@ -557,10 +659,6 @@ function ConditionRow({ kind, text, label }: { kind: "entry" | "exit"; text: str
   );
 }
 
-/**
- * Truncate to first ~2 sentences for the rationale section.
- * Plain language only. Caller responsible for stripping system internals upstream.
- */
 function twoSentences(text: string | null | undefined): string {
   if (!text) return "";
   const trimmed = text.trim();
@@ -570,4 +668,3 @@ function twoSentences(text: string | null | undefined): string {
   if (joined.length <= 280) return joined;
   return joined.slice(0, 280).replace(/\s+\S*$/, "") + "…";
 }
-

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { ScoreChip } from "../design/ScoreChip";
 import { ActionBadge } from "../design/ActionBadge";
-import { formatPct } from "../../utils/format";
+import { positionSubLine } from "../../utils/today/positionSubLine";
 import type { PositionRow as PositionRowType, VerdictRow } from "../../types/api";
 
 interface PositionRowProps {
@@ -15,19 +15,14 @@ interface PositionRowProps {
 }
 
 /**
- * One holding row — design pivot v2.
+ * One holding row.
  *
- * Layout (single, mobile-first; works at all widths):
- *   [ScoreChip] [TICKER · ex · weight%] [ActionBadge]   [day%] / [P/L%]
+ * Layout:
+ *   [ScoreChip] [TICKER  EXCHANGE  VerdictBadge]   [day%]
+ *               [verdict-aware sub-line · weight%]  [P/L%]
  *
- * Visual rules per spec section 3:
- *   - 0.5px top border
- *   - 48px min tap target
- *   - Score chip color is the at-a-glance signal (no separate alert state needed)
- *   - Day % is rightmost, 12px bold green/red — the second-most-important number on the row
- *   - P/L % under day %, 10px tertiary
- *
- * Swipe-to-quick-check is preserved as an optional power-user gesture when onQuickCheck is provided.
+ * Sub-line priority: triggered catalyst → upcoming catalyst date → verdict default.
+ * HOLD default ("thesis on track") is verdict-matched and never appears on REDUCE/SELL/CLOSE.
  */
 export function PositionRow({
   position,
@@ -51,6 +46,7 @@ export function PositionRow({
     : "var(--text-tertiary)";
 
   const plPct = position.plPct ?? 0;
+  const subLine = positionSubLine(verdict, position.weightPct ?? 0);
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (!onQuickCheck) return;
@@ -68,10 +64,7 @@ export function PositionRow({
     setDragX(0);
   };
   const handleTouchEnd = () => {
-    if (!onQuickCheck) {
-      resetSwipe();
-      return;
-    }
+    if (!onQuickCheck) { resetSwipe(); return; }
     const shouldTrigger = dragX > 72;
     resetSwipe();
     if (shouldTrigger) onQuickCheck();
@@ -112,6 +105,7 @@ export function PositionRow({
           cursor: "pointer",
         }}
       >
+        {/* Score chip */}
         {score !== undefined ? (
           <ScoreChip score={score} />
         ) : (
@@ -134,8 +128,9 @@ export function PositionRow({
           </span>
         )}
 
+        {/* Middle: title line (ticker · exchange · badge) + sub-line */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <span
               style={{
                 fontSize: 13,
@@ -145,6 +140,15 @@ export function PositionRow({
               }}
             >
               {position.ticker}
+            </span>
+            <span
+              style={{
+                fontSize: "var(--text-xs)",
+                color: "var(--text-tertiary)",
+                fontWeight: "var(--weight-regular)",
+              }}
+            >
+              {position.exchange}
             </span>
             {verdict && <ActionBadge verdict={verdict.verdict} score={score} />}
             {isChecking && (
@@ -161,6 +165,8 @@ export function PositionRow({
               </span>
             )}
           </div>
+
+          {/* Sub-line: verdict-aware snippet · weight% */}
           <div
             style={{
               fontSize: "var(--text-xs)",
@@ -169,13 +175,13 @@ export function PositionRow({
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {position.exchange} · {(position.weightPct ?? 0).toFixed(1)}% weight
+            {subLine}
             {position.priceStale ? <> · stale</> : null}
           </div>
         </div>
 
+        {/* Right: day change + P/L */}
         <div style={{ textAlign: "end", flexShrink: 0 }}>
-          {/* Primary number — day change. 13px bold semantic color. */}
           <div
             style={{
               fontSize: 13,
@@ -186,7 +192,6 @@ export function PositionRow({
           >
             {hasDay ? `${dayChangePct >= 0 ? "+" : ""}${dayChangePct.toFixed(2)}%` : "—"}
           </div>
-          {/* Secondary — all-time P/L. 10px regular tertiary. Context, not signal. */}
           <div
             style={{
               fontSize: 10,
@@ -196,7 +201,7 @@ export function PositionRow({
               marginTop: 2,
             }}
           >
-            {formatPct(plPct)}
+            P/L {plPct >= 0 ? "+" : ""}{plPct.toFixed(1)}%
           </div>
         </div>
       </div>

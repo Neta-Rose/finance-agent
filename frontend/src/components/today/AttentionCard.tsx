@@ -1,6 +1,7 @@
 import { ActionBadge } from "../design/ActionBadge";
 import { scoreColor } from "../../utils/today/scoreColor";
 import { whyToday } from "../../utils/today/whyToday";
+import { timeAgo } from "../../utils/format";
 import { usePreferencesStore } from "../../store/preferencesStore";
 import type { AttentionItem } from "../../types/api";
 
@@ -8,6 +9,8 @@ interface AttentionCardProps {
   item: AttentionItem;
   score?: number;
   weightPct?: number;
+  /** ISO string — shown as "Xd ago" in right column below weight */
+  updatedAt?: string | null;
   onClick: (ticker: string) => void;
 }
 
@@ -33,20 +36,7 @@ const SEVERITY_STYLES: Record<Severity, { tint: string; border: string; accent: 
   },
 };
 
-/**
- * One ticker that needs attention today.
- *
- * Layout per spec:
- *   Left:  ticker (bold mono) → reason text (10px tertiary) → score (20px bold, score color)
- *   Right: verdict badge → weight% (9px tertiary)
- *
- * Per spec section 3:
- *   - background: severity-tinted (amber 0.07 / red 0.07)
- *   - border: 0.5px solid severity-border
- *   - 2px left-edge accent (preattentive signal)
- *   - padding 11px 13px
- */
-export function AttentionCard({ item, score, weightPct, onClick }: AttentionCardProps) {
+export function AttentionCard({ item, score, weightPct, updatedAt, onClick }: AttentionCardProps) {
   const language = usePreferencesStore((s) => s.language);
   const why = whyToday(item, language);
   const severity = REASON_TO_SEVERITY[item.reason];
@@ -117,8 +107,16 @@ export function AttentionCard({ item, score, weightPct, onClick }: AttentionCard
         )}
       </div>
 
-      {/* Right: badge → weight */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+      {/* Right: badge → weight → time-ago (vertical stack) */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          gap: 5,
+          flexShrink: 0,
+        }}
+      >
         <ActionBadge verdict={item.verdict} score={score} />
         {weightPct !== undefined && (
           <span
@@ -129,7 +127,18 @@ export function AttentionCard({ item, score, weightPct, onClick }: AttentionCard
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {weightPct.toFixed(1)}%
+            {weightPct.toFixed(1)}% weight
+          </span>
+        )}
+        {updatedAt && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 400,
+              color: "var(--text-tertiary)",
+            }}
+          >
+            {timeAgo(updatedAt)}
           </span>
         )}
       </div>

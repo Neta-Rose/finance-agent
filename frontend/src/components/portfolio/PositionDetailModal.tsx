@@ -37,11 +37,11 @@ const VERDICT_LINE: Record<Verdict, string> = {
   CLOSE: "Close out.",
 };
 
-const VERDICT_CTA: Record<Verdict, string> = {
+const VERDICT_CTA: Partial<Record<Verdict, string>> = {
   BUY: "Add to Position",
   ADD: "Add to Position",
-  HOLD: "Run Deep Dive",
-  REDUCE: "Trim Position",
+  // HOLD intentionally absent — no primary action CTA for hold positions
+  REDUCE: "Reduce Position",
   SELL: "Exit Position",
   CLOSE: "Exit Position",
 };
@@ -367,7 +367,7 @@ export function PositionDetailModal({ position, verdict, score, onClose, onDelet
   const scoreVal = score ?? 0;
   const verdictType = verdict?.verdict ?? strategy?.verdict;
   const verdictLine = verdictType ? VERDICT_LINE[verdictType] : null;
-  const ctaLabel = verdictType ? VERDICT_CTA[verdictType] : (language === "he" ? "הרץ ניתוח" : "Run Analysis");
+  const ctaLabel = verdictType ? (VERDICT_CTA[verdictType] ?? null) : null;
 
   const dayChangePct = position.dayChangePct ?? 0;
   const dayChangeILS = position.dayChangeILS ?? 0;
@@ -503,9 +503,10 @@ export function PositionDetailModal({ position, verdict, score, onClose, onDelet
               padding: "20px 16px 8px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <div>
               <span
                 style={{
+                  display: "block",
                   fontSize: "var(--text-hero)",
                   fontWeight: "var(--weight-bold)",
                   lineHeight: 1,
@@ -516,7 +517,19 @@ export function PositionDetailModal({ position, verdict, score, onClose, onDelet
               >
                 {hasScore ? scoreVal : "—"}
               </span>
-              <span style={{ fontSize: "var(--text-md)", color: "var(--text-tertiary)" }}>/ 100</span>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 9,
+                  fontWeight: 400,
+                  color: "var(--text-tertiary)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.07em",
+                  marginTop: 4,
+                }}
+              >
+                Position score
+              </span>
             </div>
 
             <div style={{ textAlign: "end", maxWidth: "52%" }}>
@@ -953,7 +966,7 @@ export function PositionDetailModal({ position, verdict, score, onClose, onDelet
           <div style={{ height: 24 }} />
         </div>
 
-        {/* ── Footer CTA — every screen has a job ── */}
+        {/* ── Footer CTA — verdict-aware: no primary for HOLD ── */}
         {!editMode && (
           <div
             style={{
@@ -965,28 +978,31 @@ export function PositionDetailModal({ position, verdict, score, onClose, onDelet
               flexShrink: 0,
             }}
           >
-            <button
-              type="button"
-              onClick={handleDeepDive}
-              style={{
-                flex: 1,
-                padding: "12px",
-                borderRadius: "var(--radius-md)",
-                background: ctaBg(verdictType),
-                color: ctaColor(verdictType),
-                border: `0.5px solid ${ctaBorderColor(verdictType)}`,
-                fontSize: "var(--text-sm)",
-                fontWeight: "var(--weight-bold)",
-                cursor: "pointer",
-              }}
-            >
-              {ctaLabel}
-            </button>
+            {ctaLabel && verdictType && (
+              <button
+                type="button"
+                onClick={handleDeepDive}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  borderRadius: "var(--radius-md)",
+                  background: ctaBg(verdictType),
+                  color: ctaColor(verdictType),
+                  border: `0.5px solid ${ctaBorderColor(verdictType)}`,
+                  fontSize: "var(--text-sm)",
+                  fontWeight: "var(--weight-bold)",
+                  cursor: "pointer",
+                }}
+              >
+                {ctaLabel}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
               style={{
-                padding: "12px 16px",
+                flex: ctaLabel ? 0 : 1,
+                padding: "12px 20px",
                 borderRadius: "var(--radius-md)",
                 background: "transparent",
                 color: "var(--text-secondary)",
@@ -997,7 +1013,7 @@ export function PositionDetailModal({ position, verdict, score, onClose, onDelet
                 whiteSpace: "nowrap",
               }}
             >
-              {language === "he" ? "סגור" : "Dismiss"}
+              {language === "he" ? "סגור" : "Dismiss · keep"}
             </button>
           </div>
         )}
