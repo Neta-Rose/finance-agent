@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchStrategies } from "../api/strategies";
-import { TopBar } from "../components/ui/TopBar";
 import { StrategyModal } from "../components/portfolio/StrategyModal";
 import { VerdictBadge, ConfidenceBadge } from "../components/ui/Badge";
 import { Spinner } from "../components/ui/Spinner";
@@ -85,7 +84,11 @@ export function Strategies() {
 
   return (
     <>
-      <TopBar title={t("strategies", language)} subtitle={`${scopedTotal} ${t("positions", language).toLowerCase()}`} />
+      <div style={{ padding: "20px 16px 0" }}>
+        <h1 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-bold)", color: "var(--text-primary)", margin: 0 }}>
+          {t("strategies", language)}
+        </h1>
+      </div>
 
       {/* Filters */}
       <div className="px-4 pt-3 pb-2 space-y-2">

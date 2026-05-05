@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useToastStore } from "../store/toastStore";
-import { usePreferencesStore, type Theme, type Language } from "../store/preferencesStore";
+import { usePreferencesStore, type Theme } from "../store/preferencesStore";
 import { t, type TranslationKey } from "../store/i18n";
 import { apiClient } from "../api/client";
 import {
@@ -13,9 +13,8 @@ import {
   fetchOnboardStatus,
 } from "../api/onboarding";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { TopBar } from "../components/ui/TopBar";
 import { Card } from "../components/ui/Card";
-import { User, Lock, Clock, Bot, BarChart2, LogOut, ChevronRight, ChevronDown, X, Sun, Moon, Monitor, Bell, MessageCircle } from "lucide-react";
+import { User, Lock, Clock, Bot, LogOut, ChevronRight, ChevronDown, X, Sun, Moon, Monitor, Bell, MessageCircle } from "lucide-react";
 import type { NotificationPreferences } from "../types/api";
 
 const DAY_KEYS: Array<{ value: string; key: TranslationKey }> = [
@@ -50,13 +49,19 @@ export function Settings() {
   const logout = useAuthStore((s) => s.logout);
   const showToast = useToastStore((s) => s.show);
   const lang = usePreferencesStore((s) => s.language);
-  const setLanguage = usePreferencesStore((s) => s.setLanguage);
+  const currentTheme = usePreferencesStore((s) => s.theme);
+  const setTheme = usePreferencesStore((s) => s.setTheme);
 
   const { data: onboardStatus, refetch: refetchOnboardStatus } = useQuery({
     queryKey: ["onboard-status"],
     queryFn: fetchOnboardStatus,
     staleTime: 60_000,
   });
+
+  // Display name edit
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState("");
+  const [displayNameLoading, setDisplayNameLoading] = useState(false);
 
   // Change password form
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -271,7 +276,22 @@ export function Settings() {
     }
   };
 
-  const rateLimits = onboardStatus?.rateLimits;
+  const handleSaveDisplayName = async () => {
+    const trimmed = displayNameInput.trim();
+    if (!trimmed) return;
+    setDisplayNameLoading(true);
+    try {
+      await apiClient.patch("/onboard/display-name", { displayName: trimmed });
+      await refreshOnboardStatus();
+      showToast("Display name updated", "success");
+      setEditingDisplayName(false);
+    } catch {
+      showToast("Failed to update display name", "error");
+    } finally {
+      setDisplayNameLoading(false);
+    }
+  };
+
   const statusSchedule = onboardStatus?.schedule;
   const connectivity = onboardStatus?.connectivity;
   const telegramConnected = connectivity?.telegram.connected ?? onboardStatus?.telegramConnected ?? false;
@@ -288,84 +308,96 @@ export function Settings() {
     { value: "bright", label: t("bright", lang), icon: <Sun size={16} /> },
   ];
 
-  const langOptions: Array<{ value: Language; label: string }> = [
-    { value: "en", label: t("english", lang) },
-    { value: "he", label: t("hebrew", lang) },
-  ];
-
   return (
     <div className="bg-[var(--color-bg-base)] min-h-screen pb-20">
-      <TopBar title={`⚙️ ${t("settings", lang)}`} />
+      <div style={{ padding: "20px 16px 8px" }}>
+        <h1 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-bold)", color: "var(--text-primary)", margin: 0 }}>
+          {t("settings", lang)}
+        </h1>
+      </div>
 
       <div className="p-4 space-y-4">
 
-        {/* Account */}
+        {/* Account — display name editable */}
         <section>
           <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <User size={15} /> {t("account", lang).toUpperCase()}
           </h3>
           <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-[var(--color-fg-muted)]">{t("displayName", lang)}</p>
-                <p className="text-sm font-bold text-[var(--color-fg-default)]">{onboardStatus?.displayName ?? "—"}</p>
+            {!editingDisplayName ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-[var(--color-fg-muted)]">{t("displayName", lang)}</p>
+                  <p className="text-sm font-bold text-[var(--color-fg-default)]">{onboardStatus?.displayName ?? "—"}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setDisplayNameInput(onboardStatus?.displayName ?? "");
+                    setEditingDisplayName(true);
+                  }}
+                  className="py-1.5 px-3 rounded-lg border border-[var(--color-border)] text-xs font-medium text-[var(--color-fg-muted)]"
+                >
+                  {t("edit", lang)}
+                </button>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className={labelCls}>{t("displayName", lang)}</label>
+                  <input
+                    type="text"
+                    value={displayNameInput}
+                    onChange={(e) => setDisplayNameInput(e.target.value)}
+                    maxLength={64}
+                    className={inputCls}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingDisplayName(false)}
+                    className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]"
+                  >
+                    {t("cancel", lang)}
+                  </button>
+                  <button
+                    onClick={handleSaveDisplayName}
+                    disabled={displayNameLoading || !displayNameInput.trim()}
+                    className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50"
+                  >
+                    {displayNameLoading ? "..." : t("save", lang)}
+                  </button>
+                </div>
+              </div>
+            )}
           </Card>
         </section>
 
-        {/* Appearance */}
+        {/* Appearance — theme only, no language toggle */}
         <section>
           <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
             <Sun size={15} /> {t("appearance", lang).toUpperCase()}
           </h3>
-          <Card className="p-4 space-y-4">
-            {/* Theme */}
-            <div>
-              <p className="text-xs text-[var(--color-fg-muted)] mb-2">{t("theme", lang)}</p>
-              <div className="flex gap-2">
-                {themeOptions.map((opt) => {
-                  const currentTheme = usePreferencesStore((s) => s.theme);
-                  const setTheme = usePreferencesStore((s) => s.setTheme);
-                  const isActive = currentTheme === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => setTheme(opt.value)}
-                      className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border text-xs font-medium transition-colors ${
-                        isActive
-                          ? "border-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/10 text-[var(--color-accent-blue)]"
-                          : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-fg-subtle)]"
-                      }`}
-                    >
-                      {opt.icon}
-                      <span>{opt.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Language */}
-            <div>
-              <p className="text-xs text-[var(--color-fg-muted)] mb-2">{t("language", lang)}</p>
-              <div className="flex gap-2">
-                {langOptions.map((opt) => {
-                  const isActive = lang === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => setLanguage(opt.value)}
-                      className={`flex-1 py-2.5 rounded-lg border text-xs font-medium transition-colors ${
-                        isActive
-                          ? "border-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/10 text-[var(--color-accent-blue)]"
-                          : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-fg-subtle)]"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
+          <Card className="p-4">
+            <p className="text-xs text-[var(--color-fg-muted)] mb-2">{t("theme", lang)}</p>
+            <div className="flex gap-2">
+              {themeOptions.map((opt) => {
+                const isActive = currentTheme === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTheme(opt.value)}
+                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border text-xs font-medium transition-colors ${
+                      isActive
+                        ? "border-[var(--color-accent-blue)] bg-[var(--color-accent-blue)]/10 text-[var(--color-accent-blue)]"
+                        : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-fg-subtle)]"
+                    }`}
+                  >
+                    {opt.icon}
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </Card>
         </section>
@@ -730,39 +762,6 @@ export function Settings() {
             >
               {notificationsLoading ? t("saving", lang) : t("save", lang)}
             </button>
-          </Card>
-        </section>
-
-        {/* Rate Limits */}
-        <section>
-          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
-            <BarChart2 size={15} /> {t("rateLimits", lang).toUpperCase()}
-            <Lock size={12} className="ml-auto text-[var(--color-fg-subtle)]" />
-          </h3>
-          <Card className="p-4 space-y-2">
-            {rateLimits ? (
-              <>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--color-fg-muted)]">{t("fullReport", lang)}</span>
-                  <span className="tabular-nums text-[var(--color-fg-muted)]">{rateLimits.full_report.maxPerPeriod} {t("perWeek", lang)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--color-fg-muted)]">{t("dailyBriefLimit", lang)}</span>
-                  <span className="tabular-nums text-[var(--color-fg-muted)]">{rateLimits.daily_brief.maxPerPeriod} {t("perDay", lang)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--color-fg-muted)]">{t("deepDiveLimit", lang)}</span>
-                  <span className="tabular-nums text-[var(--color-fg-muted)]">{rateLimits.deep_dive.maxPerPeriod} {t("perDay", lang)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--color-fg-muted)]">{t("newIdeasLimit", lang)}</span>
-                  <span className="tabular-nums text-[var(--color-fg-muted)]">{rateLimits.new_ideas.maxPerPeriod} {t("perWeek", lang)}</span>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-[var(--color-fg-muted)]">...</p>
-            )}
-            <p className="text-[10px] text-[var(--color-fg-subtle)] pt-1">{t("setByAdmin", lang)}</p>
           </Card>
         </section>
 

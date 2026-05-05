@@ -21,7 +21,7 @@ interface PreferencesState {
 const THEME_COLOR_SCHEME: Record<Theme, "dark" | "light"> = {
   dark: "dark",
   middle: "dark",
-  bright: "dark",
+  bright: "light",
 };
 
 function applyTheme(theme: Theme) {

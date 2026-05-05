@@ -2,14 +2,12 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BellRing, ChevronDown, ChevronUp, Newspaper, Radar, Search, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
-import { TopBar } from "../components/ui/TopBar";
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorState } from "../components/ui/ErrorState";
 import { usePreferencesStore } from "../store/preferencesStore";
-import { t, getGreeting } from "../store/i18n";
+import { t } from "../store/i18n";
 import { apiClient } from "../api/client";
-import { fetchOnboardStatus } from "../api/onboarding";
 import type { FeedPageResponse, FeedItem } from "../types/api";
 
 type FeedFilter =
@@ -60,11 +58,6 @@ export function Alerts() {
   const deferredSearch = useDeferredValue(search.trim());
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const { data: onboardStatus } = useQuery({
-    queryKey: ["onboard-status"],
-    queryFn: fetchOnboardStatus,
-    staleTime: 60_000,
-  });
 
   const feedPath = useMemo(() => {
     const params = new URLSearchParams();
@@ -74,7 +67,7 @@ export function Alerts() {
     return `/reports/feed/${page}${suffix ? `?${suffix}` : ""}`;
   }, [deferredSearch, filter, page]);
 
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["feed-page", page, filter, deferredSearch],
     queryFn: () => apiClient.get<FeedPageResponse>(feedPath).then((r) => r.data),
     staleTime: 10_000,
@@ -85,36 +78,26 @@ export function Alerts() {
 
   if (isLoading) {
     return (
-      <>
-        <TopBar title={t("alerts", language)} />
-        <div className="flex h-48 items-center justify-center">
-          <Spinner size="lg" />
-        </div>
-      </>
+      <div className="flex h-48 items-center justify-center">
+        <Spinner size="lg" />
+      </div>
     );
   }
 
   if (error) {
-    return (
-      <>
-        <TopBar title={t("alerts", language)} />
-        <ErrorState message={t("errorLoadAlerts", language)} onRetry={refetch} />
-      </>
-    );
+    return <ErrorState message={t("errorLoadAlerts", language)} onRetry={refetch} />;
   }
 
   return (
     <>
-      <TopBar
-        title={t("alerts", language)}
-        subtitle={data?.totalItems ? `${data.totalItems}` : undefined}
-        greeting={getGreeting(onboardStatus?.displayName, language)}
-        onRefresh={() => void refetch()}
-        refreshing={isFetching}
-      />
+      <div style={{ padding: "20px 16px 0" }}>
+        <h1 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-bold)", color: "var(--text-primary)", margin: 0 }}>
+          {t("alerts", language)}
+        </h1>
+      </div>
 
       <div className="space-y-3 px-4 pb-8">
-        <div className="sticky top-12 z-20 -mx-4 space-y-3 border-b border-[var(--color-border)] bg-[var(--color-bg-base)] px-4 py-3">
+        <div className="space-y-3 border-b border-[var(--color-border)] px-4 py-3" style={{ marginLeft: -16, marginRight: -16 }}>
           <label className="flex items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-3 py-2.5">
             <Search size={15} className="text-[var(--color-fg-subtle)]" />
             <input

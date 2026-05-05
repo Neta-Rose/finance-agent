@@ -87,7 +87,10 @@ router.get(
 
     let tickerDirs: string[] = [];
     try {
-      tickerDirs = await fs.readdir(ws.tickersDir);
+      const entries = await fs.readdir(ws.tickersDir, { withFileTypes: true });
+      tickerDirs = entries
+        .filter((e) => e.isDirectory() && TICKER_REGEX.test(e.name))
+        .map((e) => e.name);
     } catch {
       res.json({ updatedAt: new Date().toISOString(), strategies: [] });
       return;

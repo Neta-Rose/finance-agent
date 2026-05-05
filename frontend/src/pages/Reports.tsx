@@ -15,7 +15,6 @@ import {
 import { Link, useSearchParams } from "react-router-dom";
 import { apiClient } from "../api/client";
 import { cancelJob, resumeJob } from "../api/jobs";
-import { TopBar } from "../components/ui/TopBar";
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
 import type { FeedPageResponse, FeedItem, FeedItemEntry, Job, JobsResponse } from "../types/api";
@@ -1232,8 +1231,8 @@ function ReportCard({
             </div>
           ) : null}
 
-          {/* Summary */}
-          <p className="mt-2 text-[13px] leading-5 text-[var(--color-fg-muted)]">{item.summary}</p>
+          {/* Summary — clamped in collapsed state, full text in expanded panel */}
+          <p className={`mt-2 text-[13px] leading-5 text-[var(--color-fg-muted)] ${!expanded ? "line-clamp-4" : ""}`}>{item.summary}</p>
           {trackingEntry ? (
             <div className="mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Tracked idea</p>
@@ -1586,10 +1585,11 @@ export function Reports() {
 
   return (
     <>
-      <TopBar
-        title={t("feed", language)}
-        subtitle={feedData ? `${feedData.totalItems} runs` : undefined}
-      />
+      <div style={{ padding: "20px 16px 0" }}>
+        <h1 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-bold)", color: "var(--text-primary)", margin: 0 }}>
+          {t("feed", language)}
+        </h1>
+      </div>
 
       <div className="space-y-4 px-4 pb-10 pt-3">
         {/* ── Search + filters ── */}

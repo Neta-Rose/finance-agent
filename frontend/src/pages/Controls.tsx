@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle } from "lucide-react";
 import { triggerJob, fetchJobs } from "../api/jobs";
-import { TopBar } from "../components/ui/TopBar";
 import { Card } from "../components/ui/Card";
 import { JobCard } from "../components/jobs/JobCard";
 import { SupersededJobBanner } from "../components/jobs/SupersededJobBanner";
@@ -105,7 +104,7 @@ export function Controls() {
   const queryClient = useQueryClient();
   const showToast = useToastStore((s) => s.show);
 
-  const { data: jobsData, refetch: refetchJobs, isFetching } = useQuery({
+  const { data: jobsData } = useQuery({
     queryKey: ["jobs"],
     queryFn: fetchJobs,
     staleTime: 30_000,
@@ -137,16 +136,11 @@ export function Controls() {
 
   return (
     <>
-      <TopBar
-        title={t("controls", language)}
-        subtitle={
-          activeJobs.length > 0
-            ? `${activeJobs.length} ${t("activeJobs", language).toLowerCase()}`
-            : undefined
-        }
-        onRefresh={() => refetchJobs()}
-        refreshing={isFetching}
-      />
+      <div style={{ padding: "20px 16px 0" }}>
+        <h1 style={{ fontSize: "var(--text-lg)", fontWeight: "var(--weight-bold)", color: "var(--text-primary)", margin: 0 }}>
+          {t("controls", language)}
+        </h1>
+      </div>
 
       <div className="px-4 pt-3 pb-4">
         <SupersededJobBanner jobs={allJobs} />

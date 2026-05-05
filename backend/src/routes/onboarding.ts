@@ -25,25 +25,17 @@ import {
   saveUserPortfolio,
   startUserBootstrap,
 } from "../services/workspaceService.js";
-import { createJob, updateJob } from "../services/jobService.js";
 import { hasPendingAgentManagedWork } from "../services/jobService.js";
-import { initializeFullReportJob } from "../services/fullReportService.js";
 import {
   getUserAgentHealth,
-  getUserAgentStatus,
-  reconcileUserHeartbeatCron,
 } from "../services/agentService.js";
 import { DEFAULT_RATE_LIMITS } from "../types/index.js";
 import type { RateLimits } from "../types/index.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { userIsolationMiddleware } from "../middleware/userIsolation.js";
 import { getNotificationPreferences, setNotificationPreferences } from "../services/notificationService.js";
-import { dispatchPendingAgentJobsForUser } from "../services/agentJobDispatcher.js";
 import { readState, writeState } from "../services/stateService.js";
-import {
-  classifyUserAgentHealth,
-  shouldUserHeartbeatBeEnabled,
-} from "../services/startupService.js";
+import { classifyUserAgentHealth } from "../services/startupService.js";
 import {
   connectUserTelegramChannel,
   connectUserWhatsAppChannel,
@@ -51,43 +43,9 @@ import {
   disconnectUserWhatsAppChannel,
   getUserChannelConnectivity,
 } from "../services/channelService.js";
-import { logger } from "../services/logger.js";
+import { triggerUserJob } from "../services/jobTriggerService.js";
 
 const router = Router();
-
-function kickoffBootstrapLaunch(ws: UserWorkspace, fullReportJob: Awaited<ReturnType<typeof createJob>>): void {
-  setImmediate(() => {
-    void (async () => {
-      try {
-        const initializedJob = await initializeFullReportJob(ws, fullReportJob);
-        const agentStatus = await getUserAgentStatus(ws.userId);
-        await reconcileUserHeartbeatCron(
-          ws.userId,
-          agentStatus.configured && shouldUserHeartbeatBeEnabled({
-            state: "BOOTSTRAPPING",
-            restriction: null,
-            eligibilityIssue: null,
-            hasAgentManagedWork: initializedJob.status !== "completed",
-          })
-        );
-        if (initializedJob.status === "running") {
-          await dispatchPendingAgentJobsForUser(ws.userId);
-        }
-      } catch (err) {
-        logger.error(`Onboarding launch kickoff failed for ${ws.userId}: ${String(err)}`);
-        try {
-          await updateJob(ws, fullReportJob.id, {
-            status: "failed",
-            completed_at: new Date().toISOString(),
-            error: "Bootstrap kickoff failed before analysis dispatch",
-          });
-        } catch (updateErr) {
-          logger.error(`Failed to mark bootstrap job ${fullReportJob.id} failed for ${ws.userId}: ${String(updateErr)}`);
-        }
-      }
-    })();
-  });
-}
 
 type AsyncHandler = (
   req: AuthenticatedRequest,
@@ -313,16 +271,22 @@ router.post(
       },
     });
 
-    await startUserBootstrap(ws.userId);
-    const job = await createJob(ws, "full_report", undefined, {
-      dispatch: false,
+    const triggered = await triggerUserJob({
+      workspace: ws,
+      action: "full_report",
       source: "dashboard_action",
     });
-    kickoffBootstrapLaunch(ws, job);
+    if (triggered.statusCode >= 400) {
+      res.status(triggered.statusCode).json(triggered.body);
+      return;
+    }
+
+    await startUserBootstrap(ws.userId);
 
     res.status(200).json({
       state: "BOOTSTRAPPING",
-      jobId: job.id,
+      jobId: triggered.body["jobId"],
+      stepQueue: triggered.body["stepQueue"] === true,
       guidanceStepPending: false,
       message: "Account launched. Analysis will begin shortly.",
     });
@@ -579,6 +543,29 @@ router.patch(
 
     const notifications = await setNotificationPreferences(ws.userId, parsed.data);
     res.json({ updated: true, notifications });
+  })
+);
+
+router.patch(
+  "/display-name",
+  authMiddleware,
+  userIsolationMiddleware,
+  handler(async (req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const { displayName } = req.body as { displayName?: string };
+    if (!displayName || typeof displayName !== "string" || !displayName.trim()) {
+      res.status(400).json({ error: "displayName is required" });
+      return;
+    }
+    const trimmed = displayName.trim().slice(0, 64);
+    const profilePath = path.join(ws.root, "profile.json");
+    let profileData: Record<string, unknown> = {};
+    try {
+      profileData = JSON.parse(await fs.readFile(profilePath, "utf-8"));
+    } catch { /* may not exist */ }
+    profileData.displayName = trimmed;
+    await fs.writeFile(profilePath, JSON.stringify(profileData, null, 2), "utf-8");
+    res.json({ updated: true, displayName: trimmed });
   })
 );
 

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, Layers3, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers3, Plus, RefreshCw } from "lucide-react";
 import {
   fetchPortfolio,
   fetchVerdicts,
@@ -11,7 +11,7 @@ import {
 import { fetchOnboardStatus } from "../api/onboarding";
 import { fetchJobs } from "../api/jobs";
 import { triggerJob } from "../api/jobs";
-import { TopBar } from "../components/ui/TopBar";
+import { fetchBalance } from "../api/balance";
 import { PositionRow } from "../components/portfolio/PositionRow";
 import { PositionDetailModal } from "../components/portfolio/PositionDetailModal";
 import { StrategyModal } from "../components/portfolio/StrategyModal";
@@ -22,7 +22,7 @@ import { Card } from "../components/ui/Card";
 import { formatILS, timeAgo, formatPct } from "../utils/format";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { useToastStore } from "../store/toastStore";
-import { t, getGreeting } from "../store/i18n";
+import { t } from "../store/i18n";
 import { AddPositionModal } from "../components/portfolio/AddPositionModal";
 import { SetupBanner } from "../components/today/SetupBanner";
 import { AttentionCard } from "../components/today/AttentionCard";
@@ -193,6 +193,14 @@ export function Portfolio() {
     queryFn: fetchJobs,
     staleTime: 30_000,
     refetchInterval: 15_000,
+  });
+
+  const { data: balance } = useQuery({
+    queryKey: ["balance"],
+    queryFn: fetchBalance,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    retry: 1,
   });
 
   const verdictMap = useMemo(() => {
@@ -524,58 +532,87 @@ export function Portfolio() {
 
   if (isLoading) {
     return (
-      <>
-        <TopBar title={t("todayTitle", language)} />
-        <div className="flex items-center justify-center h-48">
-          <Spinner size="lg" />
-        </div>
-      </>
+      <div className="flex items-center justify-center h-48">
+        <Spinner size="lg" />
+      </div>
     );
   }
 
   if (error) {
-    return (
-      <>
-        <TopBar title={t("todayTitle", language)} />
-        <ErrorState message={t("errorLoadPortfolio", language)} onRetry={refetch} />
-      </>
-    );
+    return <ErrorState message={t("errorLoadPortfolio", language)} onRetry={refetch} />;
   }
 
   if (!portfolio) {
-    return (
-      <>
-        <TopBar title={t("todayTitle", language)} />
-        <EmptyState message={t("emptyPortfolio", language)} icon="📭" />
-      </>
-    );
+    return <EmptyState message={t("emptyPortfolio", language)} icon="📭" />;
   }
 
   return (
     <>
-      <TopBar
-        title={t("todayTitle", language)}
-        subtitle={formatILS(portfolio.totalILS ?? null)}
-        greeting={getGreeting(onboardStatus?.displayName, language)}
-        onRefresh={refetch}
-        refreshing={isFetching}
-      />
-
-      {/* ── Inline greeting / portfolio headline ── */}
+      {/* ── Inline greeting / portfolio headline (replaces TopBar on Portfolio) ── */}
       {!isBootstrapping && (
         <div style={{ padding: "20px 16px 4px" }}>
-          {onboardStatus?.displayName && (
+          {/* Top row: greeting + points + refresh */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
             <p
               style={{
                 fontSize: "var(--text-sm)",
                 color: "var(--text-secondary)",
-                marginBottom: 4,
                 fontWeight: "var(--weight-regular)",
               }}
             >
-              Hey {onboardStatus.displayName} —
+              {onboardStatus?.displayName ? `Hey ${onboardStatus.displayName} —` : "Hey —"}
             </p>
-          )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {balance && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "3px 10px",
+                    borderRadius: "var(--radius-pill)",
+                    border: `0.5px solid ${balance.exhausted ? "rgba(226,80,80,0.35)" : "rgba(66,201,122,0.28)"}`,
+                    background: balance.exhausted ? "rgba(226,80,80,0.08)" : "rgba(66,201,122,0.08)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "var(--text-xs)",
+                      fontWeight: "var(--weight-bold)",
+                      color: balance.exhausted ? "var(--color-red)" : "var(--color-green)",
+                    }}
+                  >
+                    {balance.pointsRemaining >= 1000
+                      ? `${(balance.pointsRemaining / 1000).toFixed(1)}k`
+                      : balance.pointsRemaining.toFixed(1)}{" "}
+                    pts
+                  </span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => refetch()}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-tertiary)",
+                  cursor: "pointer",
+                  padding: 4,
+                  display: "inline-flex",
+                }}
+              >
+                <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
+              </button>
+            </div>
+          </div>
+
           <h2
             style={{
               fontSize: "var(--text-lg)",

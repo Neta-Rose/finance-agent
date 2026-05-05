@@ -140,9 +140,9 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore, desc
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          <span>0 exit</span>
-          <span>50 hold</span>
-          <span>100 strong buy</span>
+          <span>0 poor</span>
+          <span>50 stable</span>
+          <span>100 excellent</span>
         </div>
       </div>
 
