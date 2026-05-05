@@ -71,6 +71,21 @@ async function computeRiskInputs(step: ClaimedStepWorkItem, portfolioPath: strin
   };
 }
 
+function pickFiniteNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function pickInt(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value) && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+  return fallback;
+}
+
+function pickStringOrFallback(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
 export const riskHandler = makePromptHandler({
   kind: "analyst.risk",
   analyst: "risk",
@@ -84,20 +99,42 @@ export const riskHandler = makePromptHandler({
   },
   artifactPath: persistReportArtifact("risk"),
   normalizeRaw(raw, inputs) {
-    if (!raw || typeof raw !== "object" || !inputs) return raw;
-    const computed = inputs.data["computedRiskInputs"] && typeof inputs.data["computedRiskInputs"] === "object"
-      ? inputs.data["computedRiskInputs"] as Record<string, unknown>
-      : {};
-    const riskFacts = (raw as Record<string, unknown>)["riskFacts"];
+    const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    const computed = (inputs?.data["computedRiskInputs"] && typeof inputs.data["computedRiskInputs"] === "object"
+      ? inputs.data["computedRiskInputs"]
+      : {}) as Partial<RiskArtifact>;
+
+    const ticker = inputs?.step.ticker ?? (typeof obj["ticker"] === "string" ? (obj["ticker"] as string) : computed.ticker ?? "UNKNOWN");
+
+    const sharesObj = obj["shares"] && typeof obj["shares"] === "object" ? (obj["shares"] as Record<string, unknown>) : {};
+    const computedShares = computed.shares ?? { main: 0, second: 0, total: 0 };
+
+    const riskFactsRaw = obj["riskFacts"];
+    const riskFacts = typeof riskFactsRaw === "string" && riskFactsRaw.length > 0
+      ? riskFactsRaw.slice(0, 400)
+      : (computed.riskFacts ?? "Deterministic risk floor: numeric fields computed from portfolio; LLM prose unavailable.").slice(0, 400);
+
     return {
-      ...computed,
-      ...raw as Record<string, unknown>,
-      ticker: inputs.step.ticker,
-      generatedAt: typeof (raw as Record<string, unknown>)["generatedAt"] === "string"
-        ? (raw as Record<string, unknown>)["generatedAt"]
-        : new Date().toISOString(),
+      ticker,
+      generatedAt: typeof obj["generatedAt"] === "string" ? obj["generatedAt"] : new Date().toISOString(),
       analyst: "risk",
-      riskFacts: typeof riskFacts === "string" ? riskFacts.slice(0, 400) : String(computed["riskFacts"] ?? "").slice(0, 400),
+      livePrice: pickFiniteNumber(obj["livePrice"], computed.livePrice ?? 0),
+      livePriceCurrency: pickStringOrFallback(obj["livePriceCurrency"], computed.livePriceCurrency ?? "USD"),
+      livePriceSource: pickStringOrFallback(obj["livePriceSource"], computed.livePriceSource ?? "portfolio_cost_basis_reference"),
+      shares: {
+        main: pickInt(sharesObj["main"], computedShares.main),
+        second: pickInt(sharesObj["second"], computedShares.second),
+        total: pickInt(sharesObj["total"], computedShares.total),
+      },
+      positionValueILS: pickFiniteNumber(obj["positionValueILS"], computed.positionValueILS ?? 0),
+      portfolioWeightPct: pickFiniteNumber(obj["portfolioWeightPct"], computed.portfolioWeightPct ?? 0),
+      plILS: pickFiniteNumber(obj["plILS"], computed.plILS ?? 0),
+      plPct: pickFiniteNumber(obj["plPct"], computed.plPct ?? 0),
+      avgPricePaid: pickFiniteNumber(obj["avgPricePaid"], computed.avgPricePaid ?? 0),
+      concentrationFlag: typeof obj["concentrationFlag"] === "boolean"
+        ? (obj["concentrationFlag"] as boolean)
+        : (computed.concentrationFlag ?? false),
+      riskFacts,
     };
   },
   buildUserPrompt(inputs) {

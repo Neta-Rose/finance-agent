@@ -14,6 +14,7 @@ import {
 import { buildStrategyMetadata, type StrategyTrustLevel } from "./strategyBaselineService.js";
 import type { Strategy } from "../schemas/index.js";
 import { StrategySchema } from "../schemas/index.js";
+import { dualWriteStrategy } from "./strategyExportService.js";
 
 const FULL_REPORT_STEPS = [
   {
@@ -191,6 +192,10 @@ async function promoteFullReportStrategy(
   try {
     const promoted = buildValidatedFullReportStrategy(validation.data as Strategy);
     await fs.writeFile(ws.strategyFile(ticker), JSON.stringify(promoted, null, 2), "utf-8");
+
+    // Phase 1 dual-write: mirror promotion into the strategies table.
+    await dualWriteStrategy(promoted, ws.userId);
+
     return {
       promoted: true,
       strategy: promoted,

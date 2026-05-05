@@ -32,6 +32,8 @@ import {
   startObservabilityRetentionLoop,
 } from "./services/observabilityRetentionService.js";
 import { startStepQueueExecutor } from "./services/stepQueue/executor.js";
+import { ensureDefaultFeatureFlags } from "./services/featureFlagService.js";
+import { getApplicationDataSource, isApplicationDatabaseConfigured } from "./db/applicationDataSource.js";
 
 const PORT = parseInt(process.env["PORT"] ?? "8081", 10);
 const USERS_DIR = process.env["USERS_DIR"] ?? "/root/clawd/users";
@@ -113,6 +115,17 @@ async function reconcileStartupOperationalState(): Promise<void> {
 async function bootstrap(): Promise<void> {
   await eventStore.initialize();
   await pruneExpiredObservabilityRows();
+
+  if (isApplicationDatabaseConfigured()) {
+    try {
+      const ds = await getApplicationDataSource();
+      await ensureDefaultFeatureFlags(ds);
+      logger.info("Default feature flags ensured");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn(`Default feature flag seeding failed: ${message}`);
+    }
+  }
 
   const server = app.listen(PORT, () => {
     logger.info(`Server started on port ${PORT}`);

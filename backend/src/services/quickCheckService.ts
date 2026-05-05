@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { createHash } from "crypto";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Job } from "../types/index.js";
 import { getPrice, getUsdIlsRate } from "./priceService.js";
@@ -13,6 +14,17 @@ import {
   assessStrategyBaselineForTicker,
   type StrategyTrustLevel,
 } from "./strategyBaselineService.js";
+import { recordEscalation } from "./escalationHistoryStore.js";
+import { logger } from "./logger.js";
+
+/**
+ * Stable hash of a sorted signal-set used as the (user, ticker, fingerprint)
+ * dedupe key in the `escalation_history` table (design §13.1).
+ */
+function computeSignalSetFingerprint(signals: string[]): string {
+  const canonical = JSON.stringify([...signals].sort());
+  return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
+}
 import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
 import { requiresBudgetAdmission } from "./jobAdmissionService.js";
 import { admitOrReuseStepQueueJob } from "./stepQueue/admission.js";
@@ -292,6 +304,22 @@ async function queueDeepDiveIfNeeded(
     },
   };
   await writeEscalationHistory(ws, updatedHistory);
+
+  // Phase 1 dual-write into Postgres. Same signal-set hashes to the same
+  // fingerprint so re-escalation suppression works in both the legacy file
+  // path and the DB path.
+  try {
+    await recordEscalation({
+      userId: ws.userId,
+      ticker,
+      signalSetFingerprint: computeSignalSetFingerprint(signals),
+      jobId: admitted.jobId,
+      signals: [...signals].sort(),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn(`escalation_history_dual_write_failed user=${ws.userId} ticker=${ticker} error=${message}`);
+  }
 
   return admitted.jobId;
 }

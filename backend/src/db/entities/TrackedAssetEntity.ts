@@ -1,6 +1,14 @@
 import { EntitySchema } from "typeorm";
 
 export type TrackedAssetStatus = "active" | "muted" | "archived";
+export type TrackedAssetClass =
+  | "equity"
+  | "etf"
+  | "bond"
+  | "fund"
+  | "crypto"
+  | "index"
+  | "other";
 
 export interface TrackedAssetEntity {
   userId: string;
@@ -11,6 +19,7 @@ export interface TrackedAssetEntity {
   createdAt: Date;
   updatedAt: Date;
   archivedAt: Date | null;
+  assetClass: TrackedAssetClass;
 }
 
 export const TrackedAssetEntitySchema = new EntitySchema<TrackedAssetEntity>({
@@ -54,6 +63,12 @@ export const TrackedAssetEntitySchema = new EntitySchema<TrackedAssetEntity>({
       name: "archived_at",
       type: "timestamptz",
       nullable: true,
+    },
+    assetClass: {
+      name: "asset_class",
+      type: "varchar",
+      length: 16,
+      default: "equity",
     },
   },
 });

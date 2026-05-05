@@ -1,6 +1,7 @@
 import { StrategySchema } from "../../../schemas/strategy.js";
 import { atomicWriteJson } from "../artifactIO.js";
 import { gatherAnalystArtifacts, gatherCommonInputs, makePromptHandler, readJsonIfExists } from "../handlerUtils.js";
+import { dualWriteStrategy } from "../../strategyExportService.js";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -44,6 +45,7 @@ export const synthesisHandler = makePromptHandler({
   async artifactPath(artifact, ws, step) {
     const filePath = ws.strategyFile(step.ticker);
     await atomicWriteJson(filePath, artifact);
+    await dualWriteStrategy(artifact, step.userId);
     return filePath;
   },
   buildUserPrompt(inputs) {

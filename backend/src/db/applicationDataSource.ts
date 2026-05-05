@@ -10,6 +10,20 @@ import { StepWorkItemEntitySchema } from "./entities/StepWorkItemEntity.js";
 import { TickerWorkItemEntitySchema } from "./entities/TickerWorkItemEntity.js";
 import { TrackedAssetEntitySchema } from "./entities/TrackedAssetEntity.js";
 import { UserPointsBudgetEntitySchema } from "./entities/UserPointsBudgetEntity.js";
+import { UserEntitySchema } from "./entities/UserEntity.js";
+import { StrategyEntitySchema } from "./entities/StrategyEntity.js";
+import { ReportBatchEntitySchema } from "./entities/ReportBatchEntity.js";
+import { ReportIndexEntitySchema } from "./entities/ReportIndexEntity.js";
+import { NotificationEntitySchema } from "./entities/NotificationEntity.js";
+import { EscalationHistoryEntitySchema } from "./entities/EscalationHistoryEntity.js";
+import { VerdictActionEntitySchema } from "./entities/VerdictActionEntity.js";
+import { TickerSnoozeEntitySchema } from "./entities/TickerSnoozeEntity.js";
+import { PortfolioRiskSnapshotEntitySchema } from "./entities/PortfolioRiskSnapshotEntity.js";
+import { AdminAuditLogEntitySchema } from "./entities/AdminAuditLogEntity.js";
+import { MigrationArchiveEntitySchema } from "./entities/MigrationArchiveEntity.js";
+import { FeatureFlagEntitySchema } from "./entities/FeatureFlagEntity.js";
+import { ChannelBindingEntitySchema } from "./entities/ChannelBindingEntity.js";
+import { EncryptedSecretEntitySchema } from "./entities/EncryptedSecretEntity.js";
 import { logger } from "../services/logger.js";
 
 const APP_DATABASE_URL =
@@ -45,6 +59,21 @@ function buildDataSource(): DataSource {
       TickerWorkItemEntitySchema,
       TrackedAssetEntitySchema,
       UserPointsBudgetEntitySchema,
+      // Phase 1 (design.md §4.1–4.17):
+      UserEntitySchema,
+      StrategyEntitySchema,
+      ReportBatchEntitySchema,
+      ReportIndexEntitySchema,
+      NotificationEntitySchema,
+      EscalationHistoryEntitySchema,
+      VerdictActionEntitySchema,
+      TickerSnoozeEntitySchema,
+      PortfolioRiskSnapshotEntitySchema,
+      AdminAuditLogEntitySchema,
+      MigrationArchiveEntitySchema,
+      FeatureFlagEntitySchema,
+      ChannelBindingEntitySchema,
+      EncryptedSecretEntitySchema,
     ],
     synchronize: false,
     logging: false,
