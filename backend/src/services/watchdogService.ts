@@ -3,7 +3,6 @@ import path from "path";
 import { logger } from "./logger.js";
 import { buildWorkspace } from "../middleware/userIsolation.js";
 import { resolveConfiguredPath } from "./paths.js";
-import { dispatchPendingAgentJobsForUser } from "./agentJobDispatcher.js";
 import { markDeepDiveJobFailed } from "./deepDiveService.js";
 import type { Job } from "../types/index.js";
 
@@ -107,7 +106,6 @@ async function scanUser(userId: string, usersDir: string): Promise<void> {
           logger.warn(
             `Watchdog: failed deep_dive ${jobId} early for no progress (user=${userId} age=${Math.round(ageMs / 60000)}m ticker=${parsed["ticker"] as string})`
           );
-          await dispatchPendingAgentJobsForUser(userId);
           continue;
         }
       }
@@ -137,9 +135,6 @@ async function scanUser(userId: string, usersDir: string): Promise<void> {
         `Watchdog: failed job ${jobId} (user=${userId} action=${String(parsed["action"])} age=${ageMin}m status=${status})`
       );
 
-      if (isRunning && isAgentManagedAction(action)) {
-        await dispatchPendingAgentJobsForUser(userId);
-      }
     } catch (err) {
       logger.error(
         `Watchdog: error processing ${file} for ${userId}: ${(err as Error).message}`

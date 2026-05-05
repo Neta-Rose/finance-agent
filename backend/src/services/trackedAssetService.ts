@@ -82,9 +82,9 @@ export async function upsertTrackedAsset(params: UpsertTrackedAssetParams): Prom
   const ds = await getApplicationDataSource();
   const status = params.status ?? "active";
   const rows = await ds.query(
-    `INSERT INTO tracked_assets
+     `INSERT INTO tracked_assets
        (user_id, ticker, status, created_from_job_id, notes, created_at, updated_at, archived_at)
-     VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), CASE WHEN $3 = 'archived' THEN NOW() ELSE NULL END)
+     VALUES ($1, $2, $3::varchar, $4, $5, NOW(), NOW(), CASE WHEN $3::varchar = 'archived' THEN NOW() ELSE NULL END)
      ON CONFLICT (user_id, ticker)
      DO UPDATE SET
        status = EXCLUDED.status,

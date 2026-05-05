@@ -10,25 +10,14 @@ function parseBoolean(value: unknown): boolean {
   return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
 }
 
-function parseCsv(value: string | undefined): Set<string> {
-  return new Set(
-    (value ?? "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean)
-  );
-}
-
-function isProfileMode(): boolean {
-  return String(process.env["USE_STEP_QUEUE"] ?? "").trim().toLowerCase() === "profile";
+function parseExplicitFalse(value: unknown): boolean {
+  if (value === false) return true;
+  if (typeof value !== "string") return false;
+  return ["0", "false", "no", "off"].includes(value.trim().toLowerCase());
 }
 
 export function isStepQueueServiceEnabled(): boolean {
-  return (
-    parseBoolean(process.env["USE_STEP_QUEUE"]) ||
-    isProfileMode() ||
-    parseCsv(process.env["USE_STEP_QUEUE_USERS"]).size > 0
-  );
+  return !parseExplicitFalse(process.env["USE_STEP_QUEUE"]);
 }
 
 async function readUserFlagFile(userId: string, filename: "profile.json" | "data/config.json"): Promise<boolean> {
@@ -51,11 +40,7 @@ async function readUserFlagFile(userId: string, filename: "profile.json" | "data
 }
 
 export async function isStepQueueEnabledForUser(userId: string): Promise<boolean> {
-  if (parseBoolean(process.env["USE_STEP_QUEUE"])) return true;
-
-  const allowList = parseCsv(process.env["USE_STEP_QUEUE_USERS"]);
-  if (allowList.has(userId) || allowList.has("*")) return true;
-  if (!isProfileMode()) return false;
+  if (isStepQueueServiceEnabled()) return true;
 
   const [profileEnabled, configEnabled] = await Promise.all([
     readUserFlagFile(userId, "profile.json"),

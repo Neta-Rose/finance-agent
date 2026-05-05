@@ -6,14 +6,15 @@ import { PortfolioFileSchema } from "../schemas/portfolio.js";
 import type { Strategy } from "../schemas/strategy.js";
 import { getPricesParallel, getUsdIlsRate } from "./priceService.js";
 import { performQuickCheck, type QuickCheckOutcome } from "./quickCheckService.js";
-import { createJob, listJobs, updateJob } from "./jobService.js";
+import { updateJob } from "./jobService.js";
 import { readState, writeState } from "./stateService.js";
 import { getUserPlan } from "./profileService.js";
 import { publishNotification } from "./notificationService.js";
 import { listTrackedAssets } from "./trackedAssetService.js";
 import { loadStrategyFile } from "./strategyFileService.js";
-import { initializeDeepDiveJob } from "./deepDiveService.js";
-import { dispatchPendingAgentJobsForUser } from "./agentJobDispatcher.js";
+import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
+import { requiresBudgetAdmission } from "./jobAdmissionService.js";
+import { admitOrReuseStepQueueJob } from "./stepQueue/admission.js";
 
 export type DailyBriefTruthState =
   | "calm_trusted"
@@ -305,18 +306,17 @@ async function queueTrackingDeepDiveIfNeeded(
   ws: UserWorkspace,
   ticker: string
 ): Promise<string | null> {
-  const active = (await listJobs(ws, 200)).find(
-    (job) =>
-      job.action === "deep_dive" &&
-      job.ticker === ticker &&
-      (job.status === "pending" || job.status === "running")
-  );
-  if (active) return active.id;
+  const budgetGate = await ensurePointsBudgetAvailable(ws.userId);
+  if (!budgetGate.allowed) return null;
 
-  const job = await createJob(ws, "deep_dive", ticker, { dispatch: false, source: "backend_job" });
-  const initialized = await initializeDeepDiveJob(ws, job);
-  await dispatchPendingAgentJobsForUser(ws.userId);
-  return initialized.id;
+  const admitted = await admitOrReuseStepQueueJob({
+    workspace: ws,
+    action: "deep_dive",
+    ticker,
+    source: "backend_job",
+    budgetAdmittedAt: requiresBudgetAdmission({ action: "deep_dive" }) ? new Date() : null,
+  });
+  return admitted.jobId;
 }
 
 export function evaluateTrackedStrategyForDaily(strategy: Strategy): {

@@ -3,18 +3,19 @@ import path from "path";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import type { Job } from "../types/index.js";
 import { getPrice, getUsdIlsRate } from "./priceService.js";
-import { createJob, listJobs, updateJob } from "./jobService.js";
+import { updateJob } from "./jobService.js";
 import { readState, writeState } from "./stateService.js";
 import { PortfolioFileSchema } from "../schemas/portfolio.js";
 import type { Strategy } from "../schemas/index.js";
 import { runQuickCheckAdvisor } from "./advisorLlmService.js";
 import { publishNotification } from "./notificationService.js";
-import { initializeDeepDiveJob } from "./deepDiveService.js";
-import { dispatchPendingAgentJobsForUser } from "./agentJobDispatcher.js";
 import {
   assessStrategyBaselineForTicker,
   type StrategyTrustLevel,
 } from "./strategyBaselineService.js";
+import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
+import { requiresBudgetAdmission } from "./jobAdmissionService.js";
+import { admitOrReuseStepQueueJob } from "./stepQueue/admission.js";
 
 interface SentimentSnapshot {
   narrativeShift?: string;
@@ -238,17 +239,7 @@ async function queueDeepDiveIfNeeded(
   signals: string[],
   strategyUpdatedAt: string | null,
 ): Promise<string | null> {
-  // 1. Already a pending/running deep dive for this ticker — reuse it.
-  const existing = await listJobs(ws, 200);
-  const active = existing.find(
-    (job) =>
-      job.action === "deep_dive" &&
-      job.ticker === ticker &&
-      (job.status === "pending" || job.status === "running")
-  );
-  if (active) return active.id;
-
-  // 2. Dedup: check whether these exact signals were already escalated.
+  // 1. Dedup: check whether these exact signals were already escalated.
   const history = await readEscalationHistory(ws);
   const last = history[ticker];
 
@@ -273,31 +264,36 @@ async function queueDeepDiveIfNeeded(
     // strategyAddressedIt = true → fall through and escalate.
   }
 
-  // 3. Create the deep dive job.
-  const queued      = await createJob(ws, "deep_dive", ticker, { dispatch: false });
-  const initialized = await initializeDeepDiveJob(ws, queued);
-  if (initialized.status === "running") {
-    await dispatchPendingAgentJobsForUser(ws.userId);
-  }
+  // 2. Admit or reuse the database-backed deep dive job.
+  const budgetGate = await ensurePointsBudgetAvailable(ws.userId);
+  if (!budgetGate.allowed) return null;
 
-  // 4. Persist pendingDeepDives in state.
+  const admitted = await admitOrReuseStepQueueJob({
+    workspace: ws,
+    action: "deep_dive",
+    ticker,
+    source: "backend_job",
+    budgetAdmittedAt: requiresBudgetAdmission({ action: "deep_dive" }) ? new Date() : null,
+  });
+
+  // 3. Persist pendingDeepDives in state.
   const state   = await readState(ws.userId);
   const pending = new Set(state.pendingDeepDives ?? []);
   pending.add(ticker);
   await writeState(ws.userId, { pendingDeepDives: Array.from(pending) });
 
-  // 5. Record escalation fingerprint so the next daily brief can dedup.
+  // 4. Record escalation fingerprint so the next daily brief can dedup.
   const updatedHistory: EscalationHistory = {
     ...history,
     [ticker]: {
       timestamp: new Date().toISOString(),
       signals:   [...signals].sort(),
-      jobId:     initialized.id,
+      jobId:     admitted.jobId,
     },
   };
   await writeEscalationHistory(ws, updatedHistory);
 
-  return initialized.id;
+  return admitted.jobId;
 }
 
 export async function performQuickCheck(

@@ -30,6 +30,10 @@ export interface AdmitStepQueueJobResult {
   modelTier: ModelTier;
 }
 
+export interface AdmitOrReuseStepQueueJobResult extends AdmitStepQueueJobResult {
+  reused: boolean;
+}
+
 function generateJobId(): string {
   const now = new Date();
   const dateStr = now
@@ -153,4 +157,69 @@ export async function admitStepQueueJob(params: AdmitStepQueueJobParams): Promis
     modelTier,
     ...inserted,
   };
+}
+
+async function findActiveStepQueueJob(
+  ds: DataSource,
+  params: AdmitStepQueueJobParams
+): Promise<AdmitStepQueueJobResult | null> {
+  const rows = params.action === "deep_dive"
+    ? await ds.query(
+        `SELECT j.id,
+                j.model_tier,
+                COUNT(DISTINCT t.id)::int AS ticker_count,
+                COUNT(s.id)::int AS step_count
+           FROM jobs j
+           JOIN ticker_work_items t ON t.job_id = j.id
+           LEFT JOIN step_work_items s ON s.job_id = j.id
+          WHERE j.user_id = $1
+            AND j.action = $2
+            AND j.status IN ('pending', 'running', 'paused')
+            AND t.ticker = $3
+          GROUP BY j.id, j.model_tier, j.triggered_at
+          ORDER BY j.triggered_at DESC
+          LIMIT 1`,
+        [params.workspace.userId, params.action, params.ticker]
+      )
+    : await ds.query(
+        `SELECT j.id,
+                j.model_tier,
+                COUNT(DISTINCT t.id)::int AS ticker_count,
+                COUNT(s.id)::int AS step_count
+           FROM jobs j
+           LEFT JOIN ticker_work_items t ON t.job_id = j.id
+           LEFT JOIN step_work_items s ON s.job_id = j.id
+          WHERE j.user_id = $1
+            AND j.action = $2
+            AND j.status IN ('pending', 'running', 'paused')
+          GROUP BY j.id, j.model_tier, j.triggered_at
+          ORDER BY j.triggered_at DESC
+          LIMIT 1`,
+        [params.workspace.userId, params.action]
+      );
+
+  const row = rows[0] as
+    | { id?: unknown; model_tier?: unknown; ticker_count?: unknown; step_count?: unknown }
+    | undefined;
+  if (!row || typeof row.id !== "string" || typeof row.model_tier !== "string") return null;
+
+  return {
+    jobId: row.id,
+    modelTier: row.model_tier as ModelTier,
+    tickerCount: Number(row.ticker_count ?? 0),
+    stepCount: Number(row.step_count ?? 0),
+  };
+}
+
+export async function admitOrReuseStepQueueJob(
+  params: AdmitStepQueueJobParams
+): Promise<AdmitOrReuseStepQueueJobResult> {
+  const ds = await getApplicationDataSource();
+  const active = await findActiveStepQueueJob(ds, params);
+  if (active) {
+    return { ...active, reused: true };
+  }
+
+  const admitted = await admitStepQueueJob(params);
+  return { ...admitted, reused: false };
 }

@@ -198,11 +198,6 @@ export function makePromptHandler<T>(config: {
   artifactPath: (artifact: T, ws: UserWorkspace, step: ClaimedStepWorkItem) => Promise<string>;
   buildUserPrompt: (inputs: StepInputs) => string;
   normalizeRaw?: (raw: unknown, inputs?: StepInputs) => unknown;
-  callRaw?: (
-    inputs: StepInputs,
-    model: { tier: ModelTier; primary: string; fallback: string | null },
-    prompt: BuiltPrompt
-  ) => Promise<unknown>;
 }): StepHandler<T> {
   return {
     kind: config.kind,
@@ -225,12 +220,8 @@ export function makePromptHandler<T>(config: {
         schema: config.schema,
       };
     },
-    call(prompt, model, step, inputs) {
+    call(prompt, model, step, _inputs) {
       if (!step) throw new Error(`Step context is required for ${config.kind}`);
-      if (config.callRaw) {
-        if (!inputs) throw new Error(`Step inputs are required for ${config.kind}`);
-        return config.callRaw(inputs, model, prompt);
-      }
       return callStepLlm(step, prompt, model, config.analyst);
     },
     validate(raw, _schema, inputs) {

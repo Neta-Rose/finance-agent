@@ -1,16 +1,14 @@
 import { promises as fs } from "fs";
 import type { z } from "zod";
-import type { UserWorkspace } from "../../../middleware/userIsolation.js";
 import { RiskReportSchema } from "../../../schemas/analysts.js";
 import { PortfolioFileSchema } from "../../../schemas/portfolio.js";
-import type { BuiltPrompt, StepHandler, StepInputs, ValidationResult } from "../handlers.js";
-import { persistReportArtifact, validateWithSchema } from "../handlerUtils.js";
-import type { ClaimedStepWorkItem, ModelTier } from "../types.js";
+import { gatherCommonInputs, makePromptHandler, persistReportArtifact } from "../handlerUtils.js";
+import type { ClaimedStepWorkItem } from "../types.js";
 
 type RiskArtifact = z.infer<typeof RiskReportSchema>;
 
-async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): Promise<RiskArtifact> {
-  const portfolio = PortfolioFileSchema.parse(JSON.parse(await fs.readFile(ws.portfolioFile, "utf-8")));
+async function computeRiskInputs(step: ClaimedStepWorkItem, portfolioPath: string): Promise<RiskArtifact> {
+  const portfolio = PortfolioFileSchema.parse(JSON.parse(await fs.readFile(portfolioPath, "utf-8")));
   const usdIlsRate = 3.7;
   const allPositions = Object.entries(portfolio.accounts).flatMap(([account, positions]) =>
     positions.map((position) => ({ account, ...position }))
@@ -38,9 +36,10 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
       plPct: 0,
       avgPricePaid: 0,
       concentrationFlag: false,
-      riskFacts: `Ticker ${step.ticker} is not currently held in this portfolio. Risk snapshot is watchlist-style with 0% current portfolio weight.`,
+      riskFacts: `Ticker ${step.ticker} is not currently held in this portfolio. Use this as input, then write an analyst risk assessment.`,
     };
   }
+
   const first = targetPositions[0]!;
   const totalShares = targetPositions.reduce((sum, position) => sum + position.shares, 0);
   const avgPricePaid =
@@ -48,10 +47,7 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
     Math.max(totalShares, 1);
   const avgPriceILS = first.exchange === "TASE" ? avgPricePaid : avgPricePaid * usdIlsRate;
   const costBasisILS = avgPriceILS * totalShares;
-  const positionValueILS = costBasisILS;
-  const plILS = positionValueILS - costBasisILS;
-  const plPct = costBasisILS > 0 ? (plILS / costBasisILS) * 100 : 0;
-  const portfolioWeightPct = totalValueILS > 0 ? (positionValueILS / totalValueILS) * 100 : 0;
+  const portfolioWeightPct = totalValueILS > 0 ? (costBasisILS / totalValueILS) * 100 : 0;
 
   return {
     ticker: step.ticker,
@@ -59,49 +55,63 @@ async function buildRiskArtifact(step: ClaimedStepWorkItem, ws: UserWorkspace): 
     analyst: "risk",
     livePrice: avgPricePaid,
     livePriceCurrency: first.exchange === "TASE" ? "ILS" : "USD",
-    livePriceSource: "portfolio_cost_basis_proxy",
+    livePriceSource: "portfolio_cost_basis_reference",
     shares: {
       main: targetPositions.filter((position) => position.account === "main").reduce((sum, position) => sum + position.shares, 0),
       second: targetPositions.filter((position) => position.account !== "main").reduce((sum, position) => sum + position.shares, 0),
       total: totalShares,
     },
-    positionValueILS,
+    positionValueILS: costBasisILS,
     portfolioWeightPct,
-    plILS,
-    plPct,
+    plILS: 0,
+    plPct: 0,
     avgPricePaid,
     concentrationFlag: portfolioWeightPct >= 20,
-    riskFacts: `Deterministic risk snapshot using portfolio cost basis and fixed USD/ILS fallback ${usdIlsRate} to avoid blocking on external providers. Weight ${portfolioWeightPct.toFixed(1)}%, proxy P/L ${plPct.toFixed(1)}%, total shares ${totalShares}.`,
+    riskFacts: `Reference risk inputs: weight ${portfolioWeightPct.toFixed(1)}%, shares ${totalShares}, average paid ${avgPricePaid}. Explain concentration, downside, and sizing risk from these inputs.`,
   };
 }
 
-export const riskHandler: StepHandler<RiskArtifact> = {
+export const riskHandler = makePromptHandler({
   kind: "analyst.risk",
-  async gatherInputs(step: ClaimedStepWorkItem, ws: UserWorkspace): Promise<StepInputs> {
+  analyst: "risk",
+  schema: RiskReportSchema,
+  schemaName: "RiskReportSchema",
+  async gatherData(step, ws) {
     return {
-      step,
-      workspace: ws,
-      gatheredAt: new Date().toISOString(),
-      data: {
-        artifact: await buildRiskArtifact(step, ws),
-      },
+      ...(await gatherCommonInputs(step, ws)),
+      computedRiskInputs: await computeRiskInputs(step, ws.portfolioFile),
     };
   },
-  buildPrompt(): BuiltPrompt {
+  artifactPath: persistReportArtifact("risk"),
+  normalizeRaw(raw, inputs) {
+    if (!raw || typeof raw !== "object" || !inputs) return raw;
+    const computed = inputs.data["computedRiskInputs"] && typeof inputs.data["computedRiskInputs"] === "object"
+      ? inputs.data["computedRiskInputs"] as Record<string, unknown>
+      : {};
+    const riskFacts = (raw as Record<string, unknown>)["riskFacts"];
     return {
-      system: "Deterministic risk handler; no LLM prompt is used.",
-      user: "Deterministic risk handler; no LLM prompt is used.",
-      schema: RiskReportSchema,
+      ...computed,
+      ...raw as Record<string, unknown>,
+      ticker: inputs.step.ticker,
+      generatedAt: typeof (raw as Record<string, unknown>)["generatedAt"] === "string"
+        ? (raw as Record<string, unknown>)["generatedAt"]
+        : new Date().toISOString(),
+      analyst: "risk",
+      riskFacts: typeof riskFacts === "string" ? riskFacts.slice(0, 400) : String(computed["riskFacts"] ?? "").slice(0, 400),
     };
   },
-  async call(_prompt: BuiltPrompt, _model: { tier: ModelTier; primary: string; fallback: string | null }, _step?: ClaimedStepWorkItem, inputs?: StepInputs): Promise<unknown> {
-    if (!inputs) throw new Error("Risk handler requires gathered inputs");
-    return inputs.data["artifact"];
+  buildUserPrompt(inputs) {
+    return [
+      `User: ${inputs.step.userId}`,
+      `Job: ${inputs.step.jobId}`,
+      `Step: ${inputs.step.id}`,
+      `Ticker: ${inputs.step.ticker}`,
+      "Analyze portfolio risk for this position. Use computedRiskInputs and live portfolio context as the source of truth for numeric sizing fields.",
+      "You must perform risk interpretation; do not merely echo the computed inputs.",
+      "Schema requirements: analyst='risk'; all numeric fields are required; riskFacts must be a concise analyst risk assessment.",
+      "Required JSON fields: ticker, generatedAt, analyst, livePrice, livePriceCurrency, livePriceSource, shares{main,second,total}, positionValueILS, portfolioWeightPct, plILS, plPct, avgPricePaid, concentrationFlag, riskFacts.",
+      "Copy required numeric/share fields from computedRiskInputs unless live context provides a better current value. Keep riskFacts under 400 characters.",
+      JSON.stringify(inputs.data, null, 2),
+    ].join("\n\n");
   },
-  validate(raw: unknown): ValidationResult<RiskArtifact> {
-    return validateWithSchema(RiskReportSchema, raw);
-  },
-  async persistArtifact(artifact: RiskArtifact, ws: UserWorkspace, step: ClaimedStepWorkItem): Promise<string> {
-    return persistReportArtifact<RiskArtifact>("risk")(artifact, ws, step);
-  },
-};
+});

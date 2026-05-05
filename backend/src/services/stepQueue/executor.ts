@@ -345,35 +345,7 @@ export async function reconcileStepQueueTerminalStates(ds: DataSource): Promise<
         AND (failure_reason IS NOT NULL OR skip_reason IS NOT NULL)`
   );
 
-  const repairedResult = await ds.query(
-    `WITH repaired AS (
-       SELECT id, status AS from_status, attempts
-         FROM step_work_items
-        WHERE status <> 'completed'
-          AND output_artifact_path IS NOT NULL
-          AND completed_at IS NOT NULL
-     )
-     UPDATE step_work_items s
-        SET status = 'completed',
-            owner_lock_id = NULL,
-            last_error = NULL
-       FROM repaired
-      WHERE s.id = repaired.id
-      RETURNING s.id, repaired.from_status, s.attempts`
-  );
-  const repairedRows = mutationRows<{ id: string; from_status: string; attempts: number } & Record<string, unknown>>(repairedResult);
-  await Promise.all(
-    repairedRows.map((row) =>
-      recordLifecycle(ds, {
-        stepId: row.id,
-        fromStatus: row.from_status,
-        toStatus: "completed",
-        attemptN: row.attempts,
-        errorClass: "handler",
-        errorMessage: "Repaired completed artifact row during reconciliation",
-      })
-    )
-  );
+  const repairedRows: Array<{ id: string; from_status: string; attempts: number } & Record<string, unknown>> = [];
 
   const blockedResult = await ds.query(
     `UPDATE step_work_items s
@@ -509,7 +481,17 @@ async function markStepFailed(
   errorClass: StepErrorClass
 ): Promise<void> {
   const message = error instanceof Error ? error.message : String(error);
-  const permanent = step.attempts >= 3;
+  const parentRows = await ds.query(
+    `SELECT t.status AS ticker_status,
+            j.status AS job_status
+       FROM ticker_work_items t
+       JOIN jobs j ON j.id = t.job_id
+      WHERE t.id = $1`,
+    [step.tickerWorkItemId]
+  ) as Array<{ ticker_status: string; job_status: string }>;
+  const parent = parentRows[0];
+  const parentClosed = !parent || parent.ticker_status !== "running" || parent.job_status !== "running";
+  const permanent = step.attempts >= 3 || parentClosed;
   const nextStatus = permanent ? "failed" : "pending";
   await ds.query(
     `UPDATE step_work_items
@@ -532,15 +514,19 @@ async function markStepFailed(
 
   if (!permanent) return;
 
-  await ds.query(
-    `UPDATE ticker_work_items
-        SET status = 'failed',
-            completed_at = NOW(),
-            failure_reason = $2
-      WHERE id = $1`,
-    [step.tickerWorkItemId, message.slice(0, 2000)]
-  );
-  await markBlockedPendingStepsFailed(ds, step, "Blocked by failed prerequisite step");
+  if (!parentClosed) {
+    await ds.query(
+      `UPDATE ticker_work_items
+          SET status = 'failed',
+              completed_at = NOW(),
+              failure_reason = $2
+        WHERE id = $1`,
+      [step.tickerWorkItemId, message.slice(0, 2000)]
+    );
+    await markBlockedPendingStepsFailed(ds, step, "Blocked by failed prerequisite step");
+  } else {
+    await markBlockedPendingStepsFailed(ds, step, "Blocked by terminal ticker/job state");
+  }
   await finalizeJobIfTickerWorkClosed(ds, step.jobId);
 }
 
@@ -621,7 +607,7 @@ export async function runStepQueueTick(): Promise<void> {
 
 export function startStepQueueExecutor(): void {
   if (!isStepQueueServiceEnabled()) {
-    logger.info("Step queue executor disabled; USE_STEP_QUEUE is not enabled");
+    logger.info("Step queue executor disabled; USE_STEP_QUEUE is explicitly disabled");
     return;
   }
   if (!isApplicationDatabaseConfigured()) {
@@ -633,8 +619,10 @@ export function startStepQueueExecutor(): void {
   void getApplicationDataSource()
     .then((ds) => reconcileStepQueueTerminalStates(ds))
     .then((result) => {
-      if (result.repairedSteps > 0 || result.repairedTickers > 0 || result.blockedSteps > 0 || result.updatedJobs > 0 || result.appliedEffects > 0) {
+      if (result.repairedSteps > 0 || result.repairedTickers > 0 || result.blockedSteps > 0 || result.updatedJobs > 0) {
         logger.warn(`Step queue reconciled terminal state: repaired_steps=${result.repairedSteps} repaired_tickers=${result.repairedTickers} blocked_steps=${result.blockedSteps} updated_jobs=${result.updatedJobs} applied_effects=${result.appliedEffects}`);
+      } else if (result.appliedEffects > 0) {
+        logger.info(`Step queue applied pending product effects: applied_effects=${result.appliedEffects}`);
       }
     })
     .catch((err) => logger.warn(`Step queue terminal reconciliation failed: ${err instanceof Error ? err.message : String(err)}`));

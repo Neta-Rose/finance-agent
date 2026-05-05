@@ -15,7 +15,6 @@ import { hasPendingAgentManagedWork } from "./jobService.js";
 import { getActiveUserEligibility, readState, repairActiveUserState } from "./stateService.js";
 import { shouldUserHeartbeatBeEnabled } from "./startupService.js";
 import type { Job } from "../types/index.js";
-import { dispatchPendingAgentJobsForUser } from "./agentJobDispatcher.js";
 
 const SCAN_INTERVAL_MS = 30 * 1000;
 const USERS_DIR = "/root/clawd/users";
@@ -86,7 +85,6 @@ async function scanUser(userId: string): Promise<void> {
         const executionFailure = await detectDeepDiveExecutionFailureSignal(userId, job);
         if (executionFailure) {
           await markDeepDiveJobFailed(workspace, job, executionFailure);
-          await dispatchPendingAgentJobsForUser(userId);
           continue;
         }
       }

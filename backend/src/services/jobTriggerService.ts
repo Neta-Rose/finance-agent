@@ -9,16 +9,12 @@ import { DEFAULT_RATE_LIMITS } from "../types/index.js";
 import { setUserProfile, getUserProfileStatus } from "./profileService.js";
 import { runQuickCheckJob } from "./quickCheckService.js";
 import { runDailyBriefJob } from "./dailyBriefService.js";
-import { initializeDeepDiveJob } from "./deepDiveService.js";
-import { initializeFullReportJob } from "./fullReportService.js";
 import { runNewIdeasJob } from "./newIdeasService.js";
-import { dispatchPendingAgentJobsForUser } from "./agentJobDispatcher.js";
 import { buildStrategyMetadata } from "./strategyBaselineService.js";
 import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
 import { requiresBudgetAdmission } from "./jobAdmissionService.js";
 import { isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
-import { admitStepQueueJob } from "./stepQueue/admission.js";
-import { isStepQueueEnabledForUser } from "./stepQueue/featureFlag.js";
+import { admitOrReuseStepQueueJob } from "./stepQueue/admission.js";
 
 const FUTURE_FEATURE_ACTIONS = new Set<JobAction>(["new_ideas"]);
 
@@ -282,7 +278,7 @@ export async function triggerUserJob(
     };
   }
 
-  if ((action === "deep_dive" || action === "full_report") && await isStepQueueEnabledForUser(ws.userId)) {
+  if (action === "deep_dive" || action === "full_report") {
     if (!isApplicationDatabaseConfigured()) {
       return {
         statusCode: 503,
@@ -306,7 +302,7 @@ export async function triggerUserJob(
       };
     }
 
-    const admitted = await admitStepQueueJob({
+    const admitted = await admitOrReuseStepQueueJob({
       workspace: ws,
       action,
       ticker,
@@ -314,10 +310,11 @@ export async function triggerUserJob(
       budgetAdmittedAt: requiresBudgetAdmission({ action }) ? new Date() : null,
     });
     return {
-      statusCode: 201,
+      statusCode: admitted.reused ? 200 : 201,
       body: {
         jobId: admitted.jobId,
         stepQueue: true,
+        reused: admitted.reused,
         tickerCount: admitted.tickerCount,
         stepCount: admitted.stepCount,
         modelTier: admitted.modelTier,
@@ -359,18 +356,5 @@ export async function triggerUserJob(
     const completed = await runNewIdeasJob(ws, job);
     return { statusCode: 201, body: { jobId: completed.id, job: completed } };
   }
-  if (action === "deep_dive") {
-    const started = await initializeDeepDiveJob(ws, job);
-    await dispatchPendingAgentJobsForUser(ws.userId);
-    const refreshed = await getJob(ws, started.id);
-    return { statusCode: 201, body: { jobId: refreshed.id, job: refreshed } };
-  }
-  if (action === "full_report") {
-    const started = await initializeFullReportJob(ws, job);
-    await dispatchPendingAgentJobsForUser(ws.userId);
-    const refreshed = await getJob(ws, started.id);
-    return { statusCode: 201, body: { jobId: refreshed.id, job: refreshed } };
-  }
-
   return { statusCode: 201, body: { jobId: job.id, job } };
 }

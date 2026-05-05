@@ -8,7 +8,6 @@ import { promises as fs } from "fs";
 import path from "path";
 import {
   getDeepDiveJobProgress,
-  initializeDeepDiveJob,
   markDeepDiveJobCancelled,
 } from "../services/deepDiveService.js";
 import { ensurePointsBudgetAvailable } from "../services/pointsBudgetService.js";
@@ -16,8 +15,6 @@ import {
   getFullReportJobProgress,
 } from "../services/fullReportService.js";
 import { triggerUserJob } from "../services/jobTriggerService.js";
-import { dispatchPendingAgentJobsForUser } from "../services/agentJobDispatcher.js";
-import { updateJob } from "../services/jobService.js";
 
 // ── Progress inference ────────────────────────────────────────────────────────
 
@@ -307,14 +304,11 @@ router.post(
       return;
     }
 
-    const pending = await updateJob(ws, job.id, {
-      status: "pending",
-      error: null,
-      completed_at: null,
+    res.status(410).json({
+      error: "legacy_resume_removed",
+      message: "Legacy file-backed deep dive resume has been removed. Start a new deep dive to use the step queue.",
+      jobId: job.id,
     });
-    await initializeDeepDiveJob(ws, pending);
-    await dispatchPendingAgentJobsForUser(ws.userId);
-    res.json({ resumed: true, job: await getJob(ws, job.id) });
   })
 );
 

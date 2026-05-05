@@ -11,7 +11,6 @@ const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), "step-queue-"));
 const usersDir = path.join(testRoot, "users");
 process.env["USERS_DIR"] = usersDir;
 delete process.env["USE_STEP_QUEUE"];
-delete process.env["USE_STEP_QUEUE_USERS"];
 
 const [{ buildWorkspace }, { expandStepQueueJob }, { isStepQueueServiceEnabled, isStepQueueEnabledForUser }, { handlerFor, registeredStepKinds }, { resolveTerminalJobStatus }] =
   await Promise.all([
@@ -124,9 +123,191 @@ function deterministicInputs(step: ClaimedStepWorkItem, ws: UserWorkspace): Step
   };
 }
 
-test("step queue feature flags default off", async () => {
+let llmFetchCount = 0;
+
+function mockLlmJsonOnce(json: unknown): void {
+  llmFetchCount = 0;
+  globalThis.fetch = (async () => {
+    llmFetchCount += 1;
+    return new Response(
+      JSON.stringify({
+        model: "stub-model",
+        choices: [{ message: { content: JSON.stringify(json) } }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, cost: 0.001 },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+}
+
+function assertLlmCalledOnce(): void {
+  assert.equal(llmFetchCount, 1);
+}
+
+function technicalFixture(ticker: string): Record<string, unknown> {
+  return {
+    ticker,
+    generatedAt: "2026-05-01T00:00:00.000Z",
+    analyst: "technical",
+    price: { current: 123, week52High: 150, week52Low: 90, positionInRange: 55 },
+    movingAverages: { ma50: 120, ma200: 110, priceVsMa50: "above", priceVsMa200: "above" },
+    rsi: { value: 52, signal: "neutral" },
+    macd: "neutral",
+    volume: "average",
+    keyLevels: { support: 110, resistance: 150 },
+    pattern: null,
+    technicalView: "Model technical read is neutral with price above key moving averages.",
+    sources: ["https://finance.yahoo.com/quote/AAPL"],
+  };
+}
+
+function sentimentFixture(ticker: string): Record<string, unknown> {
+  return {
+    ticker,
+    generatedAt: "2026-05-01T00:00:00.000Z",
+    analyst: "sentiment",
+    analystActions: [],
+    insiderTransactions: [],
+    majorNews: [
+      {
+        headline: "Recent coverage remains balanced",
+        summary: "Available news does not show a decisive narrative break.",
+        sentiment: "neutral",
+        date: "2026-05-01",
+      },
+    ],
+    shortInterest: "unknown",
+    narrativeShift: "stable",
+    sentimentView: "Model sentiment read is stable with no strong directional shift.",
+    sources: ["https://example.com/news"],
+  };
+}
+
+function macroFixture(ticker: string): Record<string, unknown> {
+  return {
+    ticker,
+    generatedAt: "2026-05-01T00:00:00.000Z",
+    analyst: "macro",
+    rateEnvironment: { relevantBank: "Federal Reserve", currentRate: null, direction: "holding", relevance: "neutral" },
+    sectorPerformance: { sectorName: "Technology", performanceVsMarket30d: null, trend: "in-line" },
+    currency: { usdIls: 3.7, trend: "stable", impactOnPosition: "neutral" },
+    geopolitical: { relevantFactor: null, riskLevel: "none" },
+    marketRegime: "mixed",
+    macroView: "Model macro read is mixed and should not drive the position alone.",
+    sources: ["https://example.com/macro"],
+  };
+}
+
+function riskFixture(ticker: string): Record<string, unknown> {
+  return {
+    ticker,
+    generatedAt: "2026-05-01T00:00:00.000Z",
+    analyst: "risk",
+    livePrice: 123,
+    livePriceCurrency: "USD",
+    livePriceSource: "live_price_context",
+    shares: { main: 1, second: 0, total: 1 },
+    positionValueILS: 455,
+    portfolioWeightPct: 12,
+    plILS: 0,
+    plPct: 0,
+    avgPricePaid: 100,
+    concentrationFlag: false,
+    riskFacts: "Model risk read: position size is moderate and should stay within target limits.",
+  };
+}
+
+function debateFixture(ticker: string): Record<string, unknown> {
+  return {
+    ticker,
+    generatedAt: "2026-05-01T00:00:00.000Z",
+    analyst: "debate",
+    bullRounds: [
+      {
+        round: 1,
+        thesis: "The bull case is that fundamentals are stable enough to keep exposure.",
+        evidence: [{ source: "https://finance.yahoo.com/quote/AAPL", claim: "Fundamentals are stable.", dataPoint: "Fundamentals artifact" }],
+        responseToBear: "Sizing discipline addresses the main risk.",
+      },
+      {
+        round: 2,
+        thesis: "Technical and sentiment evidence do not force an exit.",
+        evidence: [{ source: "https://example.com/news", claim: "Narrative is stable.", dataPoint: "Sentiment artifact" }],
+        responseToBear: "A neutral setup supports waiting for a stronger catalyst.",
+      },
+    ],
+    bearRounds: [
+      {
+        round: 1,
+        concern: "The bear case is that evidence is too mixed for adding capital.",
+        evidence: [{ source: "https://example.com/macro", claim: "Macro is mixed.", dataPoint: "Macro artifact" }],
+        responseToBull: "Stable fundamentals alone are not enough for a BUY.",
+      },
+      {
+        round: 2,
+        concern: "Position risk matters if confidence stays low.",
+        evidence: [{ source: "https://finance.yahoo.com/quote/AAPL", claim: "Weight is meaningful.", dataPoint: "Risk artifact" }],
+        responseToBull: "The position should remain capped until evidence improves.",
+      },
+    ],
+    bullFinalVerdict: "HOLD",
+    bearFinalVerdict: "HOLD",
+    keyDisagreement: "Whether mixed evidence is enough to keep holding without adding.",
+    synthesisGuidance: "Use a low-confidence HOLD with explicit catalyst requirements.",
+    sources: ["https://finance.yahoo.com/quote/AAPL"],
+  };
+}
+
+function strategyFixture(ticker: string, tracking = false): Record<string, unknown> {
+  return {
+    ticker,
+    updatedAt: "2026-05-01T00:00:00.000Z",
+    version: 1,
+    verdict: "HOLD",
+    confidence: "low",
+    reasoning: "Model synthesis: evidence is mixed, so keep the position provisional.",
+    timeframe: "months",
+    positionSizeILS: tracking ? 0 : 455,
+    positionWeightPct: tracking ? 0 : 12,
+    entryConditions: ["Add only after a fresh catalyst confirms upside."],
+    exitConditions: ["Reduce if the thesis weakens or position risk grows."],
+    catalysts: [{ description: "Next earnings update", expiresAt: "2026-06-15T00:00:00.000Z", triggered: false }],
+    bullCase: "Upside remains possible if fundamentals improve.",
+    bearCase: "Evidence remains mixed and sizing risk matters.",
+    lastDeepDiveAt: "2026-05-01T00:00:00.000Z",
+    deepDiveTriggeredBy: "step_queue",
+    metadata: {
+      source: tracking ? "deep_dive" : "full_report",
+      status: "validated",
+      generatedAt: "2026-05-01T00:00:00.000Z",
+      userGuidanceApplied: false,
+    },
+    assetScope: tracking ? "tracking" : "portfolio",
+    trackingStatus: tracking ? "active" : undefined,
+    stance: tracking ? "candidate" : undefined,
+    potentialScore: tracking ? 72 : undefined,
+    urgencyScore: tracking ? 55 : undefined,
+    urgencyLabel: tracking ? "medium" : undefined,
+    portfolioFitScore: tracking ? 65 : undefined,
+    suggestedAllocationPct: tracking ? 2 : undefined,
+    suggestedAllocationILS: tracking ? 5000 : undefined,
+    actionCatalysts: tracking
+      ? [{ description: "Breakout confirmation", expiresAt: "2026-06-01T00:00:00.000Z", triggered: false }]
+      : [],
+    avoidConditions: tracking ? ["Avoid if valuation expands without matching evidence."] : [],
+    nextReviewAt: tracking ? "2026-06-01T00:00:00.000Z" : undefined,
+  };
+}
+
+test("step queue is globally enabled unless explicitly disabled", async () => {
+  delete process.env["USE_STEP_QUEUE"];
+  assert.equal(isStepQueueServiceEnabled(), true);
+  assert.equal(await isStepQueueEnabledForUser("missing-user"), true);
+
+  process.env["USE_STEP_QUEUE"] = "false";
   assert.equal(isStepQueueServiceEnabled(), false);
   assert.equal(await isStepQueueEnabledForUser("missing-user"), false);
+  delete process.env["USE_STEP_QUEUE"];
 });
 
 test("terminal job status is completed only when no ticker failed", () => {
@@ -194,13 +375,15 @@ test("handler registry exposes all seven step handlers", () => {
   ]);
 });
 
-test("technical handler validates and persists deterministic artifact", async () => {
+test("technical handler validates and persists LLM artifact", async () => {
   const ws = await setupWorkspace("handler-technical");
   const step = claimedStep("analyst.technical", "AAPL");
   const handler = handlerFor("analyst.technical");
   const inputs = await handler.gatherInputs(step, ws);
   const prompt = handler.buildPrompt(inputs, "balanced");
+  mockLlmJsonOnce(technicalFixture("AAPL"));
   const raw = await handler.call(prompt, { tier: "balanced", primary: "stub", fallback: null }, step, inputs);
+  assertLlmCalledOnce();
   const validated = handler.validate(raw, prompt.schema);
   assert.equal(validated.ok, true);
   if (!validated.ok) return;
@@ -211,13 +394,53 @@ test("technical handler validates and persists deterministic artifact", async ()
   assert.equal(artifact.ticker, "AAPL");
 });
 
-test("risk handler validates and persists deterministic artifact", async () => {
+test("sentiment handler validates and persists LLM artifact", async () => {
+  const ws = await setupWorkspace("handler-sentiment");
+  const step = claimedStep("analyst.sentiment", "AAPL");
+  const handler = handlerFor("analyst.sentiment");
+  const inputs = deterministicInputs(step, ws);
+  const prompt = handler.buildPrompt(inputs, "balanced");
+  mockLlmJsonOnce(sentimentFixture("AAPL"));
+  const raw = await handler.call(prompt, { tier: "balanced", primary: "stub", fallback: null }, step, inputs);
+  assertLlmCalledOnce();
+  const validated = handler.validate(raw, prompt.schema, inputs);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+
+  const artifactPath = await handler.persistArtifact(validated.artifact, ws, step);
+  const artifact = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string; analyst?: string };
+  assert.equal(artifact.ticker, "AAPL");
+  assert.equal(artifact.analyst, "sentiment");
+});
+
+test("macro handler validates and persists LLM artifact", async () => {
+  const ws = await setupWorkspace("handler-macro");
+  const step = claimedStep("analyst.macro", "AAPL");
+  const handler = handlerFor("analyst.macro");
+  const inputs = deterministicInputs(step, ws);
+  const prompt = handler.buildPrompt(inputs, "balanced");
+  mockLlmJsonOnce(macroFixture("AAPL"));
+  const raw = await handler.call(prompt, { tier: "balanced", primary: "stub", fallback: null }, step, inputs);
+  assertLlmCalledOnce();
+  const validated = handler.validate(raw, prompt.schema, inputs);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+
+  const artifactPath = await handler.persistArtifact(validated.artifact, ws, step);
+  const artifact = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string; analyst?: string };
+  assert.equal(artifact.ticker, "AAPL");
+  assert.equal(artifact.analyst, "macro");
+});
+
+test("risk handler validates and persists LLM artifact", async () => {
   const ws = await setupWorkspace("handler-risk");
   const step = claimedStep("analyst.risk", "AAPL");
   const handler = handlerFor("analyst.risk");
   const inputs = await handler.gatherInputs(step, ws);
   const prompt = handler.buildPrompt(inputs, "balanced");
+  mockLlmJsonOnce(riskFixture("AAPL"));
   const raw = await handler.call(prompt, { tier: "balanced", primary: "stub", fallback: null }, step, inputs);
+  assertLlmCalledOnce();
   const validated = handler.validate(raw, prompt.schema);
   assert.equal(validated.ok, true);
   if (!validated.ok) return;
@@ -243,13 +466,15 @@ test("fundamentals normalizer recovers missing ticker from step inputs", async (
   assert.equal((validated.artifact as { ticker?: string }).ticker, "AAPL");
 });
 
-test("debate handler validates and persists deterministic artifact", async () => {
+test("debate handler validates and persists LLM artifact", async () => {
   const ws = await setupWorkspace("handler-debate");
   const step = claimedStep("debate", "AAPL");
   const handler = handlerFor("debate");
   const inputs = deterministicInputs(step, ws);
   const prompt = handler.buildPrompt(inputs, "cheap");
+  mockLlmJsonOnce(debateFixture("AAPL"));
   const raw = await handler.call(prompt, { tier: "cheap", primary: "stub", fallback: null }, step, inputs);
+  assertLlmCalledOnce();
   const validated = handler.validate(raw, prompt.schema);
   assert.equal(validated.ok, true);
   if (!validated.ok) return;
@@ -260,7 +485,7 @@ test("debate handler validates and persists deterministic artifact", async () =>
   assert.equal(artifact.analyst, "debate");
 });
 
-test("synthesis handler validates and persists deterministic strategy", async () => {
+test("synthesis handler validates and persists LLM strategy", async () => {
   const ws = await setupWorkspace("handler-synthesis");
   const step = claimedStep("synthesis", "AAPL");
   const handler = handlerFor("synthesis");
@@ -272,7 +497,9 @@ test("synthesis handler validates and persists deterministic strategy", async ()
     synthesisGuidance: "Keep the output provisional until richer evidence exists.",
   };
   const prompt = handler.buildPrompt(inputs, "cheap");
+  mockLlmJsonOnce(strategyFixture("AAPL"));
   const raw = await handler.call(prompt, { tier: "cheap", primary: "stub", fallback: null }, step, inputs);
+  assertLlmCalledOnce();
   const validated = handler.validate(raw, prompt.schema);
   assert.equal(validated.ok, true);
   if (!validated.ok) return;
@@ -332,7 +559,9 @@ test("synthesis handler writes tracking fields for non-held deep dive ideas", as
   };
 
   const prompt = handler.buildPrompt(inputs, "cheap");
+  mockLlmJsonOnce(strategyFixture("GOOGL", true));
   const raw = await handler.call(prompt, { tier: "cheap", primary: "stub", fallback: null }, step, inputs);
+  assertLlmCalledOnce();
   const validated = handler.validate(raw, prompt.schema);
   assert.equal(validated.ok, true);
   if (!validated.ok) return;

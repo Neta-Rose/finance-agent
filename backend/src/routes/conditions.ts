@@ -2,10 +2,8 @@ import { Router, type Response, type NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 import type { UserWorkspace } from "../middleware/userIsolation.js";
 import { runConditionCheck, markCatalystTriggered, markDeepDiveComplete } from "../services/conditionEngine.js";
-import { createJob } from "../services/jobService.js";
-import { initializeDeepDiveJob } from "../services/deepDiveService.js";
 import type { EscalationReason } from "../services/conditionEngine.js";
-import { dispatchPendingAgentJobsForUser } from "../services/agentJobDispatcher.js";
+import { triggerUserJob } from "../services/jobTriggerService.js";
 
 const router = Router();
 const TICKER_REGEX = /^[A-Z0-9.]{1,12}$/;
@@ -78,14 +76,18 @@ router.post(
     pending.add(ticker);
     await writeState(ws.userId, { pendingDeepDives: Array.from(pending) });
 
-    // Create deep_dive job for this ticker
-    const job = await createJob(ws, "deep_dive", ticker, { dispatch: false });
-    const initializedJob = await initializeDeepDiveJob(ws, job);
-    if (initializedJob.status === "running") {
-      await dispatchPendingAgentJobsForUser(ws.userId);
+    const triggered = await triggerUserJob({
+      workspace: ws,
+      action: "deep_dive",
+      ticker,
+      source: "dashboard_action",
+    });
+    if (triggered.statusCode >= 400) {
+      res.status(triggered.statusCode).json(triggered.body);
+      return;
     }
 
-    res.json({ jobId: initializedJob.id, ticker, queued: true });
+    res.json({ jobId: triggered.body["jobId"], ticker, queued: true, stepQueue: true });
   })
 );
 

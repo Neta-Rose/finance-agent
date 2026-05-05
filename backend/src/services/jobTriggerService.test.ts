@@ -159,7 +159,7 @@ test("dashboard action returns existing duplicate paused deep dive", async () =>
   assert.equal(result.body["jobId"], existingJob.id);
 });
 
-test("deep dive jobs are stamped as budget-admitted after passing start-gate checks", async () => {
+test("deep dive jobs require the application database-backed step queue", async () => {
   const ws = await setupUser("budget-admission");
 
   const result = await triggerUserJob({
@@ -169,16 +169,11 @@ test("deep dive jobs are stamped as budget-admitted after passing start-gate che
     source: "dashboard_action",
   });
 
-  assert.equal(result.statusCode, 201);
-  const raw = JSON.parse(await fs.readFile(ws.jobFile(result.body["jobId"] as string), "utf-8")) as {
-    budget_admitted_at?: string | null;
-    action: string;
-  };
-  assert.equal(raw.action, "deep_dive");
-  assert.match(raw.budget_admitted_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(result.statusCode, 503);
+  assert.equal(result.body["error"], "step_queue_database_unavailable");
 });
 
-test("full report can be triggered through shared job flow", async () => {
+test("full report requires the application database-backed step queue", async () => {
   const ws = await setupUser("full-report-trigger");
   await fs.mkdir(path.join(ws.root, "data", "reports"), { recursive: true });
   await fs.mkdir(path.join(ws.root, "data", "tickers"), { recursive: true });
@@ -227,13 +222,6 @@ test("full report can be triggered through shared job flow", async () => {
     source: "dashboard_action",
   });
 
-  assert.equal(result.statusCode, 201);
-  const jobId = result.body["jobId"];
-  assert.equal(typeof jobId, "string");
-  const raw = JSON.parse(await fs.readFile(ws.jobFile(jobId as string), "utf-8")) as {
-    action: string;
-    budget_admitted_at?: string | null;
-  };
-  assert.equal(raw.action, "full_report");
-  assert.match(raw.budget_admitted_at ?? "", /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(result.statusCode, 503);
+  assert.equal(result.body["error"], "step_queue_database_unavailable");
 });

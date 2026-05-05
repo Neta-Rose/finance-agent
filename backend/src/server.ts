@@ -14,7 +14,6 @@ import {
 } from "./services/agentService.js";
 import { syncAllUserProfiles, syncSystemAgentProfile } from "./services/profileService.js";
 import { startDailyScheduler } from "./services/dailySchedulerService.js";
-import { startAgentJobDispatcher } from "./services/agentJobDispatcher.js";
 import {
   shouldRestartGatewayAfterStartupReconciliation,
   shouldUserHeartbeatBeEnabled,
@@ -120,7 +119,6 @@ async function bootstrap(): Promise<void> {
     startWatchdog();
     startJobCompletionWatcher();
     startDailyScheduler();
-    startAgentJobDispatcher();
     startObservabilityRetentionLoop();
     startStepQueueExecutor();
     setImmediate(() => {

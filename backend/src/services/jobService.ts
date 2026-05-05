@@ -257,14 +257,9 @@ export async function listJobs(
 }
 
 export async function hasPendingAgentManagedWork(
-  workspace: UserWorkspace
+  _workspace: UserWorkspace
 ): Promise<boolean> {
-  const jobs = await listJobs(workspace, 200);
-  return jobs.some(
-    (job) =>
-      (job.action === "deep_dive" || job.action === "full_report") &&
-      (job.status === "pending" || job.status === "running")
-  );
+  return false;
 }
 
 export async function updateJob(
