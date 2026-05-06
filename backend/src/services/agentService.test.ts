@@ -14,7 +14,7 @@ async function writeJson(filePath: string, value: unknown): Promise<void> {
   await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf-8");
 }
 
-test("hasRunnableTriggerFiles returns true when a trigger points at a pending job", async () => {
+test("hasRunnableTriggerFiles ignores pending trigger files after OpenClaw retirement", async () => {
   const userId = "agent-trigger-pending";
   await writeJson(
     path.join(usersDir, userId, "data", "triggers", "job_test.json"),
@@ -25,7 +25,7 @@ test("hasRunnableTriggerFiles returns true when a trigger points at a pending jo
     { id: "job_test", status: "pending" }
   );
 
-  assert.equal(await hasRunnableTriggerFiles(userId, usersDir), true);
+  assert.equal(await hasRunnableTriggerFiles(userId, usersDir), false);
 });
 
 test("hasRunnableTriggerFiles returns false when all trigger-linked jobs are terminal", async () => {
@@ -42,12 +42,12 @@ test("hasRunnableTriggerFiles returns false when all trigger-linked jobs are ter
   assert.equal(await hasRunnableTriggerFiles(userId, usersDir), false);
 });
 
-test("hasRunnableTriggerFiles returns true when the job file is missing but trigger exists", async () => {
+test("hasRunnableTriggerFiles ignores orphan trigger files after OpenClaw retirement", async () => {
   const userId = "agent-trigger-missing-job";
   await writeJson(
     path.join(usersDir, userId, "data", "triggers", "job_test.json"),
     { id: "job_test" }
   );
 
-  assert.equal(await hasRunnableTriggerFiles(userId, usersDir), true);
+  assert.equal(await hasRunnableTriggerFiles(userId, usersDir), false);
 });

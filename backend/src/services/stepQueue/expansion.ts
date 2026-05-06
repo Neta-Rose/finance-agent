@@ -13,7 +13,7 @@ import {
 } from "./types.js";
 
 const FULL_DEEP_DIVE_STEPS: StepKind[] = [...STEP_KINDS].filter(
-  (k) => k !== "quick_check.evaluate" && k !== "tracking.evaluate"
+  (k) => k !== "quick_check.evaluate" && k !== "tracking.evaluate" && k !== "chat_agent"
 );
 const LIGHT_PASS_STEPS: StepKind[] = [...ANALYST_STEP_KINDS];
 const QUICK_CHECK_STEPS: StepKind[] = ["quick_check.evaluate"];

@@ -10,6 +10,7 @@ import { logger } from "../../logger.js";
 import { admitOrReuseStepQueueJob } from "../admission.js";
 import { ensurePointsBudgetAvailable } from "../../pointsBudgetService.js";
 import { requiresBudgetAdmission } from "../../jobAdmissionService.js";
+import { isApplicationDatabaseConfigured } from "../../../db/applicationDataSource.js";
 import { atomicWriteJson } from "../artifactIO.js";
 import type { StepHandler, StepInputs, ValidationResult } from "../handlers.js";
 import type { ClaimedStepWorkItem } from "../types.js";
@@ -165,6 +166,13 @@ async function maybeEscalate(
   fingerprint: string,
   _jobId: string
 ): Promise<{ escalatedToJobId: string | null; snoozeSuppressed: boolean }> {
+  if (!isApplicationDatabaseConfigured()) {
+    logger.info(
+      `quick_check.evaluate: skipping escalation because application database is not configured user=${ws.userId} ticker=${ticker}`
+    );
+    return { escalatedToJobId: null, snoozeSuppressed: false };
+  }
+
   // Check snooze suppression (Phase 7 wires the full snooze path; for now
   // the store is live and the check is real).
   const snooze = await findActiveSnooze(ws.userId, ticker, fingerprint);

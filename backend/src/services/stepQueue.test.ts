@@ -31,6 +31,7 @@ async function setupWorkspace(userId: string): Promise<UserWorkspace> {
   await fs.mkdir(ws.root, { recursive: true });
   await fs.mkdir(ws.tickersDir, { recursive: true });
   await fs.mkdir(ws.reportsDir, { recursive: true });
+  await writeJson(path.join(ws.root, "profile.json"), {});
   await fs.writeFile(ws.userMdFile, "Risk tolerance: medium\n", "utf-8");
   await writeJson(ws.portfolioFile, {
     meta: { currency: "ILS", transactionFeeILS: 5, note: "" },

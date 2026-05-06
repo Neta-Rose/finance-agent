@@ -5,6 +5,7 @@ import { findActiveSnooze } from "../../snoozeStore.js";
 import { admitOrReuseStepQueueJob } from "../admission.js";
 import { ensurePointsBudgetAvailable } from "../../pointsBudgetService.js";
 import { requiresBudgetAdmission } from "../../jobAdmissionService.js";
+import { isApplicationDatabaseConfigured } from "../../../db/applicationDataSource.js";
 import { atomicWriteJson } from "../artifactIO.js";
 import { logger } from "../../logger.js";
 import type { StepHandler, StepInputs, ValidationResult } from "../handlers.js";
@@ -70,6 +71,11 @@ async function computeTrackingSignals(
 
   const strategy = loaded.strategy;
 
+  // Muted ideas are intentionally suppressed, regardless of staleness.
+  if (strategy.trackingStatus === "muted") {
+    return { signals: [], shouldEscalate: false };
+  }
+
   // Never had a deep dive — always escalate for tracked ideas
   if (strategy.lastDeepDiveAt === null) {
     signals.push("no_deep_dive_ever");
@@ -88,12 +94,6 @@ async function computeTrackingSignals(
   );
   if (expiredCatalysts.length > 0) {
     signals.push(`${expiredCatalysts.length}_catalyst_expired`);
-  }
-
-  // Tracking status changes that warrant a review
-  if (strategy.trackingStatus === "muted") {
-    // Muted ideas are not escalated
-    return { signals: [], shouldEscalate: false };
   }
 
   // Escalate if any signals fired
@@ -165,7 +165,11 @@ export async function executeTrackingEvaluateStep(
   let snoozeSuppressed = false;
   let escalationReason: string | null = null;
 
-  if (shouldEscalate) {
+  if (shouldEscalate && !isApplicationDatabaseConfigured()) {
+    logger.info(
+      `tracking.evaluate: skipping escalation because application database is not configured user=${ws.userId} ticker=${step.ticker}`
+    );
+  } else if (shouldEscalate) {
     // Check snooze suppression
     const snooze = await findActiveSnooze(ws.userId, step.ticker, fingerprint);
     if (snooze) {

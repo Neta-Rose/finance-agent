@@ -77,6 +77,8 @@ export const DEFAULT_MODEL_TIER_ASSIGNMENTS: Record<ModelTier, Record<StepKind, 
 export function isModelTier(value: unknown): value is ModelTier {
   return typeof value === "string" && (MODEL_TIERS as readonly string[]).includes(value);
 }
+
+export async function readUserModelTier(userId: string): Promise<ModelTier> {
   try {
     const raw = await fs.readFile(path.join(USERS_DIR, userId, "profile.json"), "utf-8");
     const parsed = JSON.parse(raw) as { modelTier?: unknown };
