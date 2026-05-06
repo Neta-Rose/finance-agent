@@ -550,3 +550,79 @@ CREATE INDEX IF NOT EXISTS idx_llm_requests_tool_call
 -- user_points_budgets: per-user conversation token cap override (Phase 5).
 ALTER TABLE user_points_budgets
   ADD COLUMN IF NOT EXISTS conversation_token_cap_override INTEGER;
+
+-- ============================================================================
+-- Phase 5 DDL — Chat agent (dashboard transport only)
+-- Spec: design.md §4.11, §4.12; tasks.md 5.1
+-- Requirements: C2.1, C2.2, C2.3, F2.3
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id                   VARCHAR(64) PRIMARY KEY,
+  user_id              VARCHAR(64) NOT NULL,
+  channel              VARCHAR(16) NOT NULL CHECK (channel IN ('dashboard','telegram','whatsapp')),
+  started_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ended_at             TIMESTAMPTZ,
+  turn_count           INTEGER NOT NULL DEFAULT 0,
+  total_tokens_in      INTEGER NOT NULL DEFAULT 0,
+  total_tokens_out     INTEGER NOT NULL DEFAULT 0,
+  total_cost_usd       NUMERIC(14,6) NOT NULL DEFAULT 0,
+  termination_reason   VARCHAR(32),
+  tool_call_count      INTEGER NOT NULL DEFAULT 0,
+  model                VARCHAR(255)
+);
+CREATE INDEX IF NOT EXISTS idx_conversations_user_started
+  ON conversations (user_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_termination
+  ON conversations (termination_reason, started_at DESC)
+  WHERE termination_reason IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS conversation_turns (
+  conversation_id  VARCHAR(64) NOT NULL,
+  turn_index       INTEGER NOT NULL,
+  role             VARCHAR(16) NOT NULL CHECK (role IN ('user','assistant','tool_result','system')),
+  content          JSONB NOT NULL,
+  model            VARCHAR(255),
+  tokens_in        INTEGER NOT NULL DEFAULT 0,
+  tokens_out       INTEGER NOT NULL DEFAULT 0,
+  cost_usd         NUMERIC(14,6) NOT NULL DEFAULT 0,
+  latency_ms       INTEGER NOT NULL DEFAULT 0,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (conversation_id, turn_index),
+  CONSTRAINT fk_conversation_turns_conv FOREIGN KEY (conversation_id)
+    REFERENCES conversations(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS tool_calls (
+  id                UUID PRIMARY KEY,
+  conversation_id   VARCHAR(64) NOT NULL,
+  turn_index        INTEGER NOT NULL,
+  tool_name         VARCHAR(64) NOT NULL,
+  category          VARCHAR(16) NOT NULL CHECK (category IN ('read','action')),
+  args_json         JSONB NOT NULL,
+  result_status     VARCHAR(16) NOT NULL CHECK (result_status IN ('success','error','rejected')),
+  result_latency_ms INTEGER NOT NULL DEFAULT 0,
+  cost_points       NUMERIC(18,6) NOT NULL DEFAULT 0,
+  audit_note        TEXT,
+  occurred_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT fk_tool_calls_conv FOREIGN KEY (conversation_id)
+    REFERENCES conversations(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_tool_calls_conv
+  ON tool_calls (conversation_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_tool_calls_tool_name
+  ON tool_calls (tool_name, occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS output_filter_events (
+  id                    BIGSERIAL PRIMARY KEY,
+  conversation_id       VARCHAR(64) NOT NULL,
+  turn_index            INTEGER NOT NULL,
+  pattern               VARCHAR(128) NOT NULL,
+  site_of_match         VARCHAR(16) NOT NULL CHECK (site_of_match IN ('tool_result','final_reply')),
+  original_length_chars INTEGER NOT NULL,
+  occurred_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT fk_output_filter_events_conv FOREIGN KEY (conversation_id)
+    REFERENCES conversations(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_output_filter_events_at
+  ON output_filter_events (occurred_at DESC);

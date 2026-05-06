@@ -10,6 +10,7 @@ export const STEP_KINDS = [
   "synthesis",
   "quick_check.evaluate",
   "tracking.evaluate",
+  "chat_agent",
 ] as const;
 
 export const ANALYST_STEP_KINDS = [
@@ -101,6 +102,7 @@ export const STEP_ARTIFACT_FILENAMES: Record<StepKind, string> = {
   synthesis: "strategy.json",
   "quick_check.evaluate": "quick_check.json",
   "tracking.evaluate": "tracking_evaluate.json",
+  "chat_agent": "chat_agent.json",
 };
 
 export function isStepKind(value: string): value is StepKind {

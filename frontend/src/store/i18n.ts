@@ -2,7 +2,7 @@ import type { Language } from "./preferencesStore";
 
 export type TranslationKey =
   // Navigation
-  | "settingsTab" | "portfolioTab" | "alertsTab" | "reportsTab" | "strategiesTab" | "controlsTab"
+  | "settingsTab" | "portfolioTab" | "alertsTab" | "reportsTab" | "strategiesTab" | "controlsTab" | "chatTab"
   // Login
   | "loginTitle" | "loginSubtitle" | "loginUserId" | "loginPassword"
   | "loginSignIn" | "loginSigningIn" | "loginError"
@@ -166,6 +166,7 @@ export const translations: Translations = {
     reportsTab: "Feed",
     strategiesTab: "Strategies",
     controlsTab: "Controls",
+    chatTab: "Chat",
     // Login
     loginTitle: "Portfolio Command Center",
     loginSubtitle: "Sign in to your account",
@@ -625,6 +626,7 @@ export const translations: Translations = {
     reportsTab: "פיד",
     strategiesTab: "אסטרטגיות",
     controlsTab: "בקרה",
+    chatTab: "צ'אט",
     // Login
     loginTitle: "מרכז פיקוד תיק השקעות",
     loginSubtitle: "התחבר לחשבונך",

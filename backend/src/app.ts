@@ -27,6 +27,9 @@ import searchRoutes from "./routes/search.js";
 import controlRoutes from "./routes/control.js";
 import notificationsRoutes from "./routes/notifications.js";
 import supportRoutes from "./routes/support.js";
+import chatRoutes from "./routes/chat.js";
+import channelRoutes from "./routes/channels.js";
+import whatsappRoutes from "./routes/whatsapp.js";
 
 export function createApp(): Express {
   const app = express();
@@ -65,6 +68,7 @@ export function createApp(): Express {
   // Mounted here so it can have its own auth handling per-route
   app.use("/api/onboard", onboardingRoutes);
   app.use("/api", telegramRoutes); // POST /api/telegram/webhook — public webhook path
+  app.use("/api", whatsappRoutes); // GET/POST /api/whatsapp/webhook — public webhook path
 
   // Protected routes — JWT + user isolation for everything else
   app.use("/api", authMiddleware, userIsolationMiddleware);
@@ -80,6 +84,8 @@ export function createApp(): Express {
   app.use("/api", conditionRoutes); // GET /api/conditions/*
   app.use("/api", strategyRoutes); // GET /api/strategies/*
   app.use("/api", searchRoutes); // GET /api/search/ticker — no user workspace needed
+  app.use("/api", chatRoutes); // POST /api/chat/messages, GET /api/chat/conversations/:id
+  app.use("/api", channelRoutes); // POST /api/channels/binding-codes
 
   // ── Serve React frontend (SPA fallback) ──────────────────────────────────
   const frontendDist = process.env.FRONTEND_DIST ?? path.resolve(process.cwd(), "../frontend/dist");

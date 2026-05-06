@@ -32,6 +32,8 @@ export const DEFAULT_MODEL_TIER_ASSIGNMENTS: Record<ModelTier, Record<StepKind, 
     // Deterministic step kinds — no LLM; model string is a placeholder only.
     "quick_check.evaluate": "none",
     "tracking.evaluate": "none",
+    // Chat agent (Phase 5)
+    "chat_agent": "google/gemini-2.5-flash",
   },
   cheap: {
     "analyst.fundamentals": "deepseek/deepseek-v3.2",
@@ -43,6 +45,7 @@ export const DEFAULT_MODEL_TIER_ASSIGNMENTS: Record<ModelTier, Record<StepKind, 
     synthesis: "google/gemini-2.5-flash",
     "quick_check.evaluate": "none",
     "tracking.evaluate": "none",
+    "chat_agent": "google/gemini-2.5-flash",
   },
   balanced: {
     "analyst.fundamentals": "google/gemini-2.5-flash",
@@ -54,6 +57,7 @@ export const DEFAULT_MODEL_TIER_ASSIGNMENTS: Record<ModelTier, Record<StepKind, 
     synthesis: "claude-sonnet-4-6",
     "quick_check.evaluate": "none",
     "tracking.evaluate": "none",
+    "chat_agent": "google/gemini-2.5-flash",
   },
   expensive: {
     "analyst.fundamentals": "claude-sonnet-4-6",
@@ -65,6 +69,7 @@ export const DEFAULT_MODEL_TIER_ASSIGNMENTS: Record<ModelTier, Record<StepKind, 
     synthesis: "claude-opus-4-7",
     "quick_check.evaluate": "none",
     "tracking.evaluate": "none",
+    "chat_agent": "claude-sonnet-4-6",
   },
 };
 

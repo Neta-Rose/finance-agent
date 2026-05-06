@@ -24,6 +24,10 @@ import { MigrationArchiveEntitySchema } from "./entities/MigrationArchiveEntity.
 import { FeatureFlagEntitySchema } from "./entities/FeatureFlagEntity.js";
 import { ChannelBindingEntitySchema } from "./entities/ChannelBindingEntity.js";
 import { EncryptedSecretEntitySchema } from "./entities/EncryptedSecretEntity.js";
+import { ConversationEntitySchema } from "./entities/ConversationEntity.js";
+import { ConversationTurnEntitySchema } from "./entities/ConversationTurnEntity.js";
+import { ToolCallEntitySchema } from "./entities/ToolCallEntity.js";
+import { OutputFilterEventEntitySchema } from "./entities/OutputFilterEventEntity.js";
 import { logger } from "../services/logger.js";
 
 const APP_DATABASE_URL =
@@ -74,6 +78,11 @@ function buildDataSource(): DataSource {
       FeatureFlagEntitySchema,
       ChannelBindingEntitySchema,
       EncryptedSecretEntitySchema,
+      // Phase 5 (design.md §4.11–4.12):
+      ConversationEntitySchema,
+      ConversationTurnEntitySchema,
+      ToolCallEntitySchema,
+      OutputFilterEventEntitySchema,
     ],
     synchronize: false,
     logging: false,

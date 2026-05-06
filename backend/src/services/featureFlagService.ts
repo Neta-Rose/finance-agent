@@ -55,8 +55,17 @@ const DEFAULT_FLAGS: readonly FlagDefault[] = [
   // List-shaped configuration. Empty by default — startup guards in Phase 5/8
   // will refuse to start the relevant subsystem with empty values when their
   // feature flag is enabled, so an empty list cannot silently allow access.
-  { kind: "value", name: "forbidden_pattern_list", value: [] },
+  { kind: "value", name: "forbidden_pattern_list", value: [
+    // File paths
+    "~/clawd/", "users/", ".openclaw", "data/triggers/", "node_modules/",
+    // Internal terms
+    "step queue", "openclaw", "watchdog", "userIsolation", "workspace", "clawd",
+    // Model name prefixes (prevent leaking which model is in use)
+    "claude-", "gpt-", "gemini-", "deepseek-", "o1-", "o3-",
+  ] },
   { kind: "value", name: "cors_allow_list", value: [] },
+  { kind: "value", name: "persona_redirect_line", value:
+    "I can help with portfolio analysis, strategies, verdicts, and the actions I have tools for. What would you like to work on?" },
 
   // Daily-brief coverage limit (N3 — replaces the fake `pro` plan check). The
   // initial value mirrors the legacy hardcoded constant; admin can tune at

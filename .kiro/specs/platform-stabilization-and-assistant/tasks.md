@@ -250,18 +250,18 @@ Cross-phase rules (§16):
 
 ## Phase 5 — Chat agent (dashboard transport only)
 
-- [ ] 5.1 Add Phase-5 chat tables
+- [x] 5.1 Add Phase-5 chat tables
   - `CREATE TABLE IF NOT EXISTS conversations` [§4.11], `conversation_turns` [§4.11], `tool_calls` [§4.11], `output_filter_events` [§4.12].
   - Add corresponding TypeORM entities and register them.
   - _Requirements: [C2.1], [C2.2], [C2.3], [F2.3]_
 
-- [ ] 5.2 Build the persona prompt module
+- [x] 5.2 Build the persona prompt module
   - `backend/src/services/chat/personaPrompt.ts` exports `buildPersonaPrompt(userDisplayName)`. The literal string holds the redirect line and explicitly excludes SOUL/AGENTS/CLAUDE/HEARTBEAT/RESET content. [F1.1, F1.3]
   - Stored in code; not assembled from per-user files.
   - Unit test asserts the prompt does not contain any forbidden file path substring.
   - _Requirements: [F1.1], [F1.3]_
 
-- [ ] 5.3 Build the Output Filter
+- [x] 5.3 Build the Output Filter
   - `backend/src/services/chat/outputFilter.ts` exports `filterText(input, ctx): { text, substitutions[] }`.
   - Loads the forbidden-pattern list from `feature_flags.forbidden_pattern_list` plus a static set of file path patterns.
   - Substitutes matches with the configured redirect line; emits one `output_filter_events` row per substitution. [F2.1, F2.3]
@@ -270,19 +270,19 @@ Cross-phase rules (§16):
   - _Requirements: [F2.1], [F2.2], [F2.3], [F2.4]_
 
 
-- [ ] 5.4 Seed the forbidden-pattern list and persona prompt
+- [x] 5.4 Seed the forbidden-pattern list and persona prompt
   - Insert default `feature_flags.forbidden_pattern_list` rows: file paths (`~/clawd/`, `users/`, `.openclaw`, `data/triggers/`, `node_modules/`), internal terms (`step queue`, `openclaw`, `watchdog`, `userIsolation`, `workspace`, `clawd`), model names (`claude-`, `gpt-`, `gemini-`, `deepseek-`, `o1-`, `o3-`).
   - Insert default `feature_flags.persona_redirect_line`.
   - _Requirements: [F2.4], [F1.2]_
 
-- [ ] 5.5 Implement Read tools
+- [x] 5.5 Implement Read tools
   - `backend/src/services/chat/tools/readTools.ts` with: `getPortfolio`, `getStrategy(ticker)`, `getStrategies()`, `getRecentReports(limit)`, `getCatalystsDueSoon()`, `getEscalationHistory(ticker)`, `getRiskSummary()`, `getNotifications()`, `searchWeb(query, maxResults)`. [E1.1]
   - Each tool defined with a Zod input schema. Malformed args produce a structured tool error rather than executing. [E1.4]
   - `searchWeb` invokes `exaService` with `searchWebMaxResults` cap from feature flags; returns snippet-form only. [E1.3]
   - Read tools record `tool_calls` rows with `category='read'` and `cost_points=0`. [E1.2]
   - _Requirements: [E1.1], [E1.2], [E1.3], [E1.4]_
 
-- [ ] 5.6 Implement Action tools
+- [x] 5.6 Implement Action tools
   - `backend/src/services/chat/tools/actionTools.ts` with: `triggerQuickCheck(ticker)`, `triggerDeepDive(ticker)`, `triggerDailyBrief()`, `snoozeTicker(ticker, days)`, `markVerdictAddressed(ticker, decision)`, `waitForJob(jobId, timeoutSec)`. [E2.1]
   - Confirmation handshake via `confirmationStore.ts` (in-memory short-lived per-conversation pending action store). The agent proposes; the user confirms in the next turn; only then does the tool execute. [E2.2]
   - Each Action tool deducts its configured points cost from the user's points budget; refuses on insufficient budget. [E2.3]
@@ -293,19 +293,19 @@ Cross-phase rules (§16):
   - `triggerDeepDive` / `triggerQuickCheck` write `jobs.conversation_id` for correlation.
   - _Requirements: [E2.1]–[E2.6], [G2.1], [G2.2], [G2.3], [G2.4]_
 
-- [ ] 5.7 Build the Tool Registry with allowlist guard
+- [x] 5.7 Build the Tool Registry with allowlist guard
   - `backend/src/services/chat/tools/registry.ts`: `buildToolRegistry(ctx: ToolContext)` returns the typed Read+Action array. The function reads from a hardcoded `ALL_TOOL_NAMES` allowlist; any name not in the allowlist throws on registration. [E4.1, E3.3]
   - Forbidden tool names enumerated (`fs_read`, `fs_write`, `shell`, `exec`, `read_soul`, `read_agents`, `list_other_users`, etc.) and a startup test asserts none are in `ALL_TOOL_NAMES`. [E3.1, E3.2]
   - Registry is constructed fresh per chat-agent invocation.
   - _Requirements: [E3.1], [E3.2], [E3.3], [E4.1], [E4.2]_
 
-- [ ] 5.8 Build the conversation store
+- [x] 5.8 Build the conversation store
   - `backend/src/services/chat/conversationStore.ts`: `loadHistory(conversationId, maxTurns)`, `appendTurn`, `appendToolCall`, `endConversation(reason)`, `upsertSummary`. [C2.1, C2.2, C2.3]
   - `appendToolCall` enforces audit precedence: row written before the underlying handler executes. [NFR6.4]
   - Unit tests: precedence invariant, summary totals match per-turn sums (NFR6.2).
   - _Requirements: [C2.1], [C2.2], [C2.3], [NFR6.2], [NFR6.4]_
 
-- [ ] 5.9 Build `agentChat` loop
+- [x] 5.9 Build `agentChat` loop
   - `backend/src/services/chat/agentChat.ts`: single entry point `agentChat({ userId, text, channel, conversationId })`. [C1.1]
   - Calls `pointsBudgetService.checkAdmission` at loop entry; refuses with structured error if budget exhausted. [NFR2.2]
   - Builds the persona prompt from 5.2; loads conversation history; resolves the chat-agent model from `model_tier_assignments.step_kind='chat_agent'` for the user's tier. [G3.1]
@@ -319,49 +319,48 @@ Cross-phase rules (§16):
   - _Requirements: [C1.1]–[C1.7], [G1.1]–[G1.4], [F2.2], [E4.2]_
 
 
-- [ ] 5.10 Add chat-agent startup guards to `startupGuards.ts`
+- [x] 5.10 Add chat-agent startup guards to `startupGuards.ts`
   - Persona prompt non-empty (F3.1).
   - No Forbidden tool name in `ALL_TOOL_NAMES` (F3.2).
   - `forbidden_pattern_list` non-empty when `output_filter_enabled = true` (F3.3).
   - Each guard exits process 78 on failure with a structured log line.
   - _Requirements: [F3.1], [F3.2], [F3.3]_
 
-- [ ] 5.11 Build the dashboard chat route
+- [x] 5.11 Build the dashboard chat route
   - `backend/src/routes/chat.ts`: `POST /api/chat/messages` accepting `{ text, conversationId? }`, JWT-auth (cookie auth lands Phase 8; for now the existing JWT header is used), no client-side tool-call interpretation. [D3.1, D3.2]
   - Calls `agentChat({ userId, text, channel: 'dashboard', conversationId })`. Returns the filtered final reply.
   - Streaming response is optional; first iteration ships non-streaming.
   - `GET /api/chat/conversations/:id` for history (read-only).
   - _Requirements: [D3.1], [D3.2]_
 
-- [ ] 5.12 Add admin observability endpoint for conversations
+- [x] 5.12 Add admin observability endpoint for conversations
   - `GET /api/admin/conversations` with filters `userId`, `channel`, time range, `terminationReason`. Returns rows from `conversations` joined to summary metrics. [C2.4]
   - _Requirements: [C2.4]_
 
-- [ ] 5.13 Add a `chat_agent` row to `model_tier_assignments`
+- [x] 5.13 Add a `chat_agent` row to `model_tier_assignments`
   - Insert one row per existing tier (`free`, `cheap`, `balanced`, `expensive`) with `step_kind='chat_agent'`, `provider='anthropic'`, `model=<tier-appropriate>`, `thinking_budget=<tier-appropriate>`. [G3.1]
   - _Requirements: [G3.1], [G3.2]_
 
-- [ ] 5.14 Frontend: dashboard chat pane
+- [x] 5.14 Frontend: dashboard chat pane
   - New `frontend/src/pages/Chat.tsx`. Uses React Query against `/api/chat/messages`. Renders streamed or final replies as plain markdown, no client-side tool interpretation. [D3.2]
   - Routed at `/chat` behind `ProtectedRoute`.
   - Updated nav links.
   - _Requirements: [D3.1], [D3.2]_
 
 - [ ] 5.15 Flip `chat_agent_enabled` and `output_filter_enabled` to true
-  - Dashboard chat goes live. Verify a conversation runs end-to-end: tool calls land in `tool_calls`; `Output_Filter` substitutions logged for an injection test prompt; F1/F2/F3 startup guards green.
-  - _Requirements: [P3.1]_
+  - **VPS action:** `UPDATE feature_flags SET enabled = true WHERE flag_name IN ('chat_agent_enabled','output_filter_enabled') AND scope_user_id IS NULL;`
 
 ---
 
 ## Phase 6 — Telegram and WhatsApp transports
 
-- [ ] 6.1 Channel-binding flow
+- [x] 6.1 Channel-binding flow
   - Build the `/connect` code flow described in §9.4: `/api/onboard/channel-bind/start` issues a 6-char code stored in an in-memory `channelBindingsPending` map (15-minute TTL). Frontend shows the code with channel-specific instructions.
   - Telegram and WhatsApp webhook handlers parse `connect ABC123` (no slash, since slash-commands are removed for the chat agent — D1.4). On match, insert `channel_bindings` row and reply confirmation.
   - For migrated users, Phase 1 already inserted the `telegram` channel binding from `profile.json`; no `/connect` needed.
   - _Requirements: [D1.1], [D2.3]_
 
-- [ ] 6.2 Rewrite `routes/telegram.ts` as a thin transport
+- [x] 6.2 Rewrite `routes/telegram.ts` as a thin transport
   - Verify `X-Telegram-Bot-Api-Secret-Token` against the secret from env (the strict refuse-to-start guard lands Phase 9; for now log + reject malformed). [O6.2]
   - Resolve `chatId` to `userId` via `channelBindingStore.lookupByChannelId('telegram', chatId)`. Reject unknown chats with 200 + `unknown_channel` audit row. [D1.1]
   - Forward `(userId, text)` to `agentChat({ ..., channel: 'telegram' })`. [D1.2]
@@ -369,12 +368,12 @@ Cross-phase rules (§16):
   - No content branching, no slash-command parsing. [D1.4]
   - _Requirements: [D1.1], [D1.2], [D1.3], [D1.4]_
 
-- [ ] 6.3 Delete `services/telegramRouter.ts`
+- [x] 6.3 Delete `services/telegramRouter.ts`
   - Confirm no remaining imports.
   - Delete the file and any dead helpers it referenced.
   - _Requirements: [D1.4], [§6.2]_
 
-- [ ] 6.4 Build `routes/whatsapp.ts` (inbound)
+- [x] 6.4 Build `routes/whatsapp.ts` (inbound)
   - `GET /api/whatsapp/webhook` for verification: returns `hub.challenge` if `hub.verify_token` matches `WHATSAPP_VERIFY_TOKEN` env. [§9.3]
   - `POST /api/whatsapp/webhook`: verify `X-Hub-Signature-256` HMAC against the encrypted `whatsapp_app_secret` from `encrypted_secrets`. [D2.2]
   - Resolve inbound phone to `userId` via `channelBindingStore.lookupByChannelId('whatsapp', phone)`. [D2.3]
@@ -383,12 +382,12 @@ Cross-phase rules (§16):
   - Backend refuses to start if `WHATSAPP_VERIFY_TOKEN` is unset. [D2.5]
   - _Requirements: [D2.1]–[D2.5]_
 
-- [ ] 6.5 Outbound WhatsApp delivery
+- [x] 6.5 Outbound WhatsApp delivery
   - Add `notificationService.deliverWhatsApp(userId, text)` using Meta Graph API `POST /{version}/{phone}/messages` with the encrypted `whatsapp_access_token`.
   - _Requirements: [D2.3]_
 
 
-- [ ] 6.6 Frontend: connect WhatsApp screen
+- [x] 6.6 Frontend: connect WhatsApp screen
   - Settings page: add "Connect WhatsApp" alongside the existing Telegram connect. Calls `/api/onboard/channel-bind/start` for both.
   - _Requirements: [D2]_
 
