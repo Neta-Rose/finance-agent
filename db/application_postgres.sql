@@ -689,3 +689,18 @@ ALTER TABLE jobs
 ALTER TABLE ticker_work_items
   ADD COLUMN IF NOT EXISTS asset_class VARCHAR(16) DEFAULT NULL
     CHECK (asset_class IS NULL OR asset_class IN ('equity','etf','bond','fund','crypto','index','other'));
+
+-- ============================================================================
+-- Analyst pipeline configuration — user-controlled step kind toggles
+-- Allows users to disable specific analyst steps to save budget points.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS user_analyst_config (
+  user_id    VARCHAR(64) NOT NULL,
+  step_kind  VARCHAR(64) NOT NULL,
+  enabled    BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, step_kind)
+);
+CREATE INDEX IF NOT EXISTS idx_user_analyst_config_user
+  ON user_analyst_config (user_id);

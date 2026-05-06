@@ -5,6 +5,7 @@ import { listTrackedAssets } from "../trackedAssetService.js";
 import { loadStrategyFile } from "../strategyFileService.js";
 import { readStrategy } from "../strategyStore.js";
 import { isApplicationDatabaseConfigured } from "../../db/applicationDataSource.js";
+import { getEnabledStepKinds } from "../analystConfigService.js";
 import {
   ANALYST_STEP_KINDS,
   STEP_KINDS,
@@ -23,21 +24,27 @@ const TRACKING_STEPS: StepKind[] = ["tracking.evaluate"];
 
 /**
  * Asset-class-aware step-kind selection (M2.2, M2.3).
- *
- * Equity: full pipeline (7 steps).
- * Bond ETF: skip analyst.technical (RSI/MACD on a bond ETF is meaningless).
- * Other non-equity: equity pipeline for now; emits an audit note (M2.4).
+ * Also filters by the user's enabled analyst config.
  */
 export function selectStepKindsForAssetClass(
   assetClass: string,
-  fullDeepDive: boolean
+  fullDeepDive: boolean,
+  enabledStepKinds?: Set<StepKind>
 ): StepKind[] {
-  if (!fullDeepDive) return LIGHT_PASS_STEPS;
-  if (assetClass === "bond" || assetClass === "etf") {
-    // Bond/ETF skip-set: omit analyst.technical (§3 row 5).
-    return FULL_DEEP_DIVE_STEPS.filter((k) => k !== "analyst.technical");
+  if (!fullDeepDive) {
+    const lightPass = [...LIGHT_PASS_STEPS];
+    return enabledStepKinds
+      ? lightPass.filter((k) => enabledStepKinds.has(k))
+      : lightPass;
   }
-  return FULL_DEEP_DIVE_STEPS;
+
+  let base = [...FULL_DEEP_DIVE_STEPS];
+  if (assetClass === "bond" || assetClass === "etf") {
+    base = base.filter((k) => k !== "analyst.technical");
+  }
+  return enabledStepKinds
+    ? base.filter((k) => enabledStepKinds.has(k))
+    : base;
 }
 
 /**
@@ -92,7 +99,8 @@ export async function expandStepQueueJob(
     const ticker = options.ticker;
     if (!ticker) throw new Error("deep_dive requires a ticker");
     const assetClass = await resolveAssetClass(ws.userId, ticker);
-    const stepKinds = selectStepKindsForAssetClass(assetClass, true);
+    const enabledStepKinds = await getEnabledStepKinds(ws.userId);
+    const stepKinds = selectStepKindsForAssetClass(assetClass, true, enabledStepKinds);
     return {
       action: options.action,
       tickers: [{
@@ -107,11 +115,12 @@ export async function expandStepQueueJob(
   // full_report: all held tickers, mix of light-pass and full deep-dive
   if (options.action === "full_report") {
     const tickers = await listPortfolioTickers(ws);
+    const enabledStepKinds = await getEnabledStepKinds(ws.userId);
     const expanded: ExpandedTickerWork[] = [];
     for (const [index, ticker] of tickers.entries()) {
       const fullDeepDive = await strategyRequiresFullDeepDive(ws, ticker, escalationTickers);
       const assetClass = await resolveAssetClass(ws.userId, ticker);
-      const stepKinds = selectStepKindsForAssetClass(assetClass, fullDeepDive);
+      const stepKinds = selectStepKindsForAssetClass(assetClass, fullDeepDive, enabledStepKinds);
       expanded.push({
         ticker,
         position: index,

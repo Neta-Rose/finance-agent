@@ -16,6 +16,7 @@ import { Controls } from "./pages/Controls";
 import { Settings } from "./pages/Settings";
 import { Admin } from "./pages/Admin";
 import { Chat } from "./pages/Chat";
+import { PointsBadge } from "./components/ui/PointsBadge";
 import { fetchOnboardStatus } from "./api/onboarding";
 import { fetchControlState } from "./api/control";
 import { fetchNotifications, markNotificationsRead } from "./api/notifications";
@@ -125,6 +126,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
           >×</button>
         </div>
       )}
+      <PointsBadge />
       <div>{children}</div>
     </>
   );

@@ -16,6 +16,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "../components/ui/Card";
 import { User, Lock, Clock, Bot, LogOut, ChevronRight, ChevronDown, X, Sun, Moon, Monitor, Bell, MessageCircle } from "lucide-react";
 import type { NotificationPreferences } from "../types/api";
+import { AnalystPipelineConfig } from "../components/AnalystPipelineConfig";
 
 const DAY_KEYS: Array<{ value: string; key: TranslationKey }> = [
   { value: "sunday", key: "daySunday" },
@@ -779,6 +780,11 @@ export function Settings() {
             <ChevronRight size={16} />
             Controls &amp; Jobs
           </button>
+        </section>
+
+        {/* Analyst Pipeline */}
+        <section>
+          <AnalystPipelineConfig />
         </section>
 
         {/* Logout */}

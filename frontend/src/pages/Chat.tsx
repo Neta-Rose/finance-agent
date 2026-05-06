@@ -1,8 +1,52 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { MessageCircle, Send, Loader2, AlertCircle } from "lucide-react";
-import { sendChatMessage } from "../api/chat";
+import { MessageCircle, Send, Loader2, AlertCircle, Plus } from "lucide-react";
+import { sendChatMessage, getConversationHistory } from "../api/chat";
 import { clsx } from "clsx";
+
+/**
+ * Dashboard chat pane — Phase 5, task 5.14.
+ *
+ * Conversation ID and messages are persisted to localStorage with a 14-day TTL
+ * so the user can return to the same conversation across sessions.
+ */
+
+const STORAGE_KEY = "chat_session";
+const TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+interface StoredSession {
+  conversationId: string;
+  messages: Message[];
+  savedAt: number;
+}
+
+function loadSession(): StoredSession | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredSession;
+    if (Date.now() - parsed.savedAt > TTL_MS) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(conversationId: string, messages: Message[]): void {
+  try {
+    const session: StoredSession = { conversationId, messages, savedAt: Date.now() };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  } catch {
+    // localStorage full — ignore
+  }
+}
+
+function clearSession(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}
 
 /**
  * Dashboard chat pane — Phase 5, task 5.14.
@@ -22,11 +66,26 @@ interface Message {
 }
 
 export function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const stored = loadSession();
+  const [messages, setMessages] = useState<Message[]>(stored?.messages ?? []);
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<string | undefined>();
+  const [conversationId, setConversationId] = useState<string | undefined>(stored?.conversationId);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Persist session whenever messages or conversationId change
+  useEffect(() => {
+    if (conversationId && messages.length > 0) {
+      saveSession(conversationId, messages);
+    }
+  }, [conversationId, messages]);
+
+  const handleNewChat = () => {
+    clearSession();
+    setMessages([]);
+    setConversationId(undefined);
+    setInput("");
+  };
 
   const mutation = useMutation({
     mutationFn: ({ text, convId }: { text: string; convId?: string }) =>
@@ -82,19 +141,37 @@ export function Chat() {
     <div
       className="flex flex-col"
       style={{
-        height: "calc(100vh - 3.5rem)", // subtract bottom nav
+        height: "calc(100dvh - 56px - env(safe-area-inset-bottom))",
         background: "var(--color-bg-base)",
       }}
     >
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-4 py-3 border-b"
-        style={{ borderColor: "var(--color-border)" }}
+        className="flex items-center justify-between gap-2 px-4 py-3 border-b"
+        style={{ borderColor: "var(--color-border)", background: "#111111" }}
       >
-        <MessageCircle size={18} style={{ color: "var(--color-accent-blue)" }} />
-        <span className="font-semibold text-sm" style={{ color: "var(--color-fg-default)" }}>
-          Portfolio Assistant
-        </span>
+        <div className="flex items-center gap-2">
+          <MessageCircle size={18} style={{ color: "var(--color-accent-blue)" }} />
+          <span className="font-bold text-sm" style={{ color: "var(--color-fg-default)" }}>
+            Portfolio Assistant
+          </span>
+          {conversationId && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--color-bg-subtle)", color: "var(--color-fg-subtle)" }}>
+              saved
+            </span>
+          )}
+        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={handleNewChat}
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+            style={{ color: "var(--color-fg-muted)", background: "var(--color-bg-subtle)", border: "1px solid var(--color-border)" }}
+            title="Start a new conversation"
+          >
+            <Plus size={12} />
+            New
+          </button>
+        )}
       </div>
 
       {/* Messages */}
@@ -196,7 +273,7 @@ export function Chat() {
       {/* Input */}
       <div
         className="px-4 py-3 border-t"
-        style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}
+        style={{ borderColor: "var(--color-border)", background: "#111111" }}
       >
         <div
           className="flex items-end gap-2 rounded-2xl border px-3 py-2"

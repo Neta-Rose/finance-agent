@@ -291,31 +291,6 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
             </div>
           </div>
 
-          <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-xs font-bold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminRateLimitsSection", language)}</p>
-            <div className="space-y-1.5 text-xs">
-              {[
-                { key: "full_report", label: t("fullReport", language), maxKey: "full_report_max", periodKey: "full_report_period" },
-                { key: "daily_brief", label: t("dailyBriefLimit", language), maxKey: "daily_brief_max", periodKey: "daily_brief_period" },
-                { key: "deep_dive", label: t("deepDiveLimit", language), maxKey: "deep_dive_max", periodKey: "deep_dive_period" },
-                { key: "new_ideas", label: t("newIdeasLimit", language), maxKey: "new_ideas_max", periodKey: "new_ideas_period" },
-              ].map(({ key, label, maxKey, periodKey }) => (
-                <div key={key} className="flex items-center gap-2">
-                  <span className="w-24 text-[var(--color-fg-muted)]">{label}</span>
-                  <span className="text-[var(--color-fg-subtle)]">{t("adminMax", language)}</span>
-                  <input type="number" value={(form as Record<string,string>)[maxKey]} min={1}
-                    onChange={set(maxKey as keyof typeof form)}
-                    className="w-14 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none" />
-                  <span className="text-[var(--color-fg-subtle)]">{t("adminPer", language)}</span>
-                  <input type="number" value={(form as Record<string,string>)[periodKey]} min={1}
-                    onChange={set(periodKey as keyof typeof form)}
-                    className="w-14 bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded px-2 py-1 text-center text-[var(--color-fg-default)] outline-none" />
-                  <span className="text-[var(--color-fg-subtle)]">{t("adminHrs", language)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 rounded-lg border border-[var(--color-border)] text-sm font-medium text-[var(--color-fg-muted)]">

@@ -33,9 +33,9 @@
 
     /* text */
     --text-primary: #FFFFFF;
-    --text-secondary: rgba(255, 255, 255, 0.45);
-    --text-tertiary: rgba(255, 255, 255, 0.28);
-    --text-ghost: rgba(255, 255, 255, 0.12);
+    --text-secondary: rgba(255, 255, 255, 0.55);
+    --text-tertiary: rgba(255, 255, 255, 0.35);
+    --text-ghost: rgba(255, 255, 255, 0.15);
 
     /* radii */
     --radius-sm: 7px;
@@ -86,6 +86,18 @@
     font-weight: var(--weight-regular);
     -webkit-font-smoothing: antialiased;
     overscroll-behavior: none;
+  }
+
+  /* Stronger heading hierarchy */
+  h1, h2, h3 {
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  /* Make body text slightly more opaque for readability */
+  p, span, div {
+    -webkit-font-smoothing: antialiased;
   }
 }
 

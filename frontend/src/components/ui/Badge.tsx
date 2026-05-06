@@ -11,7 +11,7 @@ interface VerdictBadgeProps {
 const verdictStyles: Record<string, string> = {
  BUY: "bg-[color-mix(in_srgb,var(--color-accent-blue)_15%,transparent)] text-[var(--color-accent-blue)] border border-[color-mix(in_srgb,var(--color-accent-blue)_30%,transparent)]",
  ADD: "bg-[color-mix(in_srgb,var(--color-accent-blue)_15%,transparent)] text-[var(--color-accent-blue)] border border-[color-mix(in_srgb,var(--color-accent-blue)_30%,transparent)]",
- HOLD: "bg-[color-mix(in_srgb,var(--color-accent-green)_15%,transparent)] text-[var(--color-accent-green)] border border-[color-mix(in_srgb,var(--color-accent-green)_30%,transparent)]",
+ HOLD: "bg-[color-mix(in_srgb,var(--color-amber)_15%,transparent)] text-[var(--color-amber)] border border-[color-mix(in_srgb,var(--color-amber)_30%,transparent)]",
  REDUCE: "bg-[color-mix(in_srgb,var(--color-accent-yellow)_15%,transparent)] text-[var(--color-accent-yellow)] border border-[color-mix(in_srgb,var(--color-accent-yellow)_30%,transparent)]",
  SELL: "bg-[color-mix(in_srgb,var(--color-accent-red)_15%,transparent)] text-[var(--color-accent-red)] border border-[color-mix(in_srgb,var(--color-accent-red)_30%,transparent)]",
  CLOSE: "bg-[color-mix(in_srgb,var(--color-accent-red)_15%,transparent)] text-[var(--color-accent-red)] border border-[color-mix(in_srgb,var(--color-accent-red)_30%,transparent)]",
