@@ -135,8 +135,7 @@ async function runChatAgentGuards(failures: string[]): Promise<void> {
   if (!patternListOk) {
     failures.push("startup_guard.output_filter_patterns_empty");
     logger.error("Startup guard FAILED: output filter pattern list is empty");
-  }
-}
+  }}
 
 export async function runStartupGuards(srcDir?: string): Promise<StartupGuardResult> {
   const failures: string[] = [];
