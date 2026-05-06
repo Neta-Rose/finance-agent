@@ -765,6 +765,22 @@ export function Settings() {
           </Card>
         </section>
 
+        {/* Controls & Jobs */}
+        <section>
+          <button
+            onClick={() => navigate("/controls")}
+            className="w-full py-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2 border transition-colors"
+            style={{
+              borderColor: "var(--color-border)",
+              color: "var(--color-fg-default)",
+              background: "var(--color-bg-subtle)",
+            }}
+          >
+            <ChevronRight size={16} />
+            Controls &amp; Jobs
+          </button>
+        </section>
+
         {/* Logout */}
         <section>
           <button

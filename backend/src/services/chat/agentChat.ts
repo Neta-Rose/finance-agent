@@ -249,8 +249,11 @@ You have access to the following tools. To call a tool, respond with a JSON bloc
 {"name": "<tool_name>", "id": "<unique_id>", "input": {<args>}}
 \`\`\`
 
-After calling a tool, wait for the tool result before continuing.
-For action tools marked requiresConfirmation=true, propose the action in plain text first and wait for the user to confirm before emitting the tool_call block.
+Rules:
+- For READ tools: call them freely whenever you need data.
+- For ACTION tools (requiresConfirmation=true): emit the tool_call block immediately when the user requests the action. Do NOT ask "should I proceed?" — the system handles confirmation.
+- After calling a tool, wait for the tool result before continuing.
+- Only call tools that are listed below.
 
 ${toolManifestJson}`;
 

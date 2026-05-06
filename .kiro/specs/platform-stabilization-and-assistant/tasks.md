@@ -395,7 +395,7 @@ Cross-phase rules (§16):
 
 ## Phase 7 — Snooze, transactions ledger, corporate actions, asset-class dispatch, position-level rules
 
-- [ ] 7.1 Add Phase-7 tables and ALTERs
+- [x] 7.1 Add Phase-7 tables and ALTERs
   - `CREATE TABLE IF NOT EXISTS position_transactions` [§4.6], `corporate_actions` [§4.7].
   - `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS asset_class VARCHAR(16)` with the check constraint. [§5]
   - `ALTER TABLE ticker_work_items ADD COLUMN IF NOT EXISTS asset_class VARCHAR(16)` with the check constraint. [§5]
@@ -403,14 +403,14 @@ Cross-phase rules (§16):
   - Add TypeORM entities.
   - _Requirements: [J1.1], [K1.1], [M2.1]_
 
-- [ ] 7.2 Build `transactionStore.ts`
+- [x] 7.2 Build `transactionStore.ts`
   - CRUD for `position_transactions` with append-only semantics: edits insert a new row and set `superseded_by`, `superseded_at` on the prior row. [J1.2]
   - `computeCostBasis(userId, ticker)` runs FIFO over non-superseded rows ordered by `transaction_at`; returns `{ openLots, realizedPlIls, unrealizedPlIls, costBasisIls }`. [J1.3, J1.4, J2.1]
   - `lotMethod` field on the user supports `fifo` (implemented), `lifo`, `specific_lot` (return structured `not_implemented` error). [J2.2, J2.3]
   - Property test: cost basis equals the FIFO accumulation invariant. [NFR6.8]
   - _Requirements: [J1.1]–[J1.4], [J2.1]–[J2.3]_
 
-- [ ] 7.3 Build `corporateActionsStore.ts`
+- [x] 7.3 Build `corporateActionsStore.ts`
   - CRUD for `corporate_actions`. [K1.1]
   - `applyCorporateAction(userId, ticker, exchange, ratio, effectiveDate, actionType)`: rewrites historical `position_transactions` rows with `transaction_at < effective_date`, emits one audit row per affected transaction. [K1.2]
   - Reconciliation logic: if yahoo-finance2 returns split-adjusted history AND a stored corporate action exists, adjust only once (not twice). [K1.3]
@@ -418,52 +418,51 @@ Cross-phase rules (§16):
   - Daily reconciliation runs once per day inside the daily-brief expansion before quick-checks fire. [§12.3]
   - _Requirements: [K1.1], [K1.2], [K1.3], [K1.4]_
 
-- [ ] 7.4 Asset-class-aware dispatch
+- [x] 7.4 Asset-class-aware dispatch
   - Build `services/stepQueue/expansion.ts` extension `expandJobByAssetClass({ ticker, assetClass }): StepKind[]`. [M2.2]
   - Equity dispatch matches today's pipeline. Bond skip-set: omits `analyst.technical`. [§3 row 5, M2.3]
   - When a non-equity asset is dispatched with the equity pipeline (because no override exists), emit `audit_observability` row `asset_class_dispatch_drift`. [M2.4]
   - On admission: pull `assetClass` from `strategies.asset_class` or `tracked_assets.asset_class`; default to `equity`. Backfill existing rows on first read.
   - _Requirements: [M2.1], [M2.2], [M2.3], [M2.4]_
 
-- [ ] 7.5 Position-level rule engine in code
+- [x] 7.5 Position-level rule engine in code
   - In daily-brief expansion (and on every `position_transactions` insert): evaluate `users.max_single_position_pct` and `users.stop_loss_threshold_pct` against the latest computed position weight + drawdown. [M1.1, M1.2]
   - On crossing: admit a deep-dive job through `admitStepQueueJob`, write `audit_observability` row `rule_triggered { userId, ticker, trigger, reason }`. [M1.1, M1.2, §10.5]
   - Evaluate in code, not in prompts. [M1.3]
   - _Requirements: [M1.1], [M1.2], [M1.3]_
 
-- [ ] 7.6 Snooze suppression wired into quick-check
+- [x] 7.6 Snooze suppression wired into quick-check
   - In `handlers/quickCheck.ts` (from 2.2): immediately before admitting a deep-dive child job, call `snoozeStore.findActiveSnooze(userId, ticker, signalSetFingerprint)`. [L2.2]
   - On match: do not admit; do not write `escalation_history`; write `audit_observability` row `escalation_suppressed_by_snooze`. [§13.1]
   - Property test: suppression is idempotent on the same signal set. [NFR6.7]
   - _Requirements: [L2.1], [L2.2]_
 
-- [ ] 7.7 Build the `signalSetFingerprint` helper
+- [x] 7.7 Build the `signalSetFingerprint` helper
   - Pure function: stable hash (sha256 first 16 hex) of `JSON.stringify(signals.sort())`. [§13.1]
   - Used by quick-check, snooze creation, and escalation history dedupe.
   - Unit tests: stable across runs, order-insensitive.
   - _Requirements: [L2.1], [§13.1]_
 
-- [ ] 7.8 Portfolio-level risk computation
+- [x] 7.8 Portfolio-level risk computation
   - `services/portfolioRiskService.ts` with `recomputeAndStore(userId)` that derives `portfolio_risk_snapshots` from current positions + `position_transactions`. Concentration by single name, sector, currency, asset class. [L3.1]
   - Trigger recompute on: daily-brief admission, full-report admission, every `position_transactions` insert. [L3.2]
   - `getRiskSummary` chat tool returns the latest snapshot. [L3.3]
   - Retention pruning per `feature_flags.risk_snapshot_retention_days`.
   - _Requirements: [L3.1], [L3.2], [L3.3]_
 
-- [ ] 7.9 Replace `DAILY_BRIEF_AUTO_DEEP_DIVE_LIMIT` with budget-aware selector
+- [x] 7.9 Replace `DAILY_BRIEF_AUTO_DEEP_DIVE_LIMIT` with budget-aware selector
   - In daily-brief expansion: select escalations until either `points_remaining` is exhausted or the admin-configurable per-day max is reached. [N2.1]
   - On budget cap: emit `daily_brief_budget_capped` audit row recording the count of escalations skipped. [N2.2]
   - _Requirements: [N2.1], [N2.2]_
 
-- [ ] 7.10 Frontend: transactions UI, snooze button, acted-upon button, portfolio-risk card
+- [x] 7.10 Frontend: transactions UI, snooze button, acted-upon button, portfolio-risk card
   - `Portfolio` page: per-position transaction history modal (read), add/edit/delete transaction (write).
   - `Strategies` page: per-strategy "Snooze" button (snooze N days) and "I followed / dismissed / partial-acted" button.
   - `Portfolio` page: portfolio-risk card showing concentration percentages and largest single position.
   - _Requirements: [J1], [L1], [L2], [L3]_
 
 - [ ] 7.11 Flip Phase-7 flags to true
-  - `transactions_ledger_enabled = true`, `snooze_enabled = true`, `asset_class_dispatch_enabled = true`. Confirm a synthetic split rewrites pre-effective transactions; bond ETF dispatch skips `analyst.technical`; quick-check is suppressed by an active snooze.
-  - _Requirements: [P3.1]_
+  - **VPS action:** `UPDATE feature_flags SET enabled = true WHERE flag_name IN ('transactions_ledger_enabled','snooze_enabled','asset_class_dispatch_enabled') AND scope_user_id IS NULL;`
 
 
 ---

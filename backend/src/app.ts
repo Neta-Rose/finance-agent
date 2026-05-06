@@ -30,6 +30,7 @@ import supportRoutes from "./routes/support.js";
 import chatRoutes from "./routes/chat.js";
 import channelRoutes from "./routes/channels.js";
 import whatsappRoutes from "./routes/whatsapp.js";
+import verdictActionsRoutes from "./routes/verdictActions.js";
 
 export function createApp(): Express {
   const app = express();
@@ -86,6 +87,7 @@ export function createApp(): Express {
   app.use("/api", searchRoutes); // GET /api/search/ticker — no user workspace needed
   app.use("/api", chatRoutes); // POST /api/chat/messages, GET /api/chat/conversations/:id
   app.use("/api", channelRoutes); // POST /api/channels/binding-codes
+  app.use("/api", verdictActionsRoutes); // POST /api/verdict-actions, POST /api/snoozes
 
   // ── Serve React frontend (SPA fallback) ──────────────────────────────────
   const frontendDist = process.env.FRONTEND_DIST ?? path.resolve(process.cwd(), "../frontend/dist");

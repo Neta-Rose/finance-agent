@@ -625,3 +625,67 @@ CREATE TABLE IF NOT EXISTS output_filter_events (
 );
 CREATE INDEX IF NOT EXISTS idx_output_filter_events_at
   ON output_filter_events (occurred_at DESC);
+
+-- ============================================================================
+-- Phase 7 DDL — Transactions ledger, corporate actions, asset-class dispatch
+-- Spec: design.md §4.6, §4.7, §5; tasks.md 7.1
+-- Requirements: J1.1, K1.1, M2.1
+-- ============================================================================
+
+-- §4.6 position_transactions — append-only ledger with tombstone semantics.
+-- Every read for cost-basis computation MUST filter superseded_at IS NULL.
+CREATE TABLE IF NOT EXISTS position_transactions (
+  id               UUID PRIMARY KEY,
+  user_id          VARCHAR(64) NOT NULL,
+  ticker           VARCHAR(32) NOT NULL,
+  exchange         VARCHAR(16) NOT NULL,
+  account          VARCHAR(64) NOT NULL,
+  transaction_type VARCHAR(16) NOT NULL
+                     CHECK (transaction_type IN ('buy','sell','split','dividend','transfer_in','transfer_out')),
+  quantity         NUMERIC(20,8) NOT NULL,
+  unit_price       NUMERIC(20,8) NOT NULL,
+  unit_currency    VARCHAR(8) NOT NULL,
+  fees_ils         NUMERIC(18,4) NOT NULL DEFAULT 0,
+  fx_rate          NUMERIC(18,8),
+  transaction_at   TIMESTAMPTZ NOT NULL,
+  note             TEXT,
+  lot_id           UUID,
+  superseded_by    UUID,
+  superseded_at    TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_position_transactions_user_ticker_at
+  ON position_transactions (user_id, ticker, transaction_at)
+  WHERE superseded_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_position_transactions_user_at
+  ON position_transactions (user_id, transaction_at DESC);
+
+-- §4.7 corporate_actions — splits and dividends applied to historical transactions.
+CREATE TABLE IF NOT EXISTS corporate_actions (
+  id               UUID PRIMARY KEY,
+  user_id          VARCHAR(64),
+  ticker           VARCHAR(32) NOT NULL,
+  exchange         VARCHAR(16) NOT NULL,
+  action_type      VARCHAR(16) NOT NULL CHECK (action_type IN ('split','dividend')),
+  ratio_or_amount  NUMERIC(20,8) NOT NULL,
+  currency         VARCHAR(8) NOT NULL,
+  effective_date   DATE NOT NULL,
+  source           VARCHAR(64) NOT NULL,
+  reverted_at      TIMESTAMPTZ,
+  reverted_reason  TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_corp_actions_ticker_eff
+  ON corporate_actions (ticker, exchange, effective_date);
+CREATE INDEX IF NOT EXISTS idx_corp_actions_user_ticker
+  ON corporate_actions (user_id, ticker)
+  WHERE user_id IS NOT NULL;
+
+-- §5 existing-table changes for Phase 7.
+ALTER TABLE jobs
+  ADD COLUMN IF NOT EXISTS asset_class VARCHAR(16) DEFAULT NULL
+    CHECK (asset_class IS NULL OR asset_class IN ('equity','etf','bond','fund','crypto','index','other'));
+
+ALTER TABLE ticker_work_items
+  ADD COLUMN IF NOT EXISTS asset_class VARCHAR(16) DEFAULT NULL
+    CHECK (asset_class IS NULL OR asset_class IN ('equity','etf','bond','fund','crypto','index','other'));

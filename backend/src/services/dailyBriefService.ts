@@ -461,10 +461,14 @@ async function topPortfolioTickers(
     .slice(0, limit === Number.POSITIVE_INFINITY ? undefined : limit);
 }
 
-export async function getDailyBriefCoverageLimit(ws: UserWorkspace): Promise<number> {
-  const plan = await getUserPlan(ws.userId);
-  if (plan === "pro") return Number.POSITIVE_INFINITY;
-  return 10;
+export async function getDailyBriefCoverageLimit(_ws: UserWorkspace): Promise<number> {
+  // N3: removed the fake `pro` plan check. Coverage limit is now admin-configurable
+  // via feature_flags.coverage_limit. Default is 10 (matching the legacy `low` plan cap).
+  // The `pro` plan concept is removed entirely per requirement N3.
+  const { getFeatureValue } = await import("./featureFlagService.js");
+  const limit = await getFeatureValue<number>("coverage_limit");
+  if (typeof limit === "number" && limit > 0) return limit;
+  return Number.POSITIVE_INFINITY; // no limit if flag is not set or is 0
 }
 
 async function appendDailyBriefBatch(

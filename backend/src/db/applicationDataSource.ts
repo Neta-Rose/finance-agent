@@ -28,6 +28,8 @@ import { ConversationEntitySchema } from "./entities/ConversationEntity.js";
 import { ConversationTurnEntitySchema } from "./entities/ConversationTurnEntity.js";
 import { ToolCallEntitySchema } from "./entities/ToolCallEntity.js";
 import { OutputFilterEventEntitySchema } from "./entities/OutputFilterEventEntity.js";
+import { PositionTransactionEntitySchema } from "./entities/PositionTransactionEntity.js";
+import { CorporateActionEntitySchema } from "./entities/CorporateActionEntity.js";
 import { logger } from "../services/logger.js";
 
 const APP_DATABASE_URL =
@@ -83,6 +85,9 @@ function buildDataSource(): DataSource {
       ConversationTurnEntitySchema,
       ToolCallEntitySchema,
       OutputFilterEventEntitySchema,
+      // Phase 7 (design.md §4.6–4.7):
+      PositionTransactionEntitySchema,
+      CorporateActionEntitySchema,
     ],
     synchronize: false,
     logging: false,

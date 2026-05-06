@@ -505,4 +505,15 @@ router.get(
   })
 );
 
+// GET /portfolio/risk — latest portfolio risk snapshot (L3.3)
+router.get(
+  "/portfolio/risk",
+  handler(async (_req: AuthenticatedRequest, res: Response) => {
+    const ws = res.locals["workspace"] as UserWorkspace;
+    const { getLatestPortfolioRiskSnapshot } = await import("../services/portfolioRiskStore.js");
+    const snapshot = await getLatestPortfolioRiskSnapshot(ws.userId);
+    res.json({ snapshot: snapshot ?? null });
+  })
+);
+
 export default router;
