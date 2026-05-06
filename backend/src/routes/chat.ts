@@ -61,7 +61,8 @@ router.post(
         turnCount: result.turnCount,
       });
     } catch (err) {
-      logger.error("chat route error", { err, userId });
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`chat route error user=${userId}: ${msg}`);
       res.status(500).json({ error: "chat_error", message: "An error occurred processing your message." });
     }
   })

@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "crypto";
+import { logger } from "../logger.js";
 import path from "path";
 import type { DataSource } from "typeorm";
 import { getApplicationDataSource } from "../../db/applicationDataSource.js";
@@ -156,19 +157,11 @@ export async function admitStepQueueJob(params: AdmitStepQueueJobParams): Promis
   const { ensurePointsBudgetAvailable } = await import("../pointsBudgetService.js");
   const budgetGate = await ensurePointsBudgetAvailable(params.workspace.userId);
 
-  // A4.3 — record every admission decision.
-  await ds.query(
-    `INSERT INTO step_lifecycle_events
-       (step_id, from_status, to_status, attempt_n, model_used, tier_used,
-        error_class, error_message, occurred_at)
-     VALUES (gen_random_uuid(), NULL, 'pending', NULL, NULL, $1, $2, $3, NOW())`,
-    [
-      modelTier,
-      budgetGate.allowed ? null : "budget_exhausted",
-      budgetGate.allowed
-        ? `admission_allowed:${params.action}:${params.workspace.userId}`
-        : `admission_refused:${params.action}:${params.workspace.userId}:points_budget_exhausted`,
-    ]
+  // A4.3 — log every admission decision (step_lifecycle_events requires a real step FK, so use logger only).
+  logger.info(
+    budgetGate.allowed
+      ? `admission_allowed action=${params.action} user=${params.workspace.userId} tier=${modelTier}`
+      : `admission_refused action=${params.action} user=${params.workspace.userId} reason=points_budget_exhausted`
   );
 
   if (!budgetGate.allowed) {

@@ -78,21 +78,20 @@ async function sweepStuckSteps(ds: DataSource): Promise<number> {
       RETURNING id, kind, user_id, job_id`
   ) as Array<{ id: string; kind: string; user_id: string; job_id: string }>;
 
-  if (result.length > 0) {
-    for (const row of result) {
-      logger.warn(
-        `Watchdog: reset stuck step step_id=${row.id} kind=${row.kind} user=${row.user_id} job=${row.job_id}`
-      );
-      await ds.query(
-        `INSERT INTO step_lifecycle_events
-           (step_id, from_status, to_status, attempt_n, error_class, error_message, occurred_at)
-         VALUES ($1, 'running', 'pending', NULL, 'timeout',
-                 'Watchdog: step exceeded kind-specific timeout, reset to pending', NOW())`,
-        [row.id]
-      );
-    }
+  const validRows = Array.isArray(result) ? result.filter((r) => r && r.id) : [];
+  for (const row of validRows) {
+    logger.warn(
+      `Watchdog: reset stuck step step_id=${row.id} kind=${row.kind} user=${row.user_id} job=${row.job_id}`
+    );
+    await ds.query(
+      `INSERT INTO step_lifecycle_events
+         (step_id, from_status, to_status, attempt_n, error_class, error_message, occurred_at)
+       VALUES ($1, 'running', 'pending', NULL, 'timeout',
+               'Watchdog: step exceeded kind-specific timeout, reset to pending', NOW())`,
+      [row.id]
+    );
   }
-  return result.length;
+  return validRows.length;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,25 +120,23 @@ async function sweepStuckJobs(ds: DataSource): Promise<number> {
       RETURNING id, action, user_id`
   ) as Array<{ id: string; action: string; user_id: string }>;
 
-  if (result.length > 0) {
-    for (const row of result) {
-      logger.warn(
-        `Watchdog: failed stuck job job_id=${row.id} action=${row.action} user=${row.user_id}`
-      );
-      // Also fail any still-pending steps for this job
-      await ds.query(
-        `UPDATE step_work_items
-            SET status = 'failed',
-                owner_lock_id = NULL,
-                completed_at = NOW(),
-                last_error = 'Watchdog: parent job timed out'
-          WHERE job_id = $1
-            AND status IN ('pending', 'running')`,
-        [row.id]
-      );
-    }
+  const validRows = Array.isArray(result) ? result.filter((r) => r && r.id) : [];
+  for (const row of validRows) {
+    logger.warn(
+      `Watchdog: failed stuck job job_id=${row.id} action=${row.action} user=${row.user_id}`
+    );
+    await ds.query(
+      `UPDATE step_work_items
+          SET status = 'failed',
+              owner_lock_id = NULL,
+              completed_at = NOW(),
+              last_error = 'Watchdog: parent job timed out'
+        WHERE job_id = $1
+          AND status IN ('pending', 'running')`,
+      [row.id]
+    );
   }
-  return result.length;
+  return validRows.length;
 }
 
 // ---------------------------------------------------------------------------
@@ -157,14 +154,13 @@ async function sweepAbandonedPendingJobs(ds: DataSource): Promise<number> {
       RETURNING id, action, user_id`
   ) as Array<{ id: string; action: string; user_id: string }>;
 
-  if (result.length > 0) {
-    for (const row of result) {
-      logger.warn(
-        `Watchdog: abandoned pending job job_id=${row.id} action=${row.action} user=${row.user_id}`
-      );
-    }
+  const validRows = Array.isArray(result) ? result.filter((r) => r && r.id) : [];
+  for (const row of validRows) {
+    logger.warn(
+      `Watchdog: abandoned pending job job_id=${row.id} action=${row.action} user=${row.user_id}`
+    );
   }
-  return result.length;
+  return validRows.length;
 }
 
 // ---------------------------------------------------------------------------
