@@ -4,6 +4,10 @@ import { NotificationPreferencesSchema, type NotificationPreferences } from "../
 import { resolveConfiguredPath } from "./paths.js";
 import { logger } from "./logger.js";
 import { getStoredWhatsAppConnection, getUserChannelConnectivity } from "./channelService.js";
+import {
+  insertNotification as dbInsertNotification,
+  updateDelivery as dbUpdateDelivery,
+} from "./notificationStore.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 const MAX_OUTBOX_ITEMS = 250;
@@ -311,21 +315,72 @@ export async function publishNotification(
 
   for (const record of records) {
     await appendOutboxRecord(record);
+
+    // Phase 1 dual-write to Postgres. Failures are logged but do not block
+    // the legacy JSON path which is still source of truth.
+    try {
+      await dbInsertNotification({
+        id: record.id,
+        userId: record.userId,
+        category: record.category,
+        channel: record.channel,
+        title: record.title,
+        body: record.body,
+        ticker: record.ticker,
+        batchId: record.batchId,
+        delivered: record.delivered,
+        deliveredAt: record.deliveredAt,
+        readAt: record.readAt,
+        error: record.error,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn(
+        `notification_dual_write_failed user=${record.userId} id=${record.id} error=${message}`
+      );
+    }
+
     if (record.channel === "telegram") {
       const result = await deliverTelegram(record);
+      const deliveredAtIso = result.delivered ? new Date().toISOString() : null;
       await updateOutboxRecord(record.userId, record.id, {
         delivered: result.delivered,
-        deliveredAt: result.delivered ? new Date().toISOString() : null,
+        deliveredAt: deliveredAtIso,
         error: result.error,
       });
+      try {
+        await dbUpdateDelivery(record.userId, record.id, {
+          delivered: result.delivered,
+          deliveredAt: deliveredAtIso,
+          error: result.error,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn(
+          `notification_dual_write_failed user=${record.userId} id=${record.id} error=${message}`
+        );
+      }
     }
     if (record.channel === "whatsapp") {
       const result = await deliverWhatsApp(record);
+      const deliveredAtIso = result.delivered ? new Date().toISOString() : null;
       await updateOutboxRecord(record.userId, record.id, {
         delivered: result.delivered,
-        deliveredAt: result.delivered ? new Date().toISOString() : null,
+        deliveredAt: deliveredAtIso,
         error: result.error,
       });
+      try {
+        await dbUpdateDelivery(record.userId, record.id, {
+          delivered: result.delivered,
+          deliveredAt: deliveredAtIso,
+          error: result.error,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn(
+          `notification_dual_write_failed user=${record.userId} id=${record.id} error=${message}`
+        );
+      }
     }
   }
 

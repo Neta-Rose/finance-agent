@@ -5,9 +5,20 @@ import { createJob, listJobs } from "./jobService.js";
 import { runDailyBriefJob } from "./dailyBriefService.js";
 import { getActiveUserEligibility, readState } from "./stateService.js";
 import { logger } from "./logger.js";
+import { isFeatureEnabled } from "./featureFlagService.js";
+import { admitOrReuseStepQueueJob } from "./stepQueue/admission.js";
+import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
+import { isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
+import { getApplicationDataSource } from "../db/applicationDataSource.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? path.join(process.cwd(), "../users");
 const POLL_INTERVAL_MS = 30_000;
+
+/**
+ * In-memory dedup: tracks the last minute-key for which we fired a daily
+ * brief per user. Prevents double-firing within the same minute if the
+ * scheduler loop runs twice.
+ */
 const seenMinuteKeys = new Map<string, string>();
 
 interface ScheduledUser {
@@ -70,9 +81,38 @@ async function listScheduledUsers(): Promise<ScheduledUser[]> {
   return users;
 }
 
+/**
+ * Acquire a per-minute distributed lease via Postgres advisory lock so that
+ * multiple replicas do not double-fire the same user's daily brief.
+ *
+ * Returns true if this replica acquired the lease (should proceed), false if
+ * another replica already holds it.
+ *
+ * The lock is session-scoped and released automatically when the connection
+ * is returned to the pool.
+ */
+async function tryAcquireMinuteLease(userId: string, minuteKey: string): Promise<boolean> {
+  if (!isApplicationDatabaseConfigured()) return true; // no DB → single-replica, always proceed
+  try {
+    const ds = await getApplicationDataSource();
+    // Use a stable numeric key derived from userId + minuteKey
+    const { createHash } = await import("crypto");
+    const hash = createHash("sha256").update(`${userId}:${minuteKey}`).digest();
+    const lockKey = (BigInt(hash.readUInt32BE(0)) << 32n | BigInt(hash.readUInt32BE(4))) & 0x7fffffffffffffffn;
+    const rows = await ds.query(
+      `SELECT pg_try_advisory_lock($1::bigint) AS acquired`,
+      [lockKey.toString()]
+    ) as Array<{ acquired: boolean }>;
+    return rows[0]?.acquired === true;
+  } catch {
+    return true; // DB error → fall through and let the scheduler run
+  }
+}
+
 async function runDueDailyBriefs(): Promise<void> {
   const users = await listScheduledUsers();
   const now = new Date();
+  const useLegacyRunners = await isFeatureEnabled("legacy_job_runners_enabled");
 
   await Promise.all(
     users.map(async (user) => {
@@ -99,19 +139,48 @@ async function runDueDailyBriefs(): Promise<void> {
         return;
       }
 
-      const jobs = await listJobs(ws, 100);
-      const hasActiveDaily = jobs.some(
-        (job) => job.action === "daily_brief" && (job.status === "pending" || job.status === "running")
-      );
-      if (hasActiveDaily) {
+      // Distributed lease: only one replica fires per user per minute
+      const leaseAcquired = await tryAcquireMinuteLease(user.userId, time.minuteKey);
+      if (!leaseAcquired) {
         seenMinuteKeys.set(user.userId, time.minuteKey);
         return;
       }
 
       seenMinuteKeys.set(user.userId, time.minuteKey);
-      logger.info(`Daily scheduler: triggering daily_brief for ${user.userId} at ${time.minuteKey} (${user.timezone})`);
-      const job = await createJob(ws, "daily_brief", undefined, { dispatch: false });
-      await runDailyBriefJob(ws, job);
+
+      if (useLegacyRunners) {
+        // Legacy path: create a job file and run the brief inline
+        const jobs = await listJobs(ws, 100);
+        const hasActiveDaily = jobs.some(
+          (job) => job.action === "daily_brief" && (job.status === "pending" || job.status === "running")
+        );
+        if (hasActiveDaily) return;
+
+        logger.info(`Daily scheduler (legacy): triggering daily_brief for ${user.userId} at ${time.minuteKey}`);
+        const job = await createJob(ws, "daily_brief", undefined, { dispatch: false });
+        await runDailyBriefJob(ws, job);
+      } else {
+        // Step-queue path: admit a daily_brief job through the step queue
+        if (!isApplicationDatabaseConfigured()) {
+          logger.warn(`Daily scheduler: APP_DATABASE_URL not configured, cannot admit step-queue job for ${user.userId}`);
+          return;
+        }
+
+        const budgetGate = await ensurePointsBudgetAvailable(user.userId);
+        if (!budgetGate.allowed) {
+          logger.info(`Daily scheduler: budget exhausted for ${user.userId}, skipping daily_brief`);
+          return;
+        }
+
+        logger.info(`Daily scheduler (step-queue): triggering daily_brief for ${user.userId} at ${time.minuteKey}`);
+        const admitted = await admitOrReuseStepQueueJob({
+          workspace: ws,
+          action: "daily_brief",
+          source: "auto_brief",
+          budgetAdmittedAt: new Date(),
+        });
+        logger.info(`Daily scheduler: admitted job ${admitted.jobId} for ${user.userId} (reused=${admitted.reused})`);
+      }
     })
   );
 }

@@ -10,6 +10,24 @@ import { StepWorkItemEntitySchema } from "./entities/StepWorkItemEntity.js";
 import { TickerWorkItemEntitySchema } from "./entities/TickerWorkItemEntity.js";
 import { TrackedAssetEntitySchema } from "./entities/TrackedAssetEntity.js";
 import { UserPointsBudgetEntitySchema } from "./entities/UserPointsBudgetEntity.js";
+import { UserEntitySchema } from "./entities/UserEntity.js";
+import { StrategyEntitySchema } from "./entities/StrategyEntity.js";
+import { ReportBatchEntitySchema } from "./entities/ReportBatchEntity.js";
+import { ReportIndexEntitySchema } from "./entities/ReportIndexEntity.js";
+import { NotificationEntitySchema } from "./entities/NotificationEntity.js";
+import { EscalationHistoryEntitySchema } from "./entities/EscalationHistoryEntity.js";
+import { VerdictActionEntitySchema } from "./entities/VerdictActionEntity.js";
+import { TickerSnoozeEntitySchema } from "./entities/TickerSnoozeEntity.js";
+import { PortfolioRiskSnapshotEntitySchema } from "./entities/PortfolioRiskSnapshotEntity.js";
+import { AdminAuditLogEntitySchema } from "./entities/AdminAuditLogEntity.js";
+import { MigrationArchiveEntitySchema } from "./entities/MigrationArchiveEntity.js";
+import { FeatureFlagEntitySchema } from "./entities/FeatureFlagEntity.js";
+import { ChannelBindingEntitySchema } from "./entities/ChannelBindingEntity.js";
+import { EncryptedSecretEntitySchema } from "./entities/EncryptedSecretEntity.js";
+import { ConversationEntitySchema } from "./entities/ConversationEntity.js";
+import { ConversationTurnEntitySchema } from "./entities/ConversationTurnEntity.js";
+import { ToolCallEntitySchema } from "./entities/ToolCallEntity.js";
+import { OutputFilterEventEntitySchema } from "./entities/OutputFilterEventEntity.js";
 import { logger } from "../services/logger.js";
 
 const APP_DATABASE_URL =
@@ -45,6 +63,26 @@ function buildDataSource(): DataSource {
       TickerWorkItemEntitySchema,
       TrackedAssetEntitySchema,
       UserPointsBudgetEntitySchema,
+      // Phase 1 (design.md §4.1–4.17):
+      UserEntitySchema,
+      StrategyEntitySchema,
+      ReportBatchEntitySchema,
+      ReportIndexEntitySchema,
+      NotificationEntitySchema,
+      EscalationHistoryEntitySchema,
+      VerdictActionEntitySchema,
+      TickerSnoozeEntitySchema,
+      PortfolioRiskSnapshotEntitySchema,
+      AdminAuditLogEntitySchema,
+      MigrationArchiveEntitySchema,
+      FeatureFlagEntitySchema,
+      ChannelBindingEntitySchema,
+      EncryptedSecretEntitySchema,
+      // Phase 5 (design.md §4.11–4.12):
+      ConversationEntitySchema,
+      ConversationTurnEntitySchema,
+      ToolCallEntitySchema,
+      OutputFilterEventEntitySchema,
     ],
     synchronize: false,
     logging: false,

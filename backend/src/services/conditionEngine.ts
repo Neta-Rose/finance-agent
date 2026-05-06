@@ -4,6 +4,8 @@ import { logger } from "./logger.js";
 import { getWorkspace } from "./workspaceService.js";
 import { readState, writeState } from "./stateService.js";
 import { loadStrategyFile } from "./strategyFileService.js";
+import { dualWriteStrategy } from "./strategyExportService.js";
+import { StrategySchema } from "../schemas/strategy.js";
 
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -226,6 +228,14 @@ export async function markCatalystTriggered(
   s.version = (s.version ?? 1) + 1;
 
   await fs.writeFile(strategyPath, JSON.stringify(s, null, 2), "utf-8");
+
+  // Phase 1 dual-write: mirror the catalyst-trigger update into Postgres.
+  // JSON remains source of truth; DB write failure does not block the legacy path.
+  const reparsed = StrategySchema.safeParse(s);
+  if (reparsed.success) {
+    await dualWriteStrategy(reparsed.data, userId);
+  }
+
   logger.info(`Marked catalyst triggered: ${ticker} — "${catalystDescription}"`);
 }
 

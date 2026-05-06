@@ -151,6 +151,34 @@ export async function admitStepQueueJob(params: AdmitStepQueueJobParams): Promis
   const ds = await getApplicationDataSource();
   const jobId = generateJobId();
   const modelTier = await readUserModelTier(params.workspace.userId);
+
+  // A4.1 — budget check before inserting any step_work_items rows.
+  const { ensurePointsBudgetAvailable } = await import("../pointsBudgetService.js");
+  const budgetGate = await ensurePointsBudgetAvailable(params.workspace.userId);
+
+  // A4.3 — record every admission decision.
+  await ds.query(
+    `INSERT INTO step_lifecycle_events
+       (step_id, from_status, to_status, attempt_n, model_used, tier_used,
+        error_class, error_message, occurred_at)
+     VALUES (gen_random_uuid(), NULL, 'pending', NULL, NULL, $1, $2, $3, NOW())`,
+    [
+      modelTier,
+      budgetGate.allowed ? null : "budget_exhausted",
+      budgetGate.allowed
+        ? `admission_allowed:${params.action}:${params.workspace.userId}`
+        : `admission_refused:${params.action}:${params.workspace.userId}:points_budget_exhausted`,
+    ]
+  );
+
+  if (!budgetGate.allowed) {
+    // A4.2 — refuse admission, return structured response.
+    throw Object.assign(
+      new Error(`points_budget_exhausted: ${budgetGate.reason}`),
+      { code: "points_budget_exhausted", reason: budgetGate.reason }
+    );
+  }
+
   const inserted = await insertStepQueueRows(ds, params, jobId, modelTier);
   return {
     jobId,

@@ -134,7 +134,12 @@ export async function claimNextPendingStep(
          AND j.status = 'running'
          AND t.status = 'running'
          AND (
-           s.kind LIKE 'analyst.%'
+           -- Deterministic step kinds: no dependency chain, always claimable
+           s.kind = 'quick_check.evaluate'
+           OR s.kind = 'tracking.evaluate'
+           -- Analyst steps: no dependencies
+           OR s.kind LIKE 'analyst.%'
+           -- Debate: requires all analyst steps completed
            OR (
              s.kind = 'debate'
              AND NOT EXISTS (
@@ -145,6 +150,7 @@ export async function claimNextPendingStep(
                  AND dep.status <> 'completed'
              )
            )
+           -- Synthesis: requires debate completed
            OR (
              s.kind = 'synthesis'
              AND EXISTS (
@@ -159,13 +165,15 @@ export async function claimNextPendingStep(
        ORDER BY
          t.position ASC,
          CASE s.kind
+           WHEN 'quick_check.evaluate' THEN 0
+           WHEN 'tracking.evaluate'    THEN 0
            WHEN 'analyst.fundamentals' THEN 1
-           WHEN 'analyst.technical' THEN 2
-           WHEN 'analyst.sentiment' THEN 3
-           WHEN 'analyst.macro' THEN 4
-           WHEN 'analyst.risk' THEN 5
-           WHEN 'debate' THEN 6
-           WHEN 'synthesis' THEN 7
+           WHEN 'analyst.technical'    THEN 2
+           WHEN 'analyst.sentiment'    THEN 3
+           WHEN 'analyst.macro'        THEN 4
+           WHEN 'analyst.risk'         THEN 5
+           WHEN 'debate'               THEN 6
+           WHEN 'synthesis'            THEN 7
            ELSE 99
          END,
          s.created_at ASC
@@ -570,8 +578,32 @@ export async function sweepAbandonedRunningSteps(
 }
 
 async function executeClaimedStep(ds: DataSource, step: ClaimedStepWorkItem): Promise<void> {
-  const handler = handlerFor(step.kind);
   const ws = buildWorkspace(step.userId, USERS_DIR);
+
+  // Deterministic step kinds bypass the LLM round-trip entirely.
+  // They compute their result synchronously and persist the artifact directly.
+  if (step.kind === "quick_check.evaluate") {
+    const { executeQuickCheckStep } = await import("./handlers/quickCheck.js");
+    const result = await executeQuickCheckStep(step, ws);
+    const outputPath = ws.reportFile(step.ticker, "quick_check");
+    await markStepCompleted(ds, step, outputPath);
+    await advanceAfterStepCompletion(ds, step);
+    void result; // artifact already persisted inside executeQuickCheckStep
+    return;
+  }
+
+  if (step.kind === "tracking.evaluate") {
+    const { executeTrackingEvaluateStep } = await import("./handlers/dailyBrief.js");
+    const result = await executeTrackingEvaluateStep(step, ws);
+    const outputPath = ws.reportFile(step.ticker, "tracking_evaluate");
+    await markStepCompleted(ds, step, outputPath);
+    await advanceAfterStepCompletion(ds, step);
+    void result; // artifact already persisted inside executeTrackingEvaluateStep
+    return;
+  }
+
+  // LLM-backed step kinds: gather inputs → build prompt → call LLM → validate → persist.
+  const handler = handlerFor(step.kind);
   const model = await resolveStepModel(ds, step.userId, step.kind, step.modelTierUsed ?? "balanced");
   const inputs = await handler.gatherInputs(step, ws);
   const prompt = handler.buildPrompt(inputs, model.tier);
@@ -581,6 +613,18 @@ async function executeClaimedStep(ds: DataSource, step: ClaimedStepWorkItem): Pr
     throw validation.error;
   }
   const outputPath = await handler.persistArtifact(validation.artifact, ws, step);
+
+  // Record schema_mode on the step for observability (H1.4).
+  // The normalizeRaw path sets schema_mode='normalize_fallback'; the direct
+  // parse path sets 'provider_native'. For now we detect by checking whether
+  // the raw output passed Zod directly.
+  const directParse = prompt.schema.safeParse(raw);
+  const schemaMode = directParse.success ? "provider_native" : "normalize_fallback";
+  await ds.query(
+    `UPDATE step_work_items SET schema_mode = $2 WHERE id = $1`,
+    [step.id, schemaMode]
+  );
+
   await markStepCompleted(ds, step, outputPath);
   await advanceAfterStepCompletion(ds, step);
 }

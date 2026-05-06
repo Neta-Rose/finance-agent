@@ -15,6 +15,7 @@ import { Strategies } from "./pages/Strategies";
 import { Controls } from "./pages/Controls";
 import { Settings } from "./pages/Settings";
 import { Admin } from "./pages/Admin";
+import { Chat } from "./pages/Chat";
 import { fetchOnboardStatus } from "./api/onboarding";
 import { fetchControlState } from "./api/control";
 import { fetchNotifications, markNotificationsRead } from "./api/notifications";
@@ -212,6 +213,11 @@ export default function App() {
  </ProtectedRoute>
  } />
  <Route path="/admin" element={<Admin />} />
+ <Route path="/chat" element={
+ <ProtectedRoute>
+ <AppLayout><Chat /></AppLayout>
+ </ProtectedRoute>
+ } />
  </Routes>
  <ToastContainer />
  </BrowserRouter>

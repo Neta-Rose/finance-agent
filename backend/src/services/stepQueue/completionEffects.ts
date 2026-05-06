@@ -8,6 +8,7 @@ import { logger } from "../logger.js";
 import { publishNotification } from "../notificationService.js";
 import { resolveConfiguredPath } from "../paths.js";
 import { upsertTrackedAsset } from "../trackedAssetService.js";
+import { putReportBatch } from "../reportIndexStore.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 const PRODUCT_EFFECTS_VERSION = 4;
@@ -251,6 +252,31 @@ export async function applyStepQueueCompletionEffects(
       jobId: job.id,
       entries,
     });
+
+    // Phase 1 dual-write to Postgres report_batches + report_index. Failures
+    // are logged but do not block the legacy JSON path.
+    try {
+      await putReportBatch({
+        batchId,
+        userId: ws.userId,
+        jobId: job.id,
+        mode: job.action,
+        triggeredAt: completedAt,
+        date: completedAt.slice(0, 10),
+        summary: null,
+        highlights: null,
+        entries: tickers.map((ticker) => ({
+          ticker,
+          dailySection: null,
+          entry: entries[ticker] ?? {},
+        })),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn(
+        `report_batch_dual_write_failed user=${ws.userId} batch=${batchId} error=${message}`
+      );
+    }
 
     if (options.publishNotifications) {
       await publishNotification({

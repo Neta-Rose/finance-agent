@@ -1,5 +1,14 @@
 import { FundamentalsReportSchema } from "../../../schemas/analysts.js";
 import { gatherCommonInputs, makePromptHandler, persistReportArtifact } from "../handlerUtils.js";
+import { getFundamentalsFacts } from "../../dataSources/fundamentalsSource.js";
+
+/**
+ * fundamentals handler — Phase 4 synthesizer.
+ *
+ * Deterministic facts (EPS, revenue, P/E, analyst consensus) are fetched
+ * server-side from yahoo-finance2. The LLM produces only `fundamentalView`
+ * prose. [I1.1]
+ */
 
 function enumValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === "string" && (allowed as readonly string[]).includes(value) ? value as T : fallback;
@@ -10,7 +19,14 @@ export const fundamentalsHandler = makePromptHandler({
   analyst: "fundamentals",
   schema: FundamentalsReportSchema,
   schemaName: "FundamentalsReportSchema",
-  gatherData: gatherCommonInputs,
+  gatherData: async (step, ws) => {
+    const common = await gatherCommonInputs(step, ws);
+    // Pre-compute deterministic fundamentals facts. [I1.1]
+    const position = common["position"] as { exchange?: string } | null | undefined;
+    const exchange = position?.exchange ?? "NYSE";
+    const fundamentalsFacts = await getFundamentalsFacts(step.ticker, exchange);
+    return { ...common, fundamentalsFacts };
+  },
   artifactPath: persistReportArtifact("fundamentals"),
   normalizeRaw(raw, inputs) {
     const obj = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
@@ -55,7 +71,8 @@ export const fundamentalsHandler = makePromptHandler({
       `Job: ${inputs.step.jobId}`,
       `Step: ${inputs.step.id}`,
       `Ticker: ${inputs.step.ticker}`,
-      "Analyze fundamentals from the provided portfolio, price, and current strategy context.",
+      "Deterministic fundamentals facts (EPS, revenue, P/E, analyst consensus) are pre-computed in `fundamentalsFacts`. Copy them into the output JSON.",
+      "Your task: write the `fundamentalView` prose (max 600 chars) interpreting the fundamentals.",
       "Schema requirements: analyst='fundamentals'; include every required key. For unavailable numeric data use null. For enums use unknown where allowed. sources must be valid URLs.",
       JSON.stringify(inputs.data, null, 2),
     ].join("\n\n");

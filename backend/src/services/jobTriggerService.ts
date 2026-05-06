@@ -15,8 +15,16 @@ import { ensurePointsBudgetAvailable } from "./pointsBudgetService.js";
 import { requiresBudgetAdmission } from "./jobAdmissionService.js";
 import { isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
 import { admitOrReuseStepQueueJob } from "./stepQueue/admission.js";
+import { isFeatureEnabled } from "./featureFlagService.js";
 
 const FUTURE_FEATURE_ACTIONS = new Set<JobAction>(["new_ideas"]);
+
+/**
+ * Actions that route through the step queue when `legacy_job_runners_enabled`
+ * is false. In Phase 2 this expands from [deep_dive, full_report] to include
+ * daily_brief and quick_check.
+ */
+const STEP_QUEUE_ACTIONS = new Set<JobAction>(["deep_dive", "full_report", "daily_brief", "quick_check"]);
 
 export interface TriggerUserJobParams {
   workspace: UserWorkspace;
@@ -278,7 +286,14 @@ export async function triggerUserJob(
     };
   }
 
-  if (action === "deep_dive" || action === "full_report") {
+  // Route through the step queue for all STEP_QUEUE_ACTIONS when the legacy
+  // runners are disabled (Phase 2 cutover). Deep-dive and full-report always
+  // use the step queue; daily_brief and quick_check join them once the flag
+  // is flipped.
+  const useLegacyRunners = await isFeatureEnabled("legacy_job_runners_enabled");
+  const useStepQueue = STEP_QUEUE_ACTIONS.has(action) && (!useLegacyRunners || action === "deep_dive" || action === "full_report");
+
+  if (useStepQueue) {
     if (!isApplicationDatabaseConfigured()) {
       return {
         statusCode: 503,
@@ -322,6 +337,7 @@ export async function triggerUserJob(
     };
   }
 
+  // Legacy path (gated by legacy_job_runners_enabled = true)
   const job = await createJob(ws, action, ticker, { dispatch: false, source });
   const budgetGate = await ensurePointsBudgetAvailable(ws.userId);
   if (!budgetGate.allowed) {

@@ -1220,4 +1220,44 @@ router.post(
   })
 );
 
+// ── GET /api/admin/conversations ─────────────────────────────────────────────
+// Admin observability for chat conversations (C2.4).
+
+router.get(
+  "/conversations",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const ds = await getApplicationDataSource();
+
+    const userId = typeof req.query["userId"] === "string" ? req.query["userId"] : null;
+    const channel = typeof req.query["channel"] === "string" ? req.query["channel"] : null;
+    const terminationReason = typeof req.query["terminationReason"] === "string" ? req.query["terminationReason"] : null;
+    const since = typeof req.query["since"] === "string" ? req.query["since"] : null;
+    const until = typeof req.query["until"] === "string" ? req.query["until"] : null;
+    const limit = Math.min(Number(req.query["limit"] ?? 50), 200);
+
+    const params: unknown[] = [];
+    const wheres: string[] = [];
+    if (userId) { params.push(userId); wheres.push(`user_id = $${params.length}`); }
+    if (channel) { params.push(channel); wheres.push(`channel = $${params.length}`); }
+    if (terminationReason) { params.push(terminationReason); wheres.push(`termination_reason = $${params.length}`); }
+    if (since) { params.push(since); wheres.push(`started_at >= $${params.length}`); }
+    if (until) { params.push(until); wheres.push(`started_at < $${params.length}`); }
+    params.push(limit);
+
+    const where = wheres.length > 0 ? `WHERE ${wheres.join(" AND ")}` : "";
+    const rows = await ds.query(
+      `SELECT id, user_id, channel, started_at, ended_at, turn_count,
+              total_tokens_in, total_tokens_out, total_cost_usd,
+              termination_reason, tool_call_count, model
+         FROM conversations ${where}
+         ORDER BY started_at DESC
+         LIMIT $${params.length}`,
+      params
+    ) as Array<Record<string, unknown>>;
+
+    res.json({ conversations: rows, count: rows.length });
+  })
+);
+
 export default router;

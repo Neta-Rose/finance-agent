@@ -47,10 +47,15 @@ async function safeReadJson<T>(filePath: string): Promise<T | null> {
 }
 
 async function loadWorkspaceTemplateManifest(): Promise<WorkspaceTemplateManifest> {
+  // Phase 3: SOUL.md, AGENTS.md, HEARTBEAT.md are retired (B2.1).
+  // The manifest may still reference them; we filter them out here so new
+  // workspaces never receive OpenClaw-managed files.
+  const RETIRED_SHARED_FILES = new Set(["SOUL.md", "AGENTS.md", "HEARTBEAT.md", "RESET.md"]);
+
   const fallback: WorkspaceTemplateManifest = {
-    sharedFiles: ["SOUL.md", "AGENTS.md", "HEARTBEAT.md"],
+    sharedFiles: [],
     templatedFiles: [{ source: "USER.md.template", target: "USER.md" }],
-    emptyFiles: ["IDENTITY.md", "TOOLS.md"],
+    emptyFiles: [],
   };
 
   const manifest = await safeReadJson<WorkspaceTemplateManifest>(
@@ -65,13 +70,13 @@ async function loadWorkspaceTemplateManifest(): Promise<WorkspaceTemplateManifes
 
   return {
     sharedFiles: Array.isArray(manifest.sharedFiles)
-      ? manifest.sharedFiles
+      ? manifest.sharedFiles.filter((f) => !RETIRED_SHARED_FILES.has(f))
       : fallback.sharedFiles,
     templatedFiles: Array.isArray(manifest.templatedFiles)
       ? manifest.templatedFiles
       : fallback.templatedFiles,
     emptyFiles: Array.isArray(manifest.emptyFiles)
-      ? manifest.emptyFiles
+      ? manifest.emptyFiles.filter((f) => !RETIRED_SHARED_FILES.has(f))
       : fallback.emptyFiles,
   };
 }
@@ -177,8 +182,9 @@ export async function createUserWorkspace(
   const ws = buildWorkspace(userId, USERS_DIR);
   const templateManifest = await loadWorkspaceTemplateManifest();
 
+  // Phase 3: data/triggers/ is retired (B1.3). Only create the directories
+  // that the step-queue path actually needs.
   await fs.mkdir(ws.jobsDir, { recursive: true });
-  await fs.mkdir(ws.triggersDir, { recursive: true });
   await fs.mkdir(ws.snapshotsDir, { recursive: true });
   await fs.mkdir(ws.tickersDir, { recursive: true });
   await fs.mkdir(ws.reportsDir, { recursive: true });
@@ -263,20 +269,15 @@ export async function createUserWorkspace(
     }
   }
 
-  // Create empty OpenClaw-managed files declared by the template manifest.
+  // Create empty files declared by the template manifest (filtered in Phase 3).
   for (const file of templateManifest.emptyFiles) {
     try {
       await fs.writeFile(path.join(ws.root, file), "", { flag: "wx" });
     } catch { /* already exists */ }
   }
 
-  // Symlink shared skills directory (read-only access for agent)
-  try {
-    await fs.symlink(
-      path.join(CLAWD_ROOT, "skills"),
-      path.join(ws.root, "skills")
-    );
-  } catch { /* already exists */ }
+  // Phase 3: skills symlink is retired (B2.1). New workspaces do not get it.
+  // Existing workspaces have it removed by cleanupOpenClawWorkspaces.ts.
 
   logger.info(`Created workspace for user: ${userId}`);
   return ws;
