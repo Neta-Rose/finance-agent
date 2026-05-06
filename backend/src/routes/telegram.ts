@@ -153,7 +153,7 @@ router.post("/telegram/webhook", async (req, res) => {
       userId: binding.userId,
       text,
       channel: "telegram",
-      conversationId,
+      ...(conversationId ? { conversationId } : {}),
     });
 
     // Persist conversation id on the binding for future messages

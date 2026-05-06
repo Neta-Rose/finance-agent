@@ -265,10 +265,10 @@ export async function ensureDefaultFeatureFlags(ds: DataSource): Promise<void> {
     const valueJson = flag.kind === "value" ? JSON.stringify(flag.value) : null;
     await ds.query(
       `INSERT INTO feature_flags (flag_name, scope_user_id, enabled, value_json, updated_at, updated_by)
-       SELECT $1, NULL, $2, $3::jsonb, NOW(), 'system_default'
+       SELECT $1::VARCHAR, NULL, $2::BOOLEAN, $3::jsonb, NOW(), 'system_default'
         WHERE NOT EXISTS (
           SELECT 1 FROM feature_flags
-           WHERE flag_name = $1 AND scope_user_id IS NULL
+           WHERE flag_name = $1::VARCHAR AND scope_user_id IS NULL
         )`,
       [flag.name, enabled, valueJson]
     );

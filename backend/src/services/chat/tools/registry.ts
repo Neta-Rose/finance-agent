@@ -1,5 +1,5 @@
 import type { DataSource } from "typeorm";
-import type { JSONSchema7 } from "json-schema";
+type JSONSchema7 = Record<string, unknown>;
 import type { StrategyRecord } from "../../strategyStore.js";
 import type { ReportBatchRecord } from "../../reportIndexStore.js";
 import type { EscalationHistoryRecord } from "../../escalationHistoryStore.js";

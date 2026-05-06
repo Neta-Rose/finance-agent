@@ -3,7 +3,6 @@ import { z } from "zod";
 import type { UserWorkspace } from "../../../middleware/userIsolation.js";
 import { getPrice, getUsdIlsRate } from "../../priceService.js";
 import { PortfolioFileSchema } from "../../../schemas/portfolio.js";
-import { StrategySchema } from "../../../schemas/strategy.js";
 import { loadStrategyFile } from "../../strategyFileService.js";
 import { findActiveSnooze } from "../../snoozeStore.js";
 import { recordEscalation } from "../../escalationHistoryStore.js";
@@ -164,7 +163,7 @@ async function maybeEscalate(
   ticker: string,
   signals: string[],
   fingerprint: string,
-  jobId: string
+  _jobId: string
 ): Promise<{ escalatedToJobId: string | null; snoozeSuppressed: boolean }> {
   // Check snooze suppression (Phase 7 wires the full snooze path; for now
   // the store is live and the check is real).
@@ -246,7 +245,7 @@ export const quickCheckHandler: StepHandler<QuickCheckResult> = {
     return inputs?.data["result"] ?? null;
   },
 
-  validate(raw, _schema, inputs): ValidationResult<QuickCheckResult> {
+  validate(raw, _schema, _inputs): ValidationResult<QuickCheckResult> {
     const parsed = QuickCheckResultSchema.safeParse(raw);
     if (parsed.success) return { ok: true, artifact: parsed.data };
     return { ok: false, error: parsed.error };

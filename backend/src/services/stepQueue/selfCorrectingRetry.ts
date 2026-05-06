@@ -81,8 +81,8 @@ export async function callWithSelfCorrectingRetry<T>(
         model: args.model,
         messages: args.messages,
         outputSchema: args.schema,
-        thinkingBudget: args.thinkingBudget,
-        timeoutMs: args.timeoutMs,
+        ...(args.thinkingBudget !== undefined ? { thinkingBudget: args.thinkingBudget } : {}),
+        ...(args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {}),
       });
       malformedOutput = rawResult.content;
     } catch {

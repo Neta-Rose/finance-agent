@@ -47,12 +47,8 @@ const EXECSYNC_IMPORT_PATTERN = /(?:import\s*\{[^}]*\bexecSync\b[^}]*\}|require\
 
 async function scanForExecSync(srcDir: string): Promise<string[]> {
   const matches: string[] = [];
-  let entries: Awaited<ReturnType<typeof fs.readdir>>;
-  try {
-    entries = await fs.readdir(srcDir, { withFileTypes: true });
-  } catch {
-    return matches;
-  }
+  const entries = await fs.readdir(srcDir, { withFileTypes: true }).catch(() => null);
+  if (!entries) return matches;
 
   for (const entry of entries) {
     const fullPath = path.join(srcDir, entry.name);
@@ -62,7 +58,8 @@ async function scanForExecSync(srcDir: string): Promise<string[]> {
     } else if (
       entry.isFile() &&
       entry.name.endsWith(".ts") &&
-      !entry.name.endsWith(".test.ts")
+      !entry.name.endsWith(".test.ts") &&
+      entry.name !== "startupGuards.ts"
     ) {
       try {
         const content = await fs.readFile(fullPath, "utf-8");
@@ -80,28 +77,6 @@ async function scanForExecSync(srcDir: string): Promise<string[]> {
 // ---------------------------------------------------------------------------
 // Main guard runner (Phase 3 only — Phase 5 adds chat agent guards below)
 // ---------------------------------------------------------------------------
-
-async function runPhase3Guards(failures: string[], srcDir: string): Promise<void> {
-  // B4.3: execSync must not appear in any non-test TypeScript source file.
-  const execSyncMatches = await scanForExecSync(srcDir);
-  if (execSyncMatches.length > 0) {
-    const sample = execSyncMatches.slice(0, 3).join(", ");
-    failures.push(`startup_guard.execsync_detected:${sample}`);
-    logger.error(
-      `Startup guard FAILED: execSync detected in source files: ${execSyncMatches.join(", ")}`
-    );
-  }
-}
-
-export async function runStartupGuards(srcDir?: string): Promise<StartupGuardResult> {
-  const failures: string[] = [];
-  const backendSrc = srcDir ?? path.resolve(process.cwd(), "src");
-
-  await runPhase3Guards(failures, backendSrc);
-
-  return { ok: failures.length === 0, failures };
-}
-
 
 // ---------------------------------------------------------------------------
 // Phase 5 guards — chat agent (F3.1, F3.2, F3.3)

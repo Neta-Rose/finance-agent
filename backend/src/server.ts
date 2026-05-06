@@ -5,25 +5,18 @@ import { eventStore } from "./services/eventStore.js";
 import { startWatchdog } from "./services/scheduler/watchdog.js";
 import {
   ensureAllProxyProviders,
-  getUserAgentStatus,
   wakeAgentsWithPendingTriggers,
   ensureSystemAgent,
 } from "./services/agentService.js";
 import { syncAllUserProfiles, syncSystemAgentProfile } from "./services/profileService.js";
 import { startDailyScheduler } from "./services/dailySchedulerService.js";
-import {
-  shouldRestartGatewayAfterStartupReconciliation,
-  shouldUserHeartbeatBeEnabled,
-} from "./services/startupService.js";
-import { getActiveUserEligibility, repairActiveUserState, readState } from "./services/stateService.js";
+import { repairActiveUserState } from "./services/stateService.js";
 import { reconcilePausedJobStates } from "./services/jobStateReconciler.js";
-import { getUserControl } from "./services/controlService.js";
 import {
   listWorkspaceUserIds,
   reconcileWorkspaceIntegrity,
 } from "./services/workspaceService.js";
 import { buildWorkspace } from "./middleware/userIsolation.js";
-import { hasPendingAgentManagedWork } from "./services/jobService.js";
 import {
   pruneExpiredObservabilityRows,
   startObservabilityRetentionLoop,

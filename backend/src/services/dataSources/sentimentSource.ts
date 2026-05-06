@@ -79,7 +79,7 @@ export async function getSentimentFacts(ticker: string): Promise<SentimentFacts>
   if (Array.isArray(results)) {
     for (const item of results) {
       if (!item || typeof item !== "object") continue;
-      const r = item as Record<string, unknown>;
+      const r = item as unknown as Record<string, unknown>;
       const headline =
         typeof r["title"] === "string" ? r["title"] :
         typeof r["headline"] === "string" ? r["headline"] : "";

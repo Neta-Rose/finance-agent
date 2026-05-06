@@ -93,7 +93,7 @@ async function pollJobUntilTerminalOrTimeout(
 // Tool implementations
 // ---------------------------------------------------------------------------
 
-export function buildActionTools(ctx: ToolContext): ToolDefinition[] {
+export function buildActionTools(_ctx: ToolContext): ToolDefinition[] {
   return [
 
     // ── triggerQuickCheck ────────────────────────────────────────────────────
@@ -312,7 +312,7 @@ export function buildActionTools(ctx: ToolContext): ToolDefinition[] {
             ticker: parsed.data.ticker,
             strategyVersion,
             decision: parsed.data.decision,
-            note: parsed.data.note,
+            note: parsed.data.note ?? null,
           });
           await writeActionAudit(toolCtx, "markVerdictAddressed", parsed.data, "success", Date.now() - t0, 0);
           return { status: "success", data: { verdictActionId: record.id } };

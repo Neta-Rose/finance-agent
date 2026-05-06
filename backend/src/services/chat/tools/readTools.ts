@@ -59,7 +59,7 @@ async function writeToolCallAudit(
 // Tool implementations
 // ---------------------------------------------------------------------------
 
-export function buildReadTools(ctx: ToolContext): ToolDefinition[] {
+export function buildReadTools(_ctx: ToolContext): ToolDefinition[] {
   return [
 
     // ── getPortfolio ────────────────────────────────────────────────────────
@@ -287,7 +287,7 @@ export function buildReadTools(ctx: ToolContext): ToolDefinition[] {
         }
         try {
           const history = await toolCtx.escalationHistoryStore.listEscalationHistory(toolCtx.userId, {
-            ticker: parsed.data.ticker,
+            ...(parsed.data.ticker ? { ticker: parsed.data.ticker } : {}),
             limit: parsed.data.limit ?? 50,
           });
           await writeToolCallAudit(toolCtx, "getEscalationHistory", parsed.data, "success", Date.now() - t0);
@@ -343,7 +343,7 @@ export function buildReadTools(ctx: ToolContext): ToolDefinition[] {
         }
         try {
           const notifications = await toolCtx.notificationStore.listNotifications(toolCtx.userId, {
-            unreadOnly: parsed.data.unreadOnly,
+            ...(parsed.data.unreadOnly !== undefined ? { unreadOnly: parsed.data.unreadOnly } : {}),
             limit: parsed.data.limit ?? 20,
           });
           await writeToolCallAudit(toolCtx, "getNotifications", parsed.data, "success", Date.now() - t0);
@@ -384,7 +384,7 @@ export function buildReadTools(ctx: ToolContext): ToolDefinition[] {
           const maxResults = Math.min(parsed.data.limit ?? 4, 8);
           const raw = await searchExaCached(parsed.data.query, maxResults);
           // Return snippet-form only (E1.3). Wrap in UNTRUSTED block (O8.1).
-          const results = Array.isArray(raw) ? raw.map((item: Record<string, unknown>) => ({
+          const results = Array.isArray(raw) ? (raw as unknown as Record<string, unknown>[]).map((item) => ({
             title: typeof item["title"] === "string" ? item["title"] : "",
             url: typeof item["url"] === "string" ? item["url"] : "",
             snippet: `<UNTRUSTED kind="web_search">\n${typeof item["text"] === "string" ? item["text"].slice(0, 400) : ""}\n</UNTRUSTED>`,

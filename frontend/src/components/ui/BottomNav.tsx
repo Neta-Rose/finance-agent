@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { TrendingUp, Sliders, BarChart2, FileText, Settings, MessageCircle } from "lucide-react";
+import { TrendingUp, Sliders, BarChart2, Settings, MessageCircle } from "lucide-react";
 import { clsx } from "clsx";
 import { t } from "../../store/i18n";
 import { usePreferencesStore } from "../../store/preferencesStore";

@@ -11,7 +11,6 @@ import { readState, writeState } from "./stateService.js";
 import { buildStrategyMetadata } from "./strategyBaselineService.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
-const CLAWD_ROOT = resolveConfiguredPath(undefined, "..");
 const USER_WORKSPACE_TEMPLATE_DIR = resolveConfiguredPath(
   process.env["USER_WORKSPACE_TEMPLATE_DIR"] ?? process.env["USER_AGENT_TEMPLATE_DIR"],
   "../shared/user-workspace"

@@ -204,11 +204,12 @@ router.post("/whatsapp/webhook", async (req, res) => {
       if (!binding) continue;
 
       // Call agentChat
+      const convId = binding.conversationId ?? undefined;
       const result = await agentChat({
         userId: binding.userId,
         text: text.trim(),
         channel: "whatsapp",
-        conversationId: binding.conversationId ?? undefined,
+        ...(convId ? { conversationId: convId } : {}),
       });
 
       if (!binding.conversationId && result.conversationId) {

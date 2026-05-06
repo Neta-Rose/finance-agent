@@ -1,7 +1,7 @@
 import { getApplicationDataSource, isApplicationDatabaseConfigured } from "../../db/applicationDataSource.js";
 import { buildPersonaPrompt, REDIRECT_LINE } from "./personaPrompt.js";
 import { filterText } from "./outputFilter.js";
-import { buildToolRegistry, toolToProviderDef, FORBIDDEN_TOOL_NAMES, ALL_TOOL_NAMES } from "./tools/registry.js";
+import { buildToolRegistry, ALL_TOOL_NAMES } from "./tools/registry.js";
 import * as confirmationStore from "./confirmationStore.js";
 import * as conversationStore from "./conversationStore.js";
 import { isFeatureEnabled, getFeatureValue } from "../featureFlagService.js";
@@ -184,7 +184,6 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
     verdictActionsStore,
   };
   const tools = buildToolRegistry(toolCtx);
-  const toolDefs = tools.map(toolToProviderDef);
 
   // Load history
   const history = await conversationStore.loadHistory(conversationId, maxTurns * 2);
@@ -317,7 +316,6 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
         confirmationStore.clear(conversationId);
       }
 
-      const toolT0 = Date.now();
       const result = await tool.handler(block.input, {
         ...toolCtx,
         turnIndex: turnIndex - 1,

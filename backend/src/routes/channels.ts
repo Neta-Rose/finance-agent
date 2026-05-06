@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
-import { bindChannel, lookupByChannelId, setConversationId } from "../services/channelBindingStore.js";
+import { bindChannel } from "../services/channelBindingStore.js";
 import { logger } from "../services/logger.js";
 import { randomBytes } from "crypto";
 
@@ -93,7 +93,7 @@ export async function completeChannelBinding(
 
 router.post(
   "/channels/binding-codes",
-  handler(async (req, res) => {
+  handler(async (_req, res) => {
     const userId = res.locals["userId"] as string;
     pruneExpiredCodes();
 

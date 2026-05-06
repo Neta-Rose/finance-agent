@@ -90,7 +90,6 @@ export async function getFundamentalsFacts(
     const rt = summary.recommendationTrend;
     const et = summary.earningsTrend;
 
-    const pe = safeNum(fd?.currentRatio) ?? safeNum(ks?.trailingPE);
     const analystBuy =
       (rt?.trend?.[0]?.strongBuy ?? 0) + (rt?.trend?.[0]?.buy ?? 0);
     const analystHold = rt?.trend?.[0]?.hold ?? 0;

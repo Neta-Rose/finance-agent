@@ -365,8 +365,7 @@ CREATE TABLE IF NOT EXISTS ticker_snoozes (
   created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_ticker_snoozes_active
-  ON ticker_snoozes (user_id, ticker, snooze_until DESC)
-  WHERE snooze_until > NOW();
+  ON ticker_snoozes (user_id, ticker, snooze_until DESC);
 
 -- §4.10 portfolio_risk_snapshots — append-only concentration / largest-position trace (L3).
 CREATE TABLE IF NOT EXISTS portfolio_risk_snapshots (

@@ -45,8 +45,8 @@ export async function callWithStructuredOutput<T>(
     model: args.model,
     messages: args.messages,
     outputSchema: args.schema as ZodTypeAny,
-    thinkingBudget: args.thinkingBudget,
-    timeoutMs: args.timeoutMs,
+    ...(args.thinkingBudget !== undefined ? { thinkingBudget: args.thinkingBudget } : {}),
+    ...(args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {}),
   });
 
   // First attempt: validate the raw provider output directly.

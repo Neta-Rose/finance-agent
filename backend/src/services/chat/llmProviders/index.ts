@@ -1,4 +1,4 @@
-import type { ZodTypeAny, z } from "zod";
+import type { ZodTypeAny } from "zod";
 
 /**
  * LlmProvider abstraction — Phase 4, task 4.2.

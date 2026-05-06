@@ -1,10 +1,9 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
-import type { UserWorkspace } from "../middleware/userIsolation.js";
 import { agentChat } from "../services/chat/agentChat.js";
 import { loadConversation, loadHistory } from "../services/chat/conversationStore.js";
-import { getApplicationDataSource, isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
+import { isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
 import { logger } from "../services/logger.js";
 import { z } from "zod";
 
@@ -52,7 +51,7 @@ router.post(
         userId,
         text: parsed.data.text,
         channel: "dashboard",
-        conversationId: parsed.data.conversationId,
+        ...(parsed.data.conversationId ? { conversationId: parsed.data.conversationId } : {}),
       });
       res.json({
         conversationId: result.conversationId,
