@@ -8,6 +8,8 @@ import { riskHandler } from "./handlers/risk.js";
 import { sentimentHandler } from "./handlers/sentiment.js";
 import { synthesisHandler } from "./handlers/synthesis.js";
 import { technicalHandler } from "./handlers/technical.js";
+import { quickCheckHandler } from "./handlers/quickCheck.js";
+import { trackingEvaluateHandler } from "./handlers/dailyBrief.js";
 
 export interface StepInputs {
   step: ClaimedStepWorkItem;
@@ -48,6 +50,8 @@ const handlers = new Map<StepKind, StepHandler>([
   [riskHandler.kind, riskHandler],
   [debateHandler.kind, debateHandler],
   [synthesisHandler.kind, synthesisHandler],
+  [quickCheckHandler.kind, quickCheckHandler],
+  [trackingEvaluateHandler.kind, trackingEvaluateHandler],
 ]);
 
 export function handlerFor(kind: StepKind): StepHandler {

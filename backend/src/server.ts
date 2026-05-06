@@ -2,13 +2,10 @@ import "dotenv/config";
 import { createApp } from "./app.js";
 import { logger } from "./services/logger.js";
 import { eventStore } from "./services/eventStore.js";
-import { startWatchdog } from "./services/watchdogService.js";
-import { startJobCompletionWatcher } from "./services/jobCompletionService.js";
+import { startWatchdog } from "./services/scheduler/watchdog.js";
 import {
   ensureAllProxyProviders,
   getUserAgentStatus,
-  restartGateway,
-  reconcileUserHeartbeatCron,
   wakeAgentsWithPendingTriggers,
   ensureSystemAgent,
 } from "./services/agentService.js";
@@ -34,6 +31,7 @@ import {
 import { startStepQueueExecutor } from "./services/stepQueue/executor.js";
 import { ensureDefaultFeatureFlags } from "./services/featureFlagService.js";
 import { getApplicationDataSource, isApplicationDatabaseConfigured } from "./db/applicationDataSource.js";
+import { runStartupGuards } from "./services/security/startupGuards.js";
 
 const PORT = parseInt(process.env["PORT"] ?? "8081", 10);
 const USERS_DIR = process.env["USERS_DIR"] ?? "/root/clawd/users";
@@ -42,29 +40,17 @@ const app = createApp();
 
 async function reconcileStartupRuntime(): Promise<void> {
   try {
-    const systemAgentChanged = await ensureSystemAgent();
-    const proxyProvidersChanged = await ensureAllProxyProviders();
-    const userProfilesChanged = await syncAllUserProfiles();
-    const systemProfileChanged = await syncSystemAgentProfile();
-    const shouldRestartGateway = shouldRestartGatewayAfterStartupReconciliation({
-      systemAgentChanged,
-      proxyProvidersChanged,
-      userProfilesChanged,
-      systemProfileChanged,
-    });
-
-    logger.info(
-      `Startup runtime reconciliation complete: systemAgentChanged=${systemAgentChanged} proxyProvidersChanged=${proxyProvidersChanged} userProfilesChanged=${userProfilesChanged} systemProfileChanged=${systemProfileChanged} restartGateway=${shouldRestartGateway}`
-    );
-
-    if (shouldRestartGateway) {
-      await restartGateway();
-    } else {
-      logger.info("Skipping gateway restart on startup because no runtime config changes were applied");
-    }
+    // Phase 3: ensureSystemAgent, ensureAllProxyProviders, syncAllUserProfiles,
+    // syncSystemAgentProfile all return false (no-ops) after OpenClaw retirement.
+    // We keep the calls so the function signature is stable; they log nothing.
+    await ensureSystemAgent();
+    await ensureAllProxyProviders();
+    await syncAllUserProfiles();
+    await syncSystemAgentProfile();
+    logger.info("Startup runtime reconciliation complete (OpenClaw retired — no gateway ops)");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.warn(`Proxy/profile setup on startup failed: ${message}`);
+    logger.warn(`Startup runtime reconciliation failed: ${message}`);
   }
 }
 
@@ -72,7 +58,6 @@ async function reconcileStartupOperationalState(): Promise<void> {
   try {
     const userIds = await listWorkspaceUserIds();
     let workspaceRepairs = 0;
-    let runtimeChanges = 0;
 
     for (const userId of userIds) {
       await repairActiveUserState(userId);
@@ -82,29 +67,13 @@ async function reconcileStartupOperationalState(): Promise<void> {
       if (workspaceReconciliation.changed) {
         workspaceRepairs += 1;
       }
-
-      const state = await readState(userId);
-      const userCtrl = await getUserControl(userId);
-      const agentStatus = await getUserAgentStatus(userId);
-      const hasAgentManagedWork = await hasPendingAgentManagedWork(workspace);
-      const eligibility = state.state === "ACTIVE"
-        ? await getActiveUserEligibility(userId)
-        : { eligible: true, reason: null };
-      const changed = await reconcileUserHeartbeatCron(
-        userId,
-        agentStatus.configured && shouldUserHeartbeatBeEnabled({
-          state: state.state,
-          restriction: userCtrl.restriction,
-          eligibilityIssue: eligibility.eligible ? null : eligibility.reason,
-          hasAgentManagedWork,
-        })
-      );
-      if (changed) runtimeChanges += 1;
     }
 
+    // Phase 3: wakeAgentsWithPendingTriggers is a no-op after OpenClaw retirement.
     await wakeAgentsWithPendingTriggers();
+
     logger.info(
-      `Startup operational reconciliation complete: users=${userIds.length} workspaceRepairs=${workspaceRepairs} runtimeChanges=${runtimeChanges}`
+      `Startup operational reconciliation complete: users=${userIds.length} workspaceRepairs=${workspaceRepairs}`
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -113,6 +82,14 @@ async function reconcileStartupOperationalState(): Promise<void> {
 }
 
 async function bootstrap(): Promise<void> {
+  // Phase 3: run startup guards before anything else.
+  // B4.3 — refuse to start if execSync is detected in source.
+  const guard = await runStartupGuards();
+  if (!guard.ok) {
+    logger.error(`Startup guards failed: ${guard.failures.join(", ")}`);
+    process.exit(78); // EX_CONFIG — systemd will not auto-restart
+  }
+
   await eventStore.initialize();
   await pruneExpiredObservabilityRows();
 
@@ -130,7 +107,7 @@ async function bootstrap(): Promise<void> {
   const server = app.listen(PORT, () => {
     logger.info(`Server started on port ${PORT}`);
     startWatchdog();
-    startJobCompletionWatcher();
+    // Phase 3: startJobCompletionWatcher() removed — replaced by Postgres-only watchdog.
     startDailyScheduler();
     startObservabilityRetentionLoop();
     startStepQueueExecutor();

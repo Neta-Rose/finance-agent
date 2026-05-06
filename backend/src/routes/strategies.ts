@@ -7,6 +7,8 @@ import { PortfolioFileSchema } from "../schemas/portfolio.js";
 import { loadStrategyFile } from "../services/strategyFileService.js";
 import { logger } from "../services/logger.js";
 import { listTrackedAssets, type TrackedAssetStatus } from "../services/trackedAssetService.js";
+import { listStrategies, readStrategy, type StrategyRecord } from "../services/strategyStore.js";
+import { isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
 
 const router = Router();
 
@@ -78,23 +80,58 @@ async function loadTrackedAssetStatusByTicker(userId: string): Promise<Map<strin
   }
 }
 
+/**
+ * Build a StrategyListRow from a DB record. Used when the DB is the source
+ * of truth (Phase 2 reader cutover).
+ */
+function rowFromDbRecord(
+  record: StrategyRecord,
+  inPortfolio: boolean,
+  trackedStatusByTicker: Map<string, TrackedAssetStatus>
+): StrategyListRow {
+  const now = new Date();
+  const scope: StrategyScope = inPortfolio ? "portfolio" : "tracking";
+  const trackingStatus = trackedStatusByTicker.get(record.ticker) ?? record.trackingStatus ?? null;
+  const hasExpiredCatalysts = record.catalysts.some(
+    (c) => c.expiresAt !== null && new Date(c.expiresAt) < now
+  );
+  return {
+    ticker: record.ticker,
+    inPortfolio,
+    scope,
+    trackingStatus: scope === "tracking" ? (trackingStatus as TrackedAssetStatus | null) ?? "active" : null,
+    verdict: record.verdict as Verdict,
+    confidence: record.confidence as Confidence,
+    reasoning: record.reasoning.length > 150 ? record.reasoning.slice(0, 150) + "…" : record.reasoning,
+    timeframe: record.timeframe,
+    positionSizeILS: record.positionSizeIls,
+    positionWeightPct: record.positionWeightPct,
+    entryConditions: record.entryConditions,
+    exitConditions: record.exitConditions,
+    catalysts: record.catalysts,
+    actionCatalysts: record.actionCatalysts,
+    avoidConditions: record.avoidConditions,
+    hasExpiredCatalysts,
+    lastDeepDiveAt: record.lastDeepDiveAt,
+    updatedAt: record.updatedAt,
+    version: record.version,
+    stance: record.stance,
+    potentialScore: record.potentialScore,
+    urgencyScore: record.urgencyScore,
+    urgencyLabel: record.urgencyLabel,
+    portfolioFitScore: record.portfolioFitScore,
+    suggestedAllocationPct: record.suggestedAllocationPct,
+    suggestedAllocationILS: record.suggestedAllocationIls,
+    nextReviewAt: record.nextReviewAt,
+  };
+}
+
 // ── GET /api/strategies ────────────────────────────────────────────────────
 
 router.get(
   "/strategies",
   handler(async (_req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
-
-    let tickerDirs: string[] = [];
-    try {
-      const entries = await fs.readdir(ws.tickersDir, { withFileTypes: true });
-      tickerDirs = entries
-        .filter((e) => e.isDirectory() && TICKER_REGEX.test(e.name))
-        .map((e) => e.name);
-    } catch {
-      res.json({ updatedAt: new Date().toISOString(), strategies: [] });
-      return;
-    }
 
     const portfolioTickers = new Set<string>();
     try {
@@ -113,8 +150,41 @@ router.get(
 
     const trackedStatusByTicker = await loadTrackedAssetStatusByTicker(ws.userId);
     const strategies: StrategyListRow[] = [];
-
     const now = new Date();
+
+    // DB-first path (Phase 2 reader cutover)
+    if (isApplicationDatabaseConfigured()) {
+      try {
+        const dbRecords = await listStrategies(ws.userId);
+        if (dbRecords.length > 0) {
+          for (const record of dbRecords) {
+            strategies.push(rowFromDbRecord(record, portfolioTickers.has(record.ticker), trackedStatusByTicker));
+          }
+          strategies.sort((a, b) => {
+            const ao = VERDICT_SORT_ORDER[a.verdict] ?? 99;
+            const bo = VERDICT_SORT_ORDER[b.verdict] ?? 99;
+            if (ao !== bo) return ao - bo;
+            return a.ticker.localeCompare(b.ticker);
+          });
+          res.json({ updatedAt: new Date().toISOString(), strategies });
+          return;
+        }
+      } catch (err) {
+        logger.warn(`strategies route: DB read failed, falling back to JSON: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // JSON fallback path (Phase 1 and rollback)
+    let tickerDirs: string[] = [];
+    try {
+      const entries = await fs.readdir(ws.tickersDir, { withFileTypes: true });
+      tickerDirs = entries
+        .filter((e) => e.isDirectory() && TICKER_REGEX.test(e.name))
+        .map((e) => e.name);
+    } catch {
+      res.json({ updatedAt: new Date().toISOString(), strategies: [] });
+      return;
+    }
 
     for (const ticker of tickerDirs) {
       const strategyPath = ws.strategyFile(ticker);
@@ -136,8 +206,7 @@ router.get(
         trackingStatus: scope === "tracking" ? trackingStatus ?? "active" : null,
         verdict: s.verdict as Verdict,
         confidence: s.confidence as Confidence,
-        reasoning:
-          s.reasoning.length > 150 ? s.reasoning.slice(0, 150) + "…" : s.reasoning,
+        reasoning: s.reasoning.length > 150 ? s.reasoning.slice(0, 150) + "…" : s.reasoning,
         timeframe: s.timeframe,
         positionSizeILS: s.positionSizeILS ?? 0,
         positionWeightPct: s.positionWeightPct ?? 0,
@@ -161,7 +230,6 @@ router.get(
       });
     }
 
-    // Sort: SELL/CLOSE first, REDUCE second, then by verdict order, then alphabetical
     strategies.sort((a, b) => {
       const ao = VERDICT_SORT_ORDER[a.verdict] ?? 99;
       const bo = VERDICT_SORT_ORDER[b.verdict] ?? 99;
@@ -169,10 +237,7 @@ router.get(
       return a.ticker.localeCompare(b.ticker);
     });
 
-    res.json({
-      updatedAt: new Date().toISOString(),
-      strategies,
-    });
+    res.json({ updatedAt: new Date().toISOString(), strategies });
   })
 );
 
@@ -190,6 +255,21 @@ router.get(
     }
 
     const strategyPath = ws.strategyFile(ticker);
+
+    // DB-first path
+    if (isApplicationDatabaseConfigured()) {
+      try {
+        const record = await readStrategy(ws.userId, ticker);
+        if (record) {
+          res.json(record);
+          return;
+        }
+      } catch (err) {
+        logger.warn(`strategies/:ticker DB read failed, falling back to JSON: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // JSON fallback
     const loaded = await loadStrategyFile(strategyPath, { repair: true, tickerHint: ticker });
     if (!loaded.valid || !loaded.strategy) {
       if ((loaded.errors ?? []).some((error) => error.startsWith("File not found:"))) {

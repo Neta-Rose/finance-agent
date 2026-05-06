@@ -1,5 +1,14 @@
 import { TechnicalReportSchema } from "../../../schemas/analysts.js";
 import { gatherTechnicalData, makePromptHandler, persistReportArtifact } from "../handlerUtils.js";
+import { computeTechnicalIndicators } from "../../dataSources/marketDataSource.js";
+
+/**
+ * technical handler — Phase 4 synthesizer.
+ *
+ * Deterministic facts (MA50/MA200/RSI/MACD/week52/keyLevels) are computed
+ * server-side from price history. The LLM produces only `technicalView`
+ * (prose) and `pattern` (enum). [I1.2]
+ */
 
 interface Candle { time: number; open: number; high: number; low: number; close: number }
 
@@ -142,11 +151,21 @@ export const technicalHandler = makePromptHandler({
   analyst: "technical",
   schema: TechnicalReportSchema,
   schemaName: "TechnicalReportSchema",
-  gatherData: gatherTechnicalData,
+  async gatherData(step, ws) {
+    const common = await gatherTechnicalData(step, ws);
+    // Pre-compute deterministic indicators so the LLM only writes prose. [I1.2]
+    const priceCtx = common["price"] as { priceNative?: number } | null | undefined;
+    const livePrice = typeof priceCtx?.priceNative === "number" ? priceCtx.priceNative : undefined;
+    const indicators = await computeTechnicalIndicators(step.ticker, livePrice);
+    return { ...common, indicators };
+  },
   artifactPath: persistReportArtifact("technical"),
   normalizeRaw(raw, inputs) {
     const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-    const floor = inputs ? buildTechnicalFloor(inputs.data) : null;
+    // Use pre-computed indicators from gatherData when available (Phase 4).
+    // Fall back to computing from history for backward compatibility.
+    const indicators = inputs?.data["indicators"] as ReturnType<typeof buildTechnicalFloor> | undefined;
+    const floor = indicators ?? (inputs ? buildTechnicalFloor(inputs.data) : null);
     const ticker = inputs?.step.ticker ?? (typeof obj["ticker"] === "string" ? (obj["ticker"] as string) : "UNKNOWN");
 
     const priceObj = obj["price"] && typeof obj["price"] === "object" ? (obj["price"] as Record<string, unknown>) : {};
@@ -201,8 +220,9 @@ export const technicalHandler = makePromptHandler({
       `Job: ${inputs.step.jobId}`,
       `Step: ${inputs.step.id}`,
       `Ticker: ${inputs.step.ticker}`,
-      "Analyze technical conditions from the provided live price and price-history context.",
-      "You must perform the technical interpretation; the price history is reference data only.",
+      "The numeric technical indicators (MA50, MA200, RSI, MACD, week52, keyLevels) have been pre-computed server-side and are provided in `indicators`. Do NOT recompute them.",
+      "Your task: write the `technicalView` prose (max 600 chars) and identify the `pattern` (max 200 chars, or null) based on the provided indicators.",
+      "Copy the pre-computed indicator values directly into the output JSON. Do not invent or modify numeric fields.",
       "Schema requirements: analyst='technical'; use null only where the schema allows it; sources must be valid URLs.",
       "Required JSON fields: ticker, generatedAt, analyst, price{current,week52High,week52Low,positionInRange}, movingAverages{ma50,ma200,priceVsMa50,priceVsMa200}, rsi{value,signal}, macd, volume, keyLevels{support,resistance}, pattern, technicalView, sources.",
       "Allowed enums: priceVsMa50/priceVsMa200 above|below|at; rsi.signal overbought|oversold|neutral; macd bullish_crossover|bearish_crossover|neutral; volume above_average|below_average|average.",

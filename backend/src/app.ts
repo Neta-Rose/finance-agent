@@ -24,7 +24,6 @@ import onboardingRoutes from "./routes/onboarding.js";
 import telegramRoutes from "./routes/telegram.js";
 import adminRoutes from "./routes/admin.js";
 import searchRoutes from "./routes/search.js";
-import llmProxyRouter from "./routes/llmProxy.js";
 import controlRoutes from "./routes/control.js";
 import notificationsRoutes from "./routes/notifications.js";
 import supportRoutes from "./routes/support.js";
@@ -58,9 +57,9 @@ export function createApp(): Express {
   // Admin routes — have their own X-Admin-Key auth, no JWT needed
   app.use("/api/admin", adminRoutes);
 
-  // LLM proxy — OpenClaw agents authenticate with per-user proxy API key
-  // Must be before the SPA fallback and before the global authMiddleware block
-  app.use("/llm/v1", llmProxyRouter);
+  // Phase 3: LLM proxy route removed — no agent runtime calls it after OpenClaw retirement.
+  // The services/llmProxy.ts module is kept until Phase 4 because advisorLlmService.ts
+  // still imports pure helper functions from it.
 
   // Onboarding routes — init doesn't need JWT, portfolio/status do
   // Mounted here so it can have its own auth handling per-route

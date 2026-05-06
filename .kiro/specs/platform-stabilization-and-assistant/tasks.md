@@ -104,40 +104,40 @@ Cross-phase rules (§16):
 
 ## Phase 2 — Step queue absorbs daily_brief, quick_check, full_report, deep_dive
 
-- [ ] 2.1 Add `jobs.conversation_id` column
+- [x] 2.1 Add `jobs.conversation_id` column
   - `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS conversation_id VARCHAR(64)`. Used by Phase 5 chat-agent correlation; landing now to keep DDL phases linear.
   - _Requirements: [§5]_
 
-- [ ] 2.2 Implement `quick_check.evaluate` step kind
+- [x] 2.2 Implement `quick_check.evaluate` step kind
   - New file `backend/src/services/stepQueue/handlers/quickCheck.ts`.
   - Pulls live price + sentiment via existing `priceService` + `exaService`; computes signal set; returns `{ shouldEscalate: boolean, signals: string[], signalSetFingerprint: string }`.
   - Registered in `stepQueue/registry` so the executor dispatches to it on `kind = 'quick_check.evaluate'`.
   - Unit tests cover: empty sentiment, severe drawdown, snooze suppression call site (function exists and is called; behavior wired in Phase 7).
   - _Requirements: [A1.1]_
 
-- [ ] 2.3 Implement `tracking.evaluate` step kind
+- [x] 2.3 Implement `tracking.evaluate` step kind
   - New file `backend/src/services/stepQueue/handlers/dailyBrief.ts`.
   - Evaluates each `tracked_assets` row; returns whether to escalate to a deep dive.
   - Registered in the executor.
   - _Requirements: [A1.1]_
 
-- [ ] 2.4 Move daily-brief expansion into the step queue
+- [x] 2.4 Move daily-brief expansion into the step queue
   - `services/dailySchedulerService.ts` admits a `daily_brief` job through `admitStepQueueJob` instead of calling `runDailyBriefJob`.
   - Job expansion: for each held position → one `quick_check.evaluate` step; for each `tracked_assets` row → one `tracking.evaluate` step. Quick-check escalations admit child `deep_dive` jobs.
   - The legacy `runDailyBriefJob` function is renamed `dailyBriefService.legacy.ts` and gated behind `legacy_job_runners_enabled`.
   - _Requirements: [A1.1], [A1.3]_
 
-- [ ] 2.5 Move full-report and deep-dive admission to the step queue
+- [x] 2.5 Move full-report and deep-dive admission to the step queue
   - `routes/jobs.ts` admits `full_report` / `deep_dive` via `admitStepQueueJob`. The job-trigger service no longer calls `runFullReportJob` / `runDeepDiveJob` directly when the flag is off.
   - Step expansion for `full_report`: one ticker work item per held position; equity dispatch for now (asset-class dispatch lands Phase 7).
   - _Requirements: [A1.1]_
 
-- [ ] 2.6 Step-queue admission honors points budget at the gate
+- [x] 2.6 Step-queue admission honors points budget at the gate
   - `services/jobAdmissionService.ts` calls `pointsBudgetService.checkAdmission(userId)` before inserting any `step_work_items`. On refusal, writes one `audit_observability` row with `decision='refused'`, `reason='points_budget_exhausted'`. [A4.1, A4.2, A4.3]
   - Unit test scripts a budget-exhausted user and asserts no rows inserted.
   - _Requirements: [A4.1], [A4.2], [A4.3]_
 
-- [ ] 2.7 Cut readers over to Postgres for migrated state
+- [x] 2.7 Cut readers over to Postgres for migrated state
   - `conditionEngine.ts`, `feedService.ts`, `strategiesRoutes`, `notificationService` switch from JSON readers to the new stores. JSON write paths remain (still dual-writing) so a Phase 1 rollback is still possible.
   - Run an end-to-end smoke (login → portfolio → strategies → notifications) with JSON files renamed `*.json.bak` to confirm the readers no longer touch them.
   - _Requirements: [A2.2]_
@@ -147,40 +147,40 @@ Cross-phase rules (§16):
 
 ## Phase 3 — OpenClaw retirement and shell-injection elimination
 
-- [ ] 3.1 Rewrite scheduler and watchdog as Postgres-only
+- [x] 3.1 Rewrite scheduler and watchdog as Postgres-only
   - New `backend/src/services/scheduler/dailyScheduler.ts`: takes a per-minute `SELECT … FOR UPDATE` lease so duplicate replicas do not double-fire. Admits `daily_brief` jobs into the step queue. Replaces `dailySchedulerService.ts`.
   - New `backend/src/services/scheduler/watchdog.ts`: reads `jobs` and `step_work_items` for stuck rows, applies action-specific timeout policy. No filesystem reads. Replaces `watchdogService.ts`.
   - _Requirements: [B1.4]_
 
-- [ ] 3.2 Delete `services/agentService.ts` and `routes/llmProxy.ts`
+- [x] 3.2 Delete `services/agentService.ts` and `routes/llmProxy.ts`
   - Confirm no remaining import sites by grepping `agentService`, `wakeAgent`, `ensureUserCron`, `removeUserCron`, `rebuildUserCron`, `healAllCrons`, `restartGateway`, `addUserAgent`, `removeUserAgent`, `updateUserTelegram`.
   - Delete `services/agentService.ts`, `services/agentService.test.ts`, `services/llmProxy.ts`, `services/llmProxy.test.ts`, `routes/llmProxy.ts`, `routes/llmProxy.test.ts`.
   - Delete `services/jobCompletionService.ts` (legacy file-based) and the now-orphan `services/watchdogService.ts`.
   - _Requirements: [B1.1], [B1.2]_
 
-- [ ] 3.3 Delete analyst skill markdown files
+- [x] 3.3 Delete analyst skill markdown files
   - Remove `skills/{fundamentals,technical,sentiment,macro,bull-researcher,bear-researcher,portfolio-risk}-analyst.md`. [B3.1]
   - Confirm no code or documentation reads them; analyst prompts live only in `backend/src/services/stepQueue/handlers/`. [B3.2]
   - _Requirements: [B3.1], [B3.2]_
 
-- [ ] 3.4 Write and run `cleanupOpenClawWorkspaces.ts`
+- [x] 3.4 Write and run `cleanupOpenClawWorkspaces.ts`
   - Per-user cleanup script: removes `users/[id]/SOUL.md`, `AGENTS.md`, `HEARTBEAT.md`, `RESET.md`, `data/triggers/`, any `skills` symlinks. Archives every removed file to `migration_archive` with full content. [B2.2]
   - Idempotent. Emits one summary `migration_archive` row per user.
   - Removes the legacy bridge directory `/root/clawd/data/triggers/` if empty after the per-user cleanup. [B1.3, B1.5]
   - _Requirements: [B2.1], [B2.2]_
 
-- [ ] 3.5 Update `workspaceService.ts` to stop creating retired files
+- [x] 3.5 Update `workspaceService.ts` to stop creating retired files
   - Remove the code paths that create `SOUL.md`, `AGENTS.md`, `HEARTBEAT.md`, `RESET.md` symlinks/copies in new user workspaces. Only `USER.md` and `data/reports/` directories are created. [B2.1, B2.3]
   - `data/triggers/` directory is no longer created.
   - Tests updated.
   - _Requirements: [B2.1]_
 
-- [ ] 3.6 Add execSync static-analysis startup guard
+- [x] 3.6 Add execSync static-analysis startup guard
   - `backend/src/services/security/startupGuards.ts` (skeleton only — full guard module lands Phase 8): scan `backend/src/**/*.ts` (excluding `*.test.ts`) for `execSync` imports or `child_process.execSync` calls. Process exits 78 if any match. [B4.3]
   - Verify backend starts successfully (i.e., no `execSync` remains).
   - _Requirements: [B4.1], [B4.2], [B4.3]_
 
-- [ ] 3.7 Wipe `~/.openclaw/openclaw.json`
+- [x] 3.7 Wipe `~/.openclaw/openclaw.json`
   - Archive existing content to `migration_archive`. Replace file content with `{}` so any straggler that still tries to read it gets an empty config (and per [B1.2] no code path should be reading it).
   - _Requirements: [B1.2], [P2.2]_
 
@@ -188,14 +188,14 @@ Cross-phase rules (§16):
 
 ## Phase 4 — Provider-native structured outputs and self-correcting retry
 
-- [ ] 4.1 Add Phase-4 ALTERs to DDL
+- [x] 4.1 Add Phase-4 ALTERs to DDL
   - `step_work_items.schema_mode`, `step_work_items.structured_output_provider`, `step_work_items.prose_fallback_used`. [§5]
   - `step_lifecycle_events.schema_mode`. [§5]
   - `model_tier_assignments.thinking_budget`, `model_tier_assignments.provider`. [§5]
   - `llm_requests.conversation_id`, `llm_requests.tool_call_id`, `llm_requests.schema_mode` plus the two partial indexes. [§5]
   - _Requirements: [H1.4], [§5]_
 
-- [ ] 4.2 Build the `LlmProvider` abstraction
+- [x] 4.2 Build the `LlmProvider` abstraction
   - New `backend/src/services/chat/llmProviders/index.ts`: `interface LlmProvider { invoke(args: ProviderInvokeArgs): Promise<ProviderResult> }` with `getLlmProvider(model, schemaMode)` factory dispatching on `model_tier_assignments.provider`.
   - Implement: `anthropicProvider.ts` (tool-use + extended thinking), `openAiProvider.ts` (strict tools), `geminiProvider.ts` (schema mode + structured tools), `openRouterProvider.ts` (fallback for `free`/`cheap` tiers and any model not natively supported).
   - Each provider records `tokensIn`, `tokensOut`, `costUsd`, `latencyMs`, `schemaMode` and writes to `llm_requests` via the existing `llmRequestStore`.
@@ -203,13 +203,13 @@ Cross-phase rules (§16):
   - _Requirements: [H1.1], [G1.1]_
 
 
-- [ ] 4.3 Build `services/stepQueue/structuredOutputs.ts`
+- [x] 4.3 Build `services/stepQueue/structuredOutputs.ts`
   - `callWithStructuredOutput<T>({ provider, model, schema: ZodSchema<T>, messages, systemPrompt, thinkingBudget }): Promise<{ value: T, schemaMode: 'provider_native' | 'normalize_fallback' | 'both' }>`.
   - Converts the Zod schema to the provider-native schema (Anthropic tool input schema, OpenAI strict tool, Gemini response schema).
   - On success, validates the returned object with the Zod schema and falls through to `normalizeRaw` only if Zod fails (defense in depth — H1.3).
   - _Requirements: [H1.1], [H1.2], [H1.3]_
 
-- [ ] 4.4 Build `services/stepQueue/selfCorrectingRetry.ts`
+- [x] 4.4 Build `services/stepQueue/selfCorrectingRetry.ts`
   - Wraps `callWithStructuredOutput`; on Zod failure, re-invokes the provider once with the validation error message and the malformed output appended as a system message asking for a corrected response. [H2.1]
   - Combined call counts as one logical attempt against the 3-attempt ceiling. [H2.2]
   - On success after retry, writes `step_lifecycle_events.error_class = 'zod_self_corrected'`. [H2.2]
@@ -217,7 +217,7 @@ Cross-phase rules (§16):
   - Gated by `feature_flags.self_correcting_retry_enabled` (default true from Phase 1). [H2.4]
   - _Requirements: [H2.1], [H2.2], [H2.3], [H2.4]_
 
-- [ ] 4.5 Build deterministic data sources
+- [x] 4.5 Build deterministic data sources
   - `backend/src/services/dataSources/cache.ts` — TTL cache (memory + on-disk under `data/cache/`).
   - `dataSources/marketDataSource.ts` — `getPriceHistorySeries`, `computeMa(n)`, `computeRsi`, `computeMacd`, `computeKeyLevels`. [I1.2]
   - `dataSources/fundamentalsSource.ts` — earnings, EPS expectations, P/E, sector P/E, analyst consensus, balance-sheet category, insider activity. yahoo-finance2 + Exa. [I1.1]
@@ -226,7 +226,7 @@ Cross-phase rules (§16):
   - Tests cover deterministic outputs against fixture inputs.
   - _Requirements: [I1.1], [I1.2], [I1.3], [I1.4]_
 
-- [ ] 4.6 Rewrite analyst handlers as synthesizers
+- [x] 4.6 Rewrite analyst handlers as synthesizers
   - In each of `handlers/{fundamentals,technical,sentiment,macro,risk}.ts`:
     - Compute deterministic facts via the data sources from 4.5.
     - Pass facts as inputs to the LLM via `callWithSelfCorrectingRetry` (4.4 wrapping 4.3).
@@ -236,12 +236,12 @@ Cross-phase rules (§16):
   - Each handler records `schema_mode` on the step and on the lifecycle event.
   - _Requirements: [I1.1]–[I1.6], [I2.1], [I2.2]_
 
-- [ ] 4.7 Delete `services/llm/oneshotCall.ts`
+- [x] 4.7 Delete `services/llm/oneshotCall.ts`
   - Remove the free-form `json_object` helper and any imports. [§6.2]
   - Confirm zero analyst, debate, or synthesis steps still call it.
   - _Requirements: [H1.2]_
 
-- [ ] 4.8 Flip `structured_outputs_enabled = true`
+- [x] 4.8 Flip `structured_outputs_enabled = true`
   - Update `feature_flags` row. Confirm a synthetic full report runs end-to-end with `schema_mode = 'provider_native'` on every step.
   - Run `example3` full report; verify all five analysts pass without `normalize_fallback` once.
   - _Requirements: [H1.1], [P3.1]_

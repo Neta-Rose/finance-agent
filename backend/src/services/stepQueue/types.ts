@@ -8,6 +8,8 @@ export const STEP_KINDS = [
   "analyst.risk",
   "debate",
   "synthesis",
+  "quick_check.evaluate",
+  "tracking.evaluate",
 ] as const;
 
 export const ANALYST_STEP_KINDS = [
@@ -24,8 +26,8 @@ export type StepKind = (typeof STEP_KINDS)[number];
 export type AnalystStepKind = (typeof ANALYST_STEP_KINDS)[number];
 export type ModelTier = (typeof MODEL_TIERS)[number];
 
-export type JobAction = "full_report" | "deep_dive";
-export type JobSource = "dashboard_action" | "auto_brief" | "admin" | "backend_job" | "telegram_command";
+export type JobAction = "full_report" | "deep_dive" | "daily_brief" | "quick_check" | "new_ideas";
+export type JobSource = "dashboard_action" | "auto_brief" | "admin" | "backend_job" | "telegram_command" | "whatsapp_command";
 export type JobStatus = "pending" | "running" | "paused" | "completed" | "partial_completed" | "failed" | "cancelled" | "superseded";
 export type TickerWorkItemStatus = "pending" | "running" | "paused" | "completed" | "failed" | "skipped";
 export type StepWorkItemStatus = "pending" | "running" | "completed" | "failed";
@@ -97,6 +99,8 @@ export const STEP_ARTIFACT_FILENAMES: Record<StepKind, string> = {
   "analyst.risk": "risk.json",
   debate: "debate.json",
   synthesis: "strategy.json",
+  "quick_check.evaluate": "quick_check.json",
+  "tracking.evaluate": "tracking_evaluate.json",
 };
 
 export function isStepKind(value: string): value is StepKind {

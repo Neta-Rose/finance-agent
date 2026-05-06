@@ -491,3 +491,62 @@ BEGIN
   END IF;
 END
 $$;
+
+-- ============================================================================
+-- Phase 2 DDL — Step queue absorbs daily_brief, quick_check, full_report, deep_dive
+-- Spec: design.md §5; tasks.md 2.1
+-- ============================================================================
+
+-- §5: jobs.conversation_id — correlates chat-agent-triggered jobs with their
+-- conversation (used by Phase 5 chat agent; landing now to keep DDL linear).
+ALTER TABLE jobs
+  ADD COLUMN IF NOT EXISTS conversation_id VARCHAR(64);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_conversation_id
+  ON jobs (conversation_id)
+  WHERE conversation_id IS NOT NULL;
+
+-- Extend JobAction to include daily_brief and quick_check.
+-- The CHECK constraint on jobs.action is not enforced in the current DDL
+-- (no CHECK was added in the original schema), so no ALTER needed for the
+-- action column itself. The TypeScript types are updated in types.ts.
+
+-- ============================================================================
+-- Phase 4 DDL — Provider-native structured outputs + self-correcting retry
+-- Spec: design.md §5; tasks.md 4.1
+-- Requirements: H1.4, H2.2, I1.6, I2.2
+-- ============================================================================
+
+-- step_work_items: record which structured-output strategy produced the artifact.
+ALTER TABLE step_work_items
+  ADD COLUMN IF NOT EXISTS schema_mode VARCHAR(32) DEFAULT NULL
+    CHECK (schema_mode IS NULL OR schema_mode IN ('provider_native','normalize_fallback','both')),
+  ADD COLUMN IF NOT EXISTS structured_output_provider VARCHAR(32) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS prose_fallback_used BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- step_lifecycle_events: record schema_mode on each transition for observability.
+ALTER TABLE step_lifecycle_events
+  ADD COLUMN IF NOT EXISTS schema_mode VARCHAR(32) DEFAULT NULL;
+
+-- model_tier_assignments: provider routing + extended-thinking budget.
+ALTER TABLE model_tier_assignments
+  ADD COLUMN IF NOT EXISTS thinking_budget INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS provider VARCHAR(32) NOT NULL DEFAULT 'openrouter';
+
+-- llm_requests: correlate with chat-agent conversations and tool calls (Phase 5).
+ALTER TABLE llm_requests
+  ADD COLUMN IF NOT EXISTS conversation_id VARCHAR(64),
+  ADD COLUMN IF NOT EXISTS tool_call_id UUID,
+  ADD COLUMN IF NOT EXISTS schema_mode VARCHAR(32);
+
+CREATE INDEX IF NOT EXISTS idx_llm_requests_conv_at
+  ON llm_requests (conversation_id, occurred_at DESC)
+  WHERE conversation_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_llm_requests_tool_call
+  ON llm_requests (tool_call_id)
+  WHERE tool_call_id IS NOT NULL;
+
+-- user_points_budgets: per-user conversation token cap override (Phase 5).
+ALTER TABLE user_points_budgets
+  ADD COLUMN IF NOT EXISTS conversation_token_cap_override INTEGER;

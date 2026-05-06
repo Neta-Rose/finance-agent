@@ -4,7 +4,7 @@ import type { UserWorkspace } from "../../middleware/userIsolation.js";
 import { PortfolioFileSchema } from "../../schemas/portfolio.js";
 import type { Exchange } from "../../types/index.js";
 import { getPrice, getPriceHistory, getUsdIlsRate } from "../priceService.js";
-import { oneShotJsonCompletion } from "../llm/oneshotCall.js";
+import { getLlmProvider } from "../chat/llmProviders/index.js";
 import { eventStore } from "../eventStore.js";
 import { atomicWriteJson } from "./artifactIO.js";
 import type { BuiltPrompt, StepHandler, StepInputs, ValidationResult } from "./handlers.js";
@@ -143,8 +143,19 @@ export async function callStepLlm(
   analyst: string
 ): Promise<unknown> {
   const startedAt = Date.now();
+  // Resolve provider from model string prefix or default to openrouter.
+  // Phase 5 will read the provider column from model_tier_assignments;
+  // for now we default to openrouter for all analyst steps.
+  const provider = getLlmProvider("openrouter");
   try {
-    const result = await oneShotJsonCompletion(prompt, model);
+    const result = await provider.invoke({
+      model: model.primary,
+      messages: [
+        { role: "system", content: prompt.system },
+        { role: "user", content: prompt.user },
+      ],
+      outputSchema: prompt.schema,
+    });
     await eventStore.logRequest({
       userId: step.userId,
       purpose: "step_queue",
@@ -164,7 +175,7 @@ export async function callStepLlm(
       rejectionReason: null,
       timestamp: new Date().toISOString(),
     });
-    return result.json;
+    return result.content;
   } catch (error) {
     await eventStore.logRequest({
       userId: step.userId,

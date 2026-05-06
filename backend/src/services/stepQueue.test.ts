@@ -363,7 +363,7 @@ test("escalation tickers force full deep dive during full_report expansion", asy
   assert.equal(expanded.tickers[1]?.stepKinds.length, 7);
 });
 
-test("handler registry exposes all seven step handlers", () => {
+test("handler registry exposes all nine step handlers", () => {
   assert.deepEqual(registeredStepKinds().sort(), [
     "analyst.fundamentals",
     "analyst.macro",
@@ -371,7 +371,9 @@ test("handler registry exposes all seven step handlers", () => {
     "analyst.sentiment",
     "analyst.technical",
     "debate",
+    "quick_check.evaluate",
     "synthesis",
+    "tracking.evaluate",
   ]);
 });
 
@@ -588,4 +590,157 @@ test("synthesis handler writes tracking fields for non-held deep dive ideas", as
   assert.ok((strategy.suggestedAllocationILS ?? 0) > 0);
   assert.ok((strategy.actionCatalysts ?? []).length > 0);
   assert.ok((strategy.avoidConditions ?? []).length > 0);
+});
+
+// ── Phase 2: new expansion and handler tests ─────────────────────────────────
+
+test("daily_brief expansion creates quick_check steps for held tickers", async () => {
+  const ws = await setupWorkspace("expansion-daily-brief");
+  await writeJson(ws.strategyFile("AAPL"), validStrategy("AAPL", "2026-04-01T00:00:00.000Z"));
+  await writeJson(ws.strategyFile("MSFT"), validStrategy("MSFT", "2026-04-01T00:00:00.000Z"));
+
+  const expanded = await expandStepQueueJob(ws, { action: "daily_brief" });
+
+  // Both held tickers should get quick_check.evaluate steps
+  assert.equal(expanded.action, "daily_brief");
+  assert.ok(expanded.tickers.length >= 2, "should have at least 2 tickers");
+  for (const ticker of expanded.tickers) {
+    assert.deepEqual(ticker.stepKinds, ["quick_check.evaluate"]);
+    assert.equal(ticker.fullDeepDive, false);
+  }
+});
+
+test("quick_check expansion creates a single quick_check.evaluate step", async () => {
+  const ws = await setupWorkspace("expansion-quick-check");
+  await writeJson(ws.strategyFile("AAPL"), validStrategy("AAPL", "2026-04-01T00:00:00.000Z"));
+
+  const expanded = await expandStepQueueJob(ws, { action: "quick_check", ticker: "AAPL" });
+
+  assert.equal(expanded.action, "quick_check");
+  assert.equal(expanded.tickers.length, 1);
+  assert.equal(expanded.tickers[0]?.ticker, "AAPL");
+  assert.deepEqual(expanded.tickers[0]?.stepKinds, ["quick_check.evaluate"]);
+  assert.equal(expanded.tickers[0]?.fullDeepDive, false);
+});
+
+test("full_report expansion does not include quick_check or tracking steps", async () => {
+  const ws = await setupWorkspace("expansion-full-report-no-qc");
+  await writeJson(ws.strategyFile("AAPL"), validStrategy("AAPL", "2026-04-01T00:00:00.000Z"));
+
+  const expanded = await expandStepQueueJob(ws, { action: "full_report" });
+
+  for (const ticker of expanded.tickers) {
+    assert.ok(
+      !ticker.stepKinds.includes("quick_check.evaluate"),
+      "full_report should not include quick_check.evaluate"
+    );
+    assert.ok(
+      !ticker.stepKinds.includes("tracking.evaluate"),
+      "full_report should not include tracking.evaluate"
+    );
+  }
+});
+
+test("quick_check.evaluate handler produces a valid artifact without LLM", async () => {
+  const ws = await setupWorkspace("handler-quick-check");
+  const step = claimedStep("quick_check.evaluate", "AAPL");
+  await writeJson(ws.strategyFile("AAPL"), validStrategy("AAPL", "2026-04-01T00:00:00.000Z"));
+
+  const { executeQuickCheckStep } = await import("./stepQueue/handlers/quickCheck.js");
+  const result = await executeQuickCheckStep(step, ws);
+
+  assert.equal(result.ticker, "AAPL");
+  assert.ok(typeof result.score === "number" && result.score >= 0 && result.score <= 100);
+  assert.ok(Array.isArray(result.signals));
+  assert.ok(typeof result.signalSetFingerprint === "string" && result.signalSetFingerprint.length > 0);
+  assert.ok(typeof result.shouldEscalate === "boolean");
+  assert.ok(typeof result.snoozeSuppressed === "boolean");
+
+  // Artifact should be persisted
+  const artifactPath = path.join(ws.reportsDir, "AAPL", "quick_check.json");
+  const raw = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string };
+  assert.equal(raw.ticker, "AAPL");
+});
+
+test("quick_check.evaluate signals stale strategy (no deep dive ever)", async () => {
+  const ws = await setupWorkspace("handler-quick-check-stale");
+  const step = claimedStep("quick_check.evaluate", "AAPL");
+  // Strategy with no lastDeepDiveAt
+  await writeJson(ws.strategyFile("AAPL"), validStrategy("AAPL", null));
+
+  const { executeQuickCheckStep } = await import("./stepQueue/handlers/quickCheck.js");
+  const result = await executeQuickCheckStep(step, ws);
+
+  assert.ok(result.signals.some((s) => s.includes("no_deep_dive_ever")));
+  assert.ok(result.score < 100, "score should be reduced for stale strategy");
+});
+
+test("quick_check.evaluate signals expired catalyst", async () => {
+  const ws = await setupWorkspace("handler-quick-check-expired");
+  const step = claimedStep("quick_check.evaluate", "AAPL");
+  const strategyWithExpiredCatalyst = {
+    ...validStrategy("AAPL", "2026-04-01T00:00:00.000Z"),
+    catalysts: [
+      { description: "Earnings beat", expiresAt: "2020-01-01T00:00:00.000Z", triggered: false },
+    ],
+  };
+  await writeJson(ws.strategyFile("AAPL"), strategyWithExpiredCatalyst);
+
+  const { executeQuickCheckStep } = await import("./stepQueue/handlers/quickCheck.js");
+  const result = await executeQuickCheckStep(step, ws);
+
+  assert.ok(result.signals.some((s) => s.includes("catalyst_expired")));
+  assert.ok(result.score < 100);
+});
+
+test("tracking.evaluate handler produces a valid artifact without LLM", async () => {
+  const ws = await setupWorkspace("handler-tracking-evaluate");
+  const step = claimedStep("tracking.evaluate", "GOOGL");
+  await writeJson(ws.strategyFile("GOOGL"), {
+    ...validStrategy("GOOGL", null),
+    assetScope: "tracking",
+    trackingStatus: "active",
+  });
+
+  const { executeTrackingEvaluateStep } = await import("./stepQueue/handlers/dailyBrief.js");
+  const result = await executeTrackingEvaluateStep(step, ws);
+
+  assert.equal(result.ticker, "GOOGL");
+  assert.ok(Array.isArray(result.signals));
+  assert.ok(typeof result.shouldEscalate === "boolean");
+  assert.ok(typeof result.signalSetFingerprint === "string");
+
+  // Artifact should be persisted
+  const artifactPath = path.join(ws.reportsDir, "GOOGL", "tracking_evaluate.json");
+  const raw = JSON.parse(await fs.readFile(artifactPath, "utf-8")) as { ticker?: string };
+  assert.equal(raw.ticker, "GOOGL");
+});
+
+test("tracking.evaluate never escalates muted assets", async () => {
+  const ws = await setupWorkspace("handler-tracking-muted");
+  const step = claimedStep("tracking.evaluate", "TSLA");
+  await writeJson(ws.strategyFile("TSLA"), {
+    ...validStrategy("TSLA", null),
+    assetScope: "tracking",
+    trackingStatus: "muted",
+  });
+
+  const { executeTrackingEvaluateStep } = await import("./stepQueue/handlers/dailyBrief.js");
+  const result = await executeTrackingEvaluateStep(step, ws);
+
+  assert.equal(result.shouldEscalate, false);
+  assert.deepEqual(result.signals, []);
+});
+
+test("quick_check.evaluate normalizer recovers missing strategy gracefully", async () => {
+  const ws = await setupWorkspace("handler-quick-check-missing-strategy");
+  const step = claimedStep("quick_check.evaluate", "NVDA");
+  // No strategy file written — should produce a signal and not throw
+
+  const { executeQuickCheckStep } = await import("./stepQueue/handlers/quickCheck.js");
+  const result = await executeQuickCheckStep(step, ws);
+
+  assert.equal(result.ticker, "NVDA");
+  assert.ok(result.signals.includes("strategy_invalid_or_missing"));
+  assert.equal(result.score, 0);
 });
