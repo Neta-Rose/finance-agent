@@ -71,12 +71,46 @@ function extractTextFromContent(content: unknown): string {
   return String(content ?? "");
 }
 
+/**
+ * Parse tool-call blocks from the model's text response.
+ * The model is instructed to emit:
+ *   ```tool_call
+ *   {"name": "...", "id": "...", "input": {...}}
+ *   ```
+ * We also handle native tool_use blocks from providers that support them.
+ */
 function extractToolUseBlocks(content: unknown): Array<{ id: string; name: string; input: unknown }> {
-  if (!Array.isArray(content)) return [];
-  return content.filter(
-    (b): b is { type: "tool_use"; id: string; name: string; input: unknown } =>
-      b && typeof b === "object" && b.type === "tool_use"
-  );
+  const blocks: Array<{ id: string; name: string; input: unknown }> = [];
+
+  // 1. Native tool_use blocks (Anthropic-style, for future native providers)
+  if (Array.isArray(content)) {
+    for (const b of content) {
+      if (b && typeof b === "object" && b.type === "tool_use" && typeof b.name === "string") {
+        blocks.push({ id: String(b.id ?? `tool_${Date.now()}`), name: b.name, input: b.input ?? {} });
+      }
+    }
+    if (blocks.length > 0) return blocks;
+  }
+
+  // 2. Text-based tool_call blocks (OpenRouter text response)
+  const text = extractTextFromContent(content);
+  const TOOL_CALL_RE = /```tool_call\s*\n([\s\S]*?)\n```/g;
+  let match: RegExpExecArray | null;
+  while ((match = TOOL_CALL_RE.exec(text)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1]!) as { name?: string; id?: string; input?: unknown };
+      if (typeof parsed.name === "string") {
+        blocks.push({
+          id: typeof parsed.id === "string" ? parsed.id : `tool_${Date.now()}_${blocks.length}`,
+          name: parsed.name,
+          input: parsed.input ?? {},
+        });
+      }
+    } catch {
+      // malformed JSON in tool_call block — skip
+    }
+  }
+  return blocks;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +198,7 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
     }
   }
   const modelName = resolvedModel?.primary ?? "google/gemini-2.5-flash";
-  const providerName = (resolvedModel as { provider?: string } | null)?.provider ?? "openrouter";
+  const providerName = resolvedModel?.provider ?? "openrouter";
   const provider = getLlmProvider(providerName as "openrouter" | "anthropic" | "openai" | "gemini");
 
   // Build tool registry
@@ -184,6 +218,41 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
     verdictActionsStore,
   };
   const tools = buildToolRegistry(toolCtx);
+  // Build the tool manifest to embed in the system prompt.
+  // OpenRouter supports native tool calling for Claude models via the `tools`
+  // parameter, but the current OpenRouterProvider uses the chat completions
+  // endpoint without tool_use. We embed the tool list as structured JSON in
+  // the system prompt so the model knows what tools are available and can
+  // request them by name in its response. The agentChat loop then parses
+  // the model's text output for tool-call requests.
+  //
+  // This is the Phase 5 approach. Phase 5 Anthropic/OpenAI/Gemini providers
+  // will use native tool calling once implemented.
+  const toolManifestJson = JSON.stringify(
+    tools.map((t) => ({
+      name: t.name,
+      category: t.category,
+      description: t.description,
+      parameters: t.inputSchema,
+      ...(t.costPoints !== undefined ? { costPoints: t.costPoints } : {}),
+      ...(t.requiresConfirmation ? { requiresConfirmation: true } : {}),
+    })),
+    null,
+    2
+  );
+  const personaWithTools = `${persona}
+
+## Available tools
+
+You have access to the following tools. To call a tool, respond with a JSON block in this exact format:
+\`\`\`tool_call
+{"name": "<tool_name>", "id": "<unique_id>", "input": {<args>}}
+\`\`\`
+
+After calling a tool, wait for the tool result before continuing.
+For action tools marked requiresConfirmation=true, propose the action in plain text first and wait for the user to confirm before emitting the tool_call block.
+
+${toolManifestJson}`;
 
   // Load history
   const history = await conversationStore.loadHistory(conversationId, maxTurns * 2);
@@ -218,13 +287,9 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
       resp = await provider.invoke({
         model: modelName,
         messages: [
-          { role: "system", content: persona },
+          { role: "system", content: personaWithTools },
           ...messages,
         ],
-        // Tool definitions passed as part of the message for OpenRouter compatibility.
-        // Phase 5 uses the OpenRouter provider which doesn't natively support tool_use;
-        // we embed the tool list in the system prompt as JSON for now.
-        // Phase 5 Anthropic/OpenAI/Gemini providers will use native tool calling.
       });
     } catch (err) {
       logger.warn(`agentChat: provider error user=${userId} conv=${conversationId}: ${(err as Error).message}`);
@@ -255,7 +320,9 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
 
     // No tool calls → final answer
     if (toolUseBlocks.length === 0) {
-      const filtered = await filterText(textContent, {
+      // Strip any tool_call blocks from the final text before showing to user
+      const cleanText = textContent.replace(/```tool_call[\s\S]*?```/g, "").trim();
+      const filtered = await filterText(cleanText || textContent, {
         conversationId,
         turnIndex: turnIndex - 1,
         site: "final_reply",

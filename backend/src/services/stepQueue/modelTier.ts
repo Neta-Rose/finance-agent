@@ -11,6 +11,7 @@ export interface ResolvedModel {
   tier: ModelTier;
   primary: string;
   fallback: string | null;
+  provider: string;
 }
 
 export interface ModelTierAssignment {
@@ -53,31 +54,29 @@ export const DEFAULT_MODEL_TIER_ASSIGNMENTS: Record<ModelTier, Record<StepKind, 
     "analyst.sentiment": "google/gemini-2.5-flash",
     "analyst.macro": "google/gemini-2.5-flash",
     "analyst.risk": "google/gemini-2.5-flash",
-    debate: "claude-sonnet-4-6",
-    synthesis: "claude-sonnet-4-6",
+    debate: "anthropic/claude-sonnet-4-5",
+    synthesis: "anthropic/claude-sonnet-4-5",
     "quick_check.evaluate": "none",
     "tracking.evaluate": "none",
     "chat_agent": "google/gemini-2.5-flash",
   },
   expensive: {
-    "analyst.fundamentals": "claude-sonnet-4-6",
-    "analyst.technical": "claude-sonnet-4-6",
-    "analyst.sentiment": "claude-sonnet-4-6",
-    "analyst.macro": "claude-sonnet-4-6",
-    "analyst.risk": "claude-sonnet-4-6",
-    debate: "claude-opus-4-7",
-    synthesis: "claude-opus-4-7",
+    "analyst.fundamentals": "anthropic/claude-sonnet-4-5",
+    "analyst.technical": "anthropic/claude-sonnet-4-5",
+    "analyst.sentiment": "anthropic/claude-sonnet-4-5",
+    "analyst.macro": "anthropic/claude-sonnet-4-5",
+    "analyst.risk": "anthropic/claude-sonnet-4-5",
+    debate: "anthropic/claude-opus-4-5",
+    synthesis: "anthropic/claude-opus-4-5",
     "quick_check.evaluate": "none",
     "tracking.evaluate": "none",
-    "chat_agent": "claude-sonnet-4-6",
+    "chat_agent": "anthropic/claude-sonnet-4-5",
   },
 };
 
 export function isModelTier(value: unknown): value is ModelTier {
   return typeof value === "string" && (MODEL_TIERS as readonly string[]).includes(value);
 }
-
-export async function readUserModelTier(userId: string): Promise<ModelTier> {
   try {
     const raw = await fs.readFile(path.join(USERS_DIR, userId, "profile.json"), "utf-8");
     const parsed = JSON.parse(raw) as { modelTier?: unknown };
@@ -99,38 +98,35 @@ export async function writeUserModelTier(userId: string, modelTier: ModelTier): 
   return modelTier;
 }
 
-export function namespaceModelForUser(userId: string, model: string): string {
-  const normalized = model.startsWith("openrouter/") ? model.slice("openrouter/".length) : model;
-  return normalized.startsWith(`clawd-${userId}/`) ? normalized : normalized;
-}
-
 export function resolveAssignedModel(
-  userId: string,
+  _userId: string,
   assignment: ModelTierAssignment
 ): ResolvedModel {
   return {
     tier: assignment.tier,
-    primary: namespaceModelForUser(userId, assignment.model),
-    fallback: assignment.fallback ? namespaceModelForUser(userId, assignment.fallback) : null,
+    primary: assignment.model,
+    fallback: assignment.fallback ?? null,
+    provider: "openrouter", // default; overridden by resolveStepModel when DB row has provider column
   };
 }
 
 export async function resolveStepModel(ds: DataSource, userId: string, stepKind: StepKind, tier: ModelTier): Promise<ResolvedModel> {
   const rows = await ds.query(
-    `SELECT tier, step_kind, model, fallback
+    `SELECT tier, step_kind, model, fallback, provider
        FROM model_tier_assignments
       WHERE tier = $1
         AND step_kind = $2
       LIMIT 1`,
     [tier, stepKind]
-  ) as Array<{ model: string; fallback: string | null }>;
+  ) as Array<{ model: string; fallback: string | null; provider?: string }>;
   const row = rows[0];
-  return resolveAssignedModel(userId, {
+  const base = resolveAssignedModel(userId, {
     tier,
     stepKind,
     model: row?.model ?? DEFAULT_MODEL_TIER_ASSIGNMENTS[tier][stepKind],
     fallback: row?.fallback ?? null,
   });
+  return { ...base, provider: row?.provider ?? "openrouter" };
 }
 
 export async function ensureDefaultModelTierAssignments(ds: DataSource): Promise<void> {

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { getApplicationDataSource, isApplicationDatabaseConfigured } from "../../db/applicationDataSource.js";
 import type { ConversationChannel, ConversationTerminationReason } from "../../db/entities/ConversationEntity.js";
 import type { TurnRole } from "../../db/entities/ConversationTurnEntity.js";
+import { unwrapMutationRows } from "../dbUtils.js";
 
 /**
  * Conversation store — Phase 5, task 5.8.
@@ -104,8 +105,9 @@ export async function appendTurn(
   const ds = await getApplicationDataSource();
 
   return ds.transaction(async (manager) => {
-    // Increment turn_count and get the new index atomically
-    const updated = await manager.query(
+    // Increment turn_count and get the new index atomically.
+    // unwrapMutationRows handles TypeORM's [rows, rowCount] UPDATE RETURNING shape.
+    const rawUpdated = await manager.query(
       `UPDATE conversations
           SET turn_count = turn_count + 1,
               total_tokens_in = total_tokens_in + $2,
@@ -119,8 +121,12 @@ export async function appendTurn(
         input.tokensOut ?? 0,
         input.costUsd ?? 0,
       ]
-    ) as Array<{ turn_count: number }>;
-    const turnIndex = (updated[0]?.turn_count ?? 1) - 1;
+    );
+    const updatedRows = unwrapMutationRows<{ turn_count: number }>(rawUpdated);
+    if (updatedRows.length === 0) {
+      throw new Error(`conversation_not_found: ${conversationId}`);
+    }
+    const turnIndex = updatedRows[0]!.turn_count - 1;
 
     const rows = await manager.query(
       `INSERT INTO conversation_turns

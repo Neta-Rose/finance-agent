@@ -3,6 +3,7 @@ import type {
   NotificationCategory,
   NotificationChannel,
 } from "../db/entities/NotificationEntity.js";
+import { unwrapMutationRows } from "./dbUtils.js";
 
 /**
  * Notification store — replaces `users/[id]/data/feed/notifications.json`
@@ -184,12 +185,12 @@ export async function listNotifications(
 export async function markRead(userId: string, ids: string[]): Promise<number> {
   if (!isApplicationDatabaseConfigured() || ids.length === 0) return 0;
   const ds = await getApplicationDataSource();
-  const updated = (await ds.query(
+  const raw = await ds.query(
     `UPDATE notifications_outbox
         SET read_at = NOW()
       WHERE user_id = $1 AND id = ANY($2::varchar[]) AND read_at IS NULL
       RETURNING id`,
     [userId, ids]
-  )) as Array<{ id: string }>;
-  return updated.length;
+  );
+  return unwrapMutationRows<{ id: string }>(raw).length;
 }

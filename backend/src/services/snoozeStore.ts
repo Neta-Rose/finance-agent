@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { getApplicationDataSource, isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
+import { unwrapMutationRows } from "./dbUtils.js";
 
 /**
  * Snooze store — `ticker_snoozes` (design §4.9, L2).
@@ -120,12 +121,12 @@ export async function listActiveSnoozes(userId: string): Promise<TickerSnoozeRec
 export async function cancelSnooze(userId: string, snoozeId: string): Promise<boolean> {
   if (!isApplicationDatabaseConfigured()) return false;
   const ds = await getApplicationDataSource();
-  const rows = (await ds.query(
+  const raw = await ds.query(
     `UPDATE ticker_snoozes
         SET snooze_until = NOW()
       WHERE user_id = $1 AND id = $2 AND snooze_until > NOW()
       RETURNING id`,
     [userId, snoozeId]
-  )) as Array<{ id: string }>;
-  return rows.length > 0;
+  );
+  return unwrapMutationRows<{ id: string }>(raw).length > 0;
 }

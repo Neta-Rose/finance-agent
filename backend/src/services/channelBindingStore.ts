@@ -1,5 +1,6 @@
 import { getApplicationDataSource, isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
 import type { ChannelBindingChannel } from "../db/entities/ChannelBindingEntity.js";
+import { unwrapMutationRows } from "./dbUtils.js";
 
 export type { ChannelBindingChannel } from "../db/entities/ChannelBindingEntity.js";
 
@@ -118,14 +119,14 @@ export async function unbindChannel(
 ): Promise<boolean> {
   if (!isApplicationDatabaseConfigured()) return false;
   const ds = await getApplicationDataSource();
-  const rows = (await ds.query(
+  const raw = await ds.query(
     `UPDATE channel_bindings
         SET unbound_at = NOW()
       WHERE channel = $1 AND channel_identifier = $2 AND unbound_at IS NULL
       RETURNING channel`,
     [channel, channelIdentifier]
-  )) as Array<{ channel: string }>;
-  return rows.length > 0;
+  );
+  return unwrapMutationRows<{ channel: string }>(raw).length > 0;
 }
 
 /** Persist or update the conversation id for a binding (D1.2 / D2.3). */

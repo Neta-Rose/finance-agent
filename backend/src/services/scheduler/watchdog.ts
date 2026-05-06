@@ -1,6 +1,7 @@
 import type { DataSource } from "typeorm";
 import { getApplicationDataSource, isApplicationDatabaseConfigured } from "../../db/applicationDataSource.js";
 import { logger } from "../logger.js";
+import { unwrapMutationRows } from "../dbUtils.js";
 
 /**
  * Postgres-only watchdog — replaces the file-based `watchdogService.ts`.
@@ -76,9 +77,9 @@ async function sweepStuckSteps(ds: DataSource): Promise<number> {
          ELSE ${defaultInterval}
        END
       RETURNING id, kind, user_id, job_id`
-  ) as Array<{ id: string; kind: string; user_id: string; job_id: string }>;
+  );
 
-  const validRows = Array.isArray(result) ? result.filter((r) => r && r.id) : [];
+  const validRows = unwrapMutationRows<{ id: string; kind: string; user_id: string; job_id: string }>(result);
   for (const row of validRows) {
     logger.warn(
       `Watchdog: reset stuck step step_id=${row.id} kind=${row.kind} user=${row.user_id} job=${row.job_id}`
@@ -118,9 +119,9 @@ async function sweepStuckJobs(ds: DataSource): Promise<number> {
          ELSE ${defaultInterval}
        END
       RETURNING id, action, user_id`
-  ) as Array<{ id: string; action: string; user_id: string }>;
+  );
 
-  const validRows = Array.isArray(result) ? result.filter((r) => r && r.id) : [];
+  const validRows = unwrapMutationRows<{ id: string; action: string; user_id: string }>(result);
   for (const row of validRows) {
     logger.warn(
       `Watchdog: failed stuck job job_id=${row.id} action=${row.action} user=${row.user_id}`
@@ -152,9 +153,9 @@ async function sweepAbandonedPendingJobs(ds: DataSource): Promise<number> {
       WHERE status = 'pending'
         AND triggered_at < NOW() - INTERVAL '${PENDING_JOB_STALE_MINUTES} minutes'
       RETURNING id, action, user_id`
-  ) as Array<{ id: string; action: string; user_id: string }>;
+  );
 
-  const validRows = Array.isArray(result) ? result.filter((r) => r && r.id) : [];
+  const validRows = unwrapMutationRows<{ id: string; action: string; user_id: string }>(result);
   for (const row of validRows) {
     logger.warn(
       `Watchdog: abandoned pending job job_id=${row.id} action=${row.action} user=${row.user_id}`
@@ -169,20 +170,26 @@ async function sweepAbandonedPendingJobs(ds: DataSource): Promise<number> {
 
 async function scan(): Promise<void> {
   if (!isApplicationDatabaseConfigured()) return;
-  const ds = await getApplicationDataSource();
-  const [steps, jobs, pending] = await Promise.all([
-    sweepStuckSteps(ds),
-    sweepStuckJobs(ds),
-    sweepAbandonedPendingJobs(ds),
-  ]);
-  if (steps > 0 || jobs > 0 || pending > 0) {
-    logger.info(
-      `Watchdog scan: reset_steps=${steps} failed_jobs=${jobs} abandoned_pending=${pending}`
-    );
+  scanning = true;
+  try {
+    const ds = await getApplicationDataSource();
+    const [steps, jobs, pending] = await Promise.all([
+      sweepStuckSteps(ds),
+      sweepStuckJobs(ds),
+      sweepAbandonedPendingJobs(ds),
+    ]);
+    if (steps > 0 || jobs > 0 || pending > 0) {
+      logger.info(
+        `Watchdog scan: reset_steps=${steps} failed_jobs=${jobs} abandoned_pending=${pending}`
+      );
+    }
+  } finally {
+    scanning = false;
   }
 }
 
 let interval: ReturnType<typeof setInterval> | null = null;
+let scanning = false; // R9: prevent concurrent sweeps
 
 export function startWatchdog(): void {
   if (interval) return;
@@ -195,6 +202,7 @@ export function startWatchdog(): void {
   }, 30_000);
 
   interval = setInterval(() => {
+    if (scanning) return; // R9: skip if previous sweep is still running
     scan().catch((err: Error) =>
       logger.error(`Watchdog scan error: ${err.message}`)
     );

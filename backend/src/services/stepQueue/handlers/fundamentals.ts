@@ -62,7 +62,11 @@ export const fundamentalsHandler = makePromptHandler({
       balanceSheet: enumValue(obj["balanceSheet"], ["healthy", "concerning", "unknown"] as const, "unknown"),
       insiderActivity: enumValue(obj["insiderActivity"], ["buying", "selling", "none", "unknown"] as const, "unknown"),
       fundamentalView: typeof obj["fundamentalView"] === "string" ? obj["fundamentalView"] : "Low-cost model returned partial fundamentals; missing fields were defaulted to unknown.",
-      sources: Array.isArray(obj["sources"]) && obj["sources"].length > 0 ? obj["sources"] : ["https://finance.yahoo.com/"],
+      sources: (() => {
+        const raw = Array.isArray(obj["sources"]) ? (obj["sources"] as unknown[]) : [];
+        const valid = raw.filter((s): s is string => typeof s === "string" && /^https?:\/\//.test(s));
+        return valid.length > 0 ? valid : ["https://finance.yahoo.com/"];
+      })(),
     };
   },
   buildUserPrompt(inputs) {
