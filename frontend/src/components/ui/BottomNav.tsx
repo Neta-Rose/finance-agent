@@ -17,7 +17,7 @@ export function BottomNav() {
  return (
  <nav
    className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--color-border)] safe-bottom"
-   style={{ background: "#111111" }}
+   style={{ background: "var(--color-bg-base)" }}
  >
  <div className="flex h-14">
  {tabs.map(({ to, icon: Icon, labelKey }) => (

@@ -157,7 +157,7 @@ async function runDueDailyBriefs(): Promise<void> {
         if (hasActiveDaily) return;
 
         logger.info(`Daily scheduler (legacy): triggering daily_brief for ${user.userId} at ${time.minuteKey}`);
-        const job = await createJob(ws, "daily_brief", undefined, { dispatch: false });
+        const job = await createJob(ws, "daily_brief");
         await runDailyBriefJob(ws, job);
       } else {
         // Step-queue path: admit a daily_brief job through the step queue

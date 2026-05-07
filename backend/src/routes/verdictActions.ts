@@ -47,7 +47,7 @@ router.post(
       ticker: parsed.data.ticker,
       strategyVersion: 1, // will be updated when strategies table is the source of truth
       decision: parsed.data.decision,
-      note: parsed.data.note,
+      note: parsed.data.note ?? null,
     });
     res.json({ verdictActionId: record.id });
   })

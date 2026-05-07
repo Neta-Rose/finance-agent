@@ -11,7 +11,6 @@ import {
 import { fetchOnboardStatus } from "../api/onboarding";
 import { fetchJobs } from "../api/jobs";
 import { triggerJob } from "../api/jobs";
-import { fetchBalance } from "../api/balance";
 import { PositionRow } from "../components/portfolio/PositionRow";
 import { PositionDetailModal } from "../components/portfolio/PositionDetailModal";
 import { StrategyModal } from "../components/portfolio/StrategyModal";
@@ -195,13 +194,6 @@ export function Portfolio() {
     refetchInterval: 15_000,
   });
 
-  const { data: balance } = useQuery({
-    queryKey: ["balance"],
-    queryFn: fetchBalance,
-    staleTime: 15_000,
-    refetchInterval: 30_000,
-    retry: 1,
-  });
 
   const verdictMap = useMemo(() => {
     const map: Record<string, VerdictRow> = {};
@@ -569,34 +561,7 @@ export function Portfolio() {
             >
               {onboardStatus?.displayName ? `Hey ${onboardStatus.displayName} —` : "Hey —"}
             </p>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {balance && (
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "3px 10px",
-                    borderRadius: "var(--radius-pill)",
-                    border: `0.5px solid ${balance.exhausted ? "rgba(226,80,80,0.35)" : "rgba(66,201,122,0.28)"}`,
-                    background: balance.exhausted ? "rgba(226,80,80,0.08)" : "rgba(66,201,122,0.08)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "var(--text-xs)",
-                      fontWeight: "var(--weight-bold)",
-                      color: balance.exhausted ? "var(--color-red)" : "var(--color-green)",
-                    }}
-                  >
-                    {balance.pointsRemaining >= 1000
-                      ? `${(balance.pointsRemaining / 1000).toFixed(1)}k`
-                      : balance.pointsRemaining.toFixed(1)}{" "}
-                    pts
-                  </span>
-                </div>
-              )}
-              <button
+            <button
                 type="button"
                 onClick={() => refetch()}
                 style={{
@@ -610,7 +575,6 @@ export function Portfolio() {
               >
                 <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
               </button>
-            </div>
           </div>
 
           <h2

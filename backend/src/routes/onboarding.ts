@@ -25,17 +25,12 @@ import {
   saveUserPortfolio,
   startUserBootstrap,
 } from "../services/workspaceService.js";
-import { hasPendingAgentManagedWork } from "../services/jobService.js";
-import {
-  getUserAgentHealth,
-} from "../services/agentService.js";
 import { DEFAULT_RATE_LIMITS } from "../types/index.js";
 import type { RateLimits } from "../types/index.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { userIsolationMiddleware } from "../middleware/userIsolation.js";
 import { getNotificationPreferences, setNotificationPreferences } from "../services/notificationService.js";
 import { readState, writeState } from "../services/stateService.js";
-import { classifyUserAgentHealth } from "../services/startupService.js";
 import {
   connectUserTelegramChannel,
   connectUserWhatsAppChannel,
@@ -349,18 +344,10 @@ router.get(
 
     const rateLimits: RateLimits = (profile?.rateLimits as RateLimits) ?? DEFAULT_RATE_LIMITS;
 
-    const [rawAgentHealth, connectivity, notifications] = await Promise.all([
-      getUserAgentHealth(userId),
+    const [connectivity, notifications] = await Promise.all([
       getUserChannelConnectivity(userId),
       getNotificationPreferences(userId),
     ]);
-    const hasAgentManagedWork = await hasPendingAgentManagedWork(ws);
-    const agentHealth = classifyUserAgentHealth(rawAgentHealth, {
-      state: stateData.state,
-      restriction: null,
-      eligibilityIssue: stateData.state === "ACTIVE" && !portfolioLoaded ? "portfolio missing" : null,
-      hasAgentManagedWork,
-    });
 
     res.json({
       userId,
@@ -377,7 +364,7 @@ router.get(
       notifications,
       telegramConnected: connectivity.telegram.connected,
       connectivity,
-      agentHealthy: agentHealth.healthy,
+      agentHealthy: true,
     });
   })
 );

@@ -1,13 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
-import {
-  disconnectUserTelegram as disconnectUserTelegramRuntime,
-  getUserAgentStatus,
-  restartGateway,
-  updateUserTelegram,
-} from "./agentService.js";
 import { resolveConfiguredPath } from "./paths.js";
 import { WhatsAppConnectionSchema, type WhatsAppConnection } from "../schemas/channels.js";
+import { listBindingsForUser, unbindChannel } from "./channelBindingStore.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 
@@ -52,15 +47,17 @@ export async function getStoredWhatsAppConnection(userId: string): Promise<Whats
 }
 
 export async function getUserChannelConnectivity(userId: string): Promise<UserChannelConnectivity> {
-  const [telegramStatus, whatsappConnection] = await Promise.all([
-    getUserAgentStatus(userId),
+  const [bindings, whatsappConnection] = await Promise.all([
+    listBindingsForUser(userId),
     getStoredWhatsAppConnection(userId),
   ]);
 
+  const telegramBinding = bindings.find((b) => b.channel === "telegram");
+
   return {
     telegram: {
-      connected: telegramStatus.hasTelegram,
-      target: telegramStatus.telegramChatId ?? null,
+      connected: telegramBinding !== undefined,
+      target: telegramBinding?.channelIdentifier ?? null,
     },
     whatsapp: {
       connected: whatsappConnection !== null,
@@ -75,26 +72,24 @@ export async function getUserChannelConnectivity(userId: string): Promise<UserCh
 
 export async function connectUserTelegramChannel(
   userId: string,
-  botToken: string,
+  _botToken: string,
   telegramChatId: string
 ): Promise<void> {
-  await updateUserTelegram(userId, botToken, telegramChatId);
-
   const profile = await readProfileRecord(userId);
   profile.telegramChatId = telegramChatId;
   await writeProfileRecord(userId, profile);
-
-  await restartGateway();
 }
 
 export async function disconnectUserTelegramChannel(userId: string): Promise<void> {
-  await disconnectUserTelegramRuntime(userId);
+  const bindings = await listBindingsForUser(userId);
+  const telegramBinding = bindings.find((b) => b.channel === "telegram");
+  if (telegramBinding) {
+    await unbindChannel("telegram", telegramBinding.channelIdentifier);
+  }
 
   const profile = await readProfileRecord(userId);
   delete profile.telegramChatId;
   await writeProfileRecord(userId, profile);
-
-  await restartGateway();
 }
 
 export async function connectUserWhatsAppChannel(

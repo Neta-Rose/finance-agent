@@ -7,11 +7,7 @@ import {
   UserConfigSchema,
 } from "../schemas/profile.js";
 import type { ProfileDefinition, ProfilesRegistry, UserPlan } from "../schemas/profile.js";
-import {
-  applyProfileToAgent,
-  restartGateway,
-  SYSTEM_AGENT_ID,
-} from "./agentService.js";
+const SYSTEM_AGENT_ID = "main";
 import { resolveConfiguredPath } from "./paths.js";
 
 const DATA_DIR = resolveConfiguredPath(process.env["DATA_DIR"], "../data");
@@ -225,10 +221,6 @@ export async function setUserProfile(
     "utf-8"
   );
 
-  // Enforce: write the model into the agent's openclaw entry, then restart gateway
-  await applyProfileToAgent(userId, profile.orchestrator, profile.analysts);
-  await restartGateway();
-
   logger.info(`Set profile for ${userId}: ${profileName}`);
 }
 
@@ -243,18 +235,10 @@ export async function setSystemAgentProfile(profileName: string): Promise<void> 
     "utf-8"
   );
 
-  await applyProfileToAgent(
-    SYSTEM_AGENT_ID,
-    profile.orchestrator,
-    profile.analysts
-  );
-  await restartGateway();
-
   logger.info(`Set profile for ${SYSTEM_AGENT_ID}: ${profileName}`);
 }
 
 export async function syncAllUserProfiles(): Promise<boolean> {
-  let changed = false;
   let entries: Array<{ name: string; isDirectory(): boolean }> = [];
   try {
     entries = (await fs.readdir(USERS_DIR, {
@@ -280,13 +264,10 @@ export async function syncAllUserProfiles(): Promise<boolean> {
     const profile = await getProfile(status.name);
     if (!profile) continue;
 
-    if (await applyProfileToAgent(userId, profile.orchestrator, profile.analysts)) {
-      changed = true;
-    }
   }
 
-  logger.info(`Reconciled model profiles for all users${changed ? " (changed)" : " (no changes)"}`);
-  return changed;
+  logger.info(`Reconciled model profiles for all users (no changes)`);
+  return false;
 }
 
 export async function syncSystemAgentProfile(): Promise<boolean> {
@@ -298,14 +279,6 @@ export async function syncSystemAgentProfile(): Promise<boolean> {
     return false;
   }
 
-  const profile = await getProfile(status.name);
-  if (!profile) return false;
-
-  const changed = await applyProfileToAgent(
-    SYSTEM_AGENT_ID,
-    profile.orchestrator,
-    profile.analysts
-  );
-  logger.info(`Reconciled model profile for root system agent${changed ? " (changed)" : " (no changes)"}`);
-  return changed;
+  logger.info(`Reconciled model profile for root system agent (no changes)`);
+  return false;
 }

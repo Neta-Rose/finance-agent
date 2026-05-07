@@ -9,11 +9,8 @@ import {
   reconcileFailedDeepDiveJob,
 } from "./deepDiveService.js";
 import { reconcileFailedFullReportJob, reconcileFullReportJob } from "./fullReportService.js";
-import { getUserAgentStatus, reconcileUserHeartbeatCron } from "./agentService.js";
 import { getUserControl } from "./controlService.js";
-import { hasPendingAgentManagedWork } from "./jobService.js";
-import { getActiveUserEligibility, readState, repairActiveUserState } from "./stateService.js";
-import { shouldUserHeartbeatBeEnabled } from "./startupService.js";
+import { repairActiveUserState } from "./stateService.js";
 import type { Job } from "../types/index.js";
 
 const SCAN_INTERVAL_MS = 30 * 1000;
@@ -57,22 +54,7 @@ async function readActiveJobs(userId: string): Promise<Array<Job>> {
 async function scanUser(userId: string): Promise<void> {
   const workspace = buildWorkspace(userId, USERS_DIR);
   await repairActiveUserState(userId);
-  const state = await readState(userId);
-  const userCtrl = await getUserControl(userId);
-  const agentStatus = await getUserAgentStatus(userId);
-  const hasAgentManagedWork = await hasPendingAgentManagedWork(workspace);
-  const eligibility = state.state === "ACTIVE"
-    ? await getActiveUserEligibility(userId)
-    : { eligible: true, reason: null };
-  await reconcileUserHeartbeatCron(
-    userId,
-    agentStatus.configured && shouldUserHeartbeatBeEnabled({
-      state: state.state,
-      restriction: userCtrl.restriction,
-      eligibilityIssue: eligibility.eligible ? null : eligibility.reason,
-      hasAgentManagedWork,
-    })
-  );
+  await getUserControl(userId); // ensure control record exists
   const jobs = await readActiveJobs(userId);
 
   for (const job of jobs) {

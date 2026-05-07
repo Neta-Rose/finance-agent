@@ -167,14 +167,26 @@ async function updateOutboxRecord(
 
 async function getTelegramTarget(userId: string): Promise<{ botToken: string; chatId: string } | null> {
   try {
-    const { readConfig } = await import("./agentService.js");
-    const config = await readConfig();
-    const account = config.channels?.telegram?.accounts?.[userId] as
-      | { botToken?: string; allowFrom?: string[] }
-      | undefined;
-    const botToken = account?.botToken;
-    const chatId = account?.allowFrom?.[0];
-    if (!botToken || !chatId) return null;
+    const { isApplicationDatabaseConfigured, getApplicationDataSource } = await import("../db/applicationDataSource.js");
+    if (!isApplicationDatabaseConfigured()) return null;
+    const ds = await getApplicationDataSource();
+    const [bindingRows, secretRows] = await Promise.all([
+      ds.query(
+        `SELECT channel_identifier FROM channel_bindings
+          WHERE user_id = $1 AND channel = 'telegram' AND unbound_at IS NULL
+          LIMIT 1`,
+        [userId]
+      ) as Promise<Array<{ channel_identifier: string }>>,
+      ds.query(
+        `SELECT ciphertext FROM encrypted_secrets
+          WHERE user_id = $1 AND secret_kind = 'telegram_bot_token'
+          LIMIT 1`,
+        [userId]
+      ) as Promise<Array<{ ciphertext: Buffer }>>,
+    ]);
+    const chatId = bindingRows[0]?.channel_identifier;
+    const botToken = secretRows[0]?.ciphertext?.toString("utf-8");
+    if (!chatId || !botToken) return null;
     return { botToken, chatId };
   } catch {
     return null;

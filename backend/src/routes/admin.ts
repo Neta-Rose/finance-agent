@@ -2,18 +2,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { promises as fs } from "fs";
 import path from "path";
 import { isApplicationDatabaseConfigured, getApplicationDataSource } from "../db/applicationDataSource.js";
-import {
-  addUserAgent,
-  removeUserAgent,
-  restartGateway,
-  getUserAgentStatus,
-  getUserAgentHealth,
-  reconcileUserHeartbeatCron,
-  wakeAgent,
-  getSystemAgentStatus,
-  SYSTEM_AGENT_ID,
-  readConfig,
-} from "../services/agentService.js";
+import { admitOrReuseStepQueueJob } from "../services/stepQueue/admission.js";
+import { ensurePointsBudgetAvailable } from "../services/pointsBudgetService.js";
+import { requiresBudgetAdmission } from "../services/jobAdmissionService.js";
 import { createUserWorkspace, validateWorkspaceIntegrity, workspaceExists } from "../services/workspaceService.js";
 import { hashPassword } from "../middleware/auth.js";
 import { logger } from "../services/logger.js";
@@ -38,24 +29,30 @@ import {
   setSystemControl,
   incrementTokenVersion,
 } from "../services/controlService.js";
-import { updateJob, createJob, listJobs, getJob } from "../services/jobService.js";
-import { hasPendingAgentManagedWork } from "../services/jobService.js";
+import { updateJob, listJobs, getJob } from "../services/jobService.js";
 import { buildWorkspace } from "../middleware/userIsolation.js";
 import type { JobAction, Job } from "../types/index.js";
 import { connectUserTelegramChannel } from "../services/channelService.js";
 import { listSupportMessages, updateSupportMessageStatus } from "../services/supportService.js";
-import { getActiveUserEligibility, readState } from "../services/stateService.js";
+import { getActiveUserEligibility } from "../services/stateService.js";
 import { markDeepDiveJobCancelled } from "../services/deepDiveService.js";
 import {
   getUserPointsBalanceSnapshot,
   getUserPointsBudget,
   setUserPointsBudget,
 } from "../services/pointsBudgetService.js";
-import {
-  classifySystemAgentHealth,
-  classifyUserAgentHealth,
-  shouldUserHeartbeatBeEnabled,
-} from "../services/startupService.js";
+const SYSTEM_AGENT_ID = "main";
+
+const OPENCLAW_RETIRED_HEALTH = {
+  healthy: true,
+  consecutiveErrors: 0,
+  lastError: null as null,
+  lastErrorReason: null as null,
+  lastRunAt: null as null,
+  classification: "inactive" as const,
+  statusReason: "openclaw_retired",
+  operational: false,
+};
 import {
   ensureDefaultModelTierAssignments,
   isModelTier,
@@ -63,7 +60,7 @@ import {
   writeUserModelTier,
 } from "../services/stepQueue/modelTier.js";
 import { MODEL_TIERS, STEP_KINDS } from "../services/stepQueue/types.js";
-import type { ModelTier, StepKind } from "../services/stepQueue/types.js";
+import type { ModelTier, StepKind, JobAction as StepQueueJobAction } from "../services/stepQueue/types.js";
 import { getAdminDefaults, updateAdminDefaults, type AdminDefaultsPatch } from "../services/adminDefaultsService.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
@@ -269,32 +266,23 @@ router.get(
           portfolioLoaded = true;
         } catch { /* no portfolio */ }
 
-        const [agentStatus, profileStatus, rawAgentHealth, userCtrl, activeEligibility, integrity, hasAgentManagedWork] = await Promise.all([
-          getUserAgentStatus(userId),
+        const [profileStatus, userCtrl, activeEligibility, integrity] = await Promise.all([
           getUserProfileStatus(userId),
-          getUserAgentHealth(userId),
           getUserControl(userId),
           state === "ACTIVE"
             ? getActiveUserEligibility(userId)
             : Promise.resolve({ eligible: true, reason: null }),
           validateWorkspaceIntegrity(userId),
-          hasPendingAgentManagedWork(buildWorkspace(userId, USERS_DIR)),
         ]);
-        const agentHealth = classifyUserAgentHealth(rawAgentHealth, {
-          state,
-          restriction: userCtrl.restriction,
-          eligibilityIssue: activeEligibility.eligible ? null : activeEligibility.reason,
-          hasAgentManagedWork,
-        });
 
         return {
           userId,
           displayName,
           state,
           portfolioLoaded,
-          agentConfigured: agentStatus.configured,
-          hasTelegram: agentStatus.hasTelegram,
-          telegramChatId: agentStatus.telegramChatId,
+          agentConfigured: false,
+          hasTelegram: false,
+          telegramChatId: undefined,
           createdAt,
           rateLimits,
           schedule,
@@ -303,7 +291,7 @@ router.get(
           modelProfile: profileStatus.name,
           profileBroken: profileStatus.broken,
           profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
-          agentHealth,
+          agentHealth: OPENCLAW_RETIRED_HEALTH,
           restriction: userCtrl.restriction,
           eligibilityIssue: activeEligibility.eligible ? null : activeEligibility.reason,
           integrityValid: integrity.valid,
@@ -327,7 +315,6 @@ router.post(
     const password = String(body.password ?? "");
     const displayName = String(body.displayName ?? userId).trim();
     const telegramChatId = body.telegramChatId ? String(body.telegramChatId) : undefined;
-    const botToken = body.telegramBotToken ? String(body.telegramBotToken) : undefined;
     const schedule = (body.schedule as Record<string, string>) ?? {
       dailyBriefTime: "08:00",
       weeklyResearchDay: "sunday",
@@ -381,25 +368,10 @@ router.post(
     await setUserPointsBudget(userId, pointsBudget);
 
     try {
-      if (botToken && telegramChatId) {
-        await addUserAgent(userId, ws.root, botToken, telegramChatId);
-      } else {
-        await addUserAgent(userId, ws.root);
-      }
-    } catch (err) {
-      logger.warn(`Failed to add agent for ${userId}`, { err });
-    }
-
-    // Apply the default profile ("testing") to the agent's openclaw entry.
-    // addUserAgent() already restarted the gateway — setUserProfile restarts again
-    // which is acceptable on creation (rare path).
-    try {
       await setUserProfile(userId, "testing");
     } catch (err) {
       logger.warn(`Failed to apply default model profile for ${userId}: ${err}`);
     }
-
-    await reconcileUserHeartbeatCron(userId, false);
 
     res.status(201).json({ userId, created: true });
   })
@@ -420,8 +392,6 @@ router.delete(
     const userRoot = path.join(USERS_DIR, userId);
     const archiveDir = path.join(USERS_DIR, ".archived");
 
-    try { await removeUserAgent(userId); } catch (err) { logger.warn(`remove agent failed: ${userId}`, { err }); }
-
     try {
       await fs.access(userRoot);
       // Workspace exists — archive it
@@ -438,7 +408,6 @@ router.delete(
       logger.info(`Workspace already absent for ${userId}, skipping archive`);
     }
 
-    await restartGateway();
     res.json({ deleted: true });
   })
 );
@@ -534,51 +503,32 @@ router.post(
 router.get(
   "/status",
   handler(async (_req, res) => {
-    let gatewayRunning = false;
     let totalUsers = 0;
-    let activeAgents = 0;
-
-    try {
-      await fs.access("/root/.openclaw/openclaw.json");
-      gatewayRunning = true;
-    } catch { /* not running */ }
 
     try {
       const dirents = await fs.readdir(USERS_DIR, { withFileTypes: true });
       totalUsers = dirents.filter((e) => e.isDirectory() && !e.name.startsWith('.')).length;
     } catch { /* ignore */ }
 
-    try {
-      const config = await readConfig();
-      activeAgents = config.agents?.list?.length ?? totalUsers;
-    } catch {
-      activeAgents = totalUsers;
-    }
-
-    res.json({ gatewayRunning, totalUsers, activeAgents });
+    res.json({ gatewayRunning: false, totalUsers, activeAgents: 0 });
   })
 );
 
 router.get(
   "/system-agent",
   handler(async (_req, res) => {
-    const [agentStatus, profileStatus, rawAgentHealth] = await Promise.all([
-      getSystemAgentStatus(),
-      getSystemAgentProfileStatus(),
-      getUserAgentHealth(SYSTEM_AGENT_ID),
-    ]);
-    const agentHealth = classifySystemAgentHealth(rawAgentHealth);
+    const profileStatus = await getSystemAgentProfileStatus();
 
     res.json({
       agentId: SYSTEM_AGENT_ID,
       workspace: "/root/clawd",
-      configured: agentStatus.configured,
-      hasTelegram: agentStatus.hasTelegram,
-      telegramAccountId: agentStatus.telegramAccountId,
+      configured: false,
+      hasTelegram: false,
+      telegramAccountId: undefined,
       modelProfile: profileStatus.name,
       profileBroken: profileStatus.broken,
       profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
-      agentHealth,
+      agentHealth: OPENCLAW_RETIRED_HEALTH,
     });
   })
 );
@@ -1015,7 +965,6 @@ router.patch(
       restrictedUntil: body.restrictedUntil ?? null,
       banner:          body.banner as Parameters<typeof setUserControl>[1]["banner"] ?? null,
     });
-    await reconcileUserHeartbeatCron(userId, false);
     res.json({ updated: true, userId, control: await getUserControl(userId) });
   })
 );
@@ -1027,26 +976,6 @@ router.delete(
     const userId = req.params.userId as string;
     if (!userId) { res.status(400).json({ error: "userId required" }); return; }
     await clearUserControl(userId);
-    let shouldEnableCron = false;
-    try {
-      const state = await readState(userId);
-      const agentStatus = await getUserAgentStatus(userId);
-      const hasAgentManagedWork = await hasPendingAgentManagedWork(
-        buildWorkspace(userId, USERS_DIR)
-      );
-      const eligibility = state.state === "ACTIVE"
-        ? await getActiveUserEligibility(userId)
-        : { eligible: true, reason: null };
-      shouldEnableCron = agentStatus.configured && shouldUserHeartbeatBeEnabled({
-        state: state.state,
-        restriction: null,
-        eligibilityIssue: eligibility.eligible ? null : eligibility.reason,
-        hasAgentManagedWork,
-      });
-    } catch {
-      shouldEnableCron = false;
-    }
-    await reconcileUserHeartbeatCron(userId, shouldEnableCron);
     res.json({ cleared: true, userId });
   })
 );
@@ -1118,9 +1047,31 @@ router.post(
       res.status(400).json({ error: `${action} requires ticker` });
       return;
     }
+    if (action === "switch_production" || action === "switch_testing") {
+      res.status(400).json({ error: `${action} is not a step-queue action — use the profile switch endpoint` });
+      return;
+    }
+    if (!requireStepQueueDatabase(res)) return;
     const ws = buildWorkspace(userId, USERS_DIR);
-    const job = await createJob(ws, action as JobAction, ticker);
-    res.status(201).json({ job });
+    const budgetGate = await ensurePointsBudgetAvailable(userId);
+    if (!budgetGate.allowed) {
+      res.status(202).json({ error: "points_budget_exhausted", reason: budgetGate.reason });
+      return;
+    }
+    const admitted = await admitOrReuseStepQueueJob({
+      workspace: ws,
+      action: action as StepQueueJobAction,
+      ticker,
+      source: "admin",
+      budgetAdmittedAt: requiresBudgetAdmission({ action: action as JobAction }) ? new Date() : null,
+    });
+    res.status(admitted.reused ? 200 : 201).json({
+      jobId: admitted.jobId,
+      stepQueue: true,
+      reused: admitted.reused,
+      tickerCount: admitted.tickerCount,
+      stepCount: admitted.stepCount,
+    });
   })
 );
 
@@ -1178,45 +1129,27 @@ router.delete(
   })
 );
 
-// POST /api/admin/users/:userId/jobs/:jobId/continue — retry/nudge a job
+// POST /api/admin/users/:userId/jobs/:jobId/continue — retry a job via step queue
 router.post(
   "/users/:userId/jobs/:jobId/continue",
   handler(async (req, res) => {
     const { userId, jobId } = req.params as { userId: string; jobId: string };
     if (!userId || !jobId) { res.status(400).json({ error: "userId and jobId required" }); return; }
+    if (!requireStepQueueDatabase(res)) return;
     const ws = buildWorkspace(userId, USERS_DIR);
     const job = await getJob(ws, jobId);
-
-    if (job.status === "failed" || job.status === "cancelled") {
-      // Reset to pending, recreate trigger file
-      const reset: Job = {
-        ...job,
-        status: "pending",
-        started_at: null,
-        completed_at: null,
-        result: null,
-        error: null,
-        triggered_at: new Date().toISOString(),
-      };
-      await fs.writeFile(ws.jobFile(jobId), JSON.stringify(reset, null, 2), "utf-8");
-      await fs.mkdir(ws.triggersDir, { recursive: true });
-      await fs.writeFile(path.join(ws.triggersDir, `${jobId}.json`), JSON.stringify(reset, null, 2), "utf-8");
+    if (job.action === "switch_production" || job.action === "switch_testing") {
+      res.status(400).json({ error: `${job.action} is not a step-queue action — cannot continue via step queue` });
+      return;
     }
-
-    // For pending, running, or just-reset-failed: wake the agent
-    wakeAgent(userId);
-    res.json({ continued: true, userId, jobId, previousStatus: job.status });
-  })
-);
-
-// POST /api/admin/users/:userId/wake — wake agent to process all pending triggers
-router.post(
-  "/users/:userId/wake",
-  handler(async (req, res) => {
-    const { userId } = req.params as { userId: string };
-    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
-    wakeAgent(userId);
-    res.json({ woken: true, userId });
+    const admitted = await admitOrReuseStepQueueJob({
+      workspace: ws,
+      action: job.action as StepQueueJobAction,
+      ticker: job.ticker ?? undefined,
+      source: "admin",
+      budgetAdmittedAt: requiresBudgetAdmission({ action: job.action as JobAction }) ? new Date() : null,
+    });
+    res.json({ continued: true, userId, previousJobId: jobId, newJobId: admitted.jobId, reused: admitted.reused });
   })
 );
 

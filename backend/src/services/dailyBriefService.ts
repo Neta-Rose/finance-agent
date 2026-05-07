@@ -8,7 +8,6 @@ import { getPricesParallel, getUsdIlsRate } from "./priceService.js";
 import { performQuickCheck, type QuickCheckOutcome } from "./quickCheckService.js";
 import { updateJob } from "./jobService.js";
 import { readState, writeState } from "./stateService.js";
-import { getUserPlan } from "./profileService.js";
 import { publishNotification } from "./notificationService.js";
 import { listTrackedAssets } from "./trackedAssetService.js";
 import { loadStrategyFile } from "./strategyFileService.js";

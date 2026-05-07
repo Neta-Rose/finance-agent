@@ -338,7 +338,7 @@ export async function triggerUserJob(
   }
 
   // Legacy path (gated by legacy_job_runners_enabled = true)
-  const job = await createJob(ws, action, ticker, { dispatch: false, source });
+  const job = await createJob(ws, action, ticker, { source });
   const budgetGate = await ensurePointsBudgetAvailable(ws.userId);
   if (!budgetGate.allowed) {
     const paused = await pauseJobForBudgetExhaustion(ws, job, budgetGate.reason);

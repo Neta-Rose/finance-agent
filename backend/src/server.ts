@@ -3,11 +3,6 @@ import { createApp } from "./app.js";
 import { logger } from "./services/logger.js";
 import { eventStore } from "./services/eventStore.js";
 import { startWatchdog } from "./services/scheduler/watchdog.js";
-import {
-  ensureAllProxyProviders,
-  wakeAgentsWithPendingTriggers,
-  ensureSystemAgent,
-} from "./services/agentService.js";
 import { syncAllUserProfiles, syncSystemAgentProfile } from "./services/profileService.js";
 import { startDailyScheduler } from "./services/dailySchedulerService.js";
 import { repairActiveUserState } from "./services/stateService.js";
@@ -31,22 +26,6 @@ const USERS_DIR = process.env["USERS_DIR"] ?? "/root/clawd/users";
 
 const app = createApp();
 
-async function reconcileStartupRuntime(): Promise<void> {
-  try {
-    // Phase 3: ensureSystemAgent, ensureAllProxyProviders, syncAllUserProfiles,
-    // syncSystemAgentProfile all return false (no-ops) after OpenClaw retirement.
-    // We keep the calls so the function signature is stable; they log nothing.
-    await ensureSystemAgent();
-    await ensureAllProxyProviders();
-    await syncAllUserProfiles();
-    await syncSystemAgentProfile();
-    logger.info("Startup runtime reconciliation complete (OpenClaw retired — no gateway ops)");
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    logger.warn(`Startup runtime reconciliation failed: ${message}`);
-  }
-}
-
 async function reconcileStartupOperationalState(): Promise<void> {
   try {
     const userIds = await listWorkspaceUserIds();
@@ -61,9 +40,6 @@ async function reconcileStartupOperationalState(): Promise<void> {
         workspaceRepairs += 1;
       }
     }
-
-    // Phase 3: wakeAgentsWithPendingTriggers is a no-op after OpenClaw retirement.
-    await wakeAgentsWithPendingTriggers();
 
     logger.info(
       `Startup operational reconciliation complete: users=${userIds.length} workspaceRepairs=${workspaceRepairs}`
@@ -105,7 +81,8 @@ async function bootstrap(): Promise<void> {
     startObservabilityRetentionLoop();
     startStepQueueExecutor();
     setImmediate(() => {
-      void reconcileStartupRuntime();
+      void syncAllUserProfiles();
+      void syncSystemAgentProfile();
       void reconcileStartupOperationalState();
     });
   });

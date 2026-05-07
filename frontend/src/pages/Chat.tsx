@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { MessageCircle, Send, Loader2, AlertCircle, Plus } from "lucide-react";
-import { sendChatMessage, getConversationHistory } from "../api/chat";
+import { sendChatMessage } from "../api/chat";
 import { clsx } from "clsx";
 
 /**
@@ -148,7 +148,7 @@ export function Chat() {
       {/* Header */}
       <div
         className="flex items-center justify-between gap-2 px-4 py-3 border-b"
-        style={{ borderColor: "var(--color-border)", background: "#111111" }}
+        style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}
       >
         <div className="flex items-center gap-2">
           <MessageCircle size={18} style={{ color: "var(--color-accent-blue)" }} />
@@ -273,7 +273,7 @@ export function Chat() {
       {/* Input */}
       <div
         className="px-4 py-3 border-t"
-        style={{ borderColor: "var(--color-border)", background: "#111111" }}
+        style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}
       >
         <div
           className="flex items-end gap-2 rounded-2xl border px-3 py-2"
