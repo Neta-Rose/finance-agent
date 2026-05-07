@@ -1210,6 +1210,17 @@ function UserActivityBadge({ userId }: { userId: string }) {
           <span className={pointsExhausted ? "text-[var(--color-accent-red)]" : "text-[var(--color-fg-default)]"}>
             {pointsRemaining.toFixed(3)} pts
           </span>
+          {pointsExhausted && data.pointsBalance?.windowEnd && (
+            <span className="text-[var(--color-fg-subtle)] ml-1">
+              · resets {(() => {
+                const ms = new Date(data.pointsBalance.windowEnd).getTime() - Date.now();
+                if (ms <= 0) return "soon";
+                const h = Math.floor(ms / 3_600_000);
+                const m = Math.floor((ms % 3_600_000) / 60_000);
+                return h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
+              })()}
+            </span>
+          )}
         </span>
         {last && (
           <span>
@@ -1879,6 +1890,27 @@ function UserCard({
           className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
           style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
           Edit points budget
+        </button>
+        <button
+          onClick={async () => {
+            const pts = window.prompt(`Grant one-time credit to ${user.userId}\nPoints (e.g. 200):`);
+            if (!pts) return;
+            const n = Number(pts);
+            if (!Number.isFinite(n) || n <= 0) { alert("Enter a positive number"); return; }
+            const note = window.prompt("Note (optional):") ?? "";
+            try {
+              const adminKey = sessionStorage.getItem("admin_key") ?? "";
+              await fetch(`/api/admin/users/${user.userId}/budget/credit`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-Admin-Key": adminKey },
+                body: JSON.stringify({ points: n, note }),
+              });
+              alert(`Granted ${n} pts to ${user.userId} (expires in 24h)`);
+            } catch { alert("Failed to grant credit"); }
+          }}
+          className="px-2.5 py-1 rounded-lg text-[10px] font-medium"
+          style={{ background: "rgba(66,201,122,0.08)", border: "1px solid rgba(66,201,122,0.25)", color: "var(--color-green)" }}>
+          + Grant credit
         </button>
         <button onClick={handleForceLogout} disabled={logoutLoading}
           title="Invalidate all active sessions"

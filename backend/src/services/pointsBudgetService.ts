@@ -118,7 +118,30 @@ export async function getUserPointsBalanceSnapshot(
     userId,
     sinceIso: new Date(now.getTime() - POINTS_BUDGET_WINDOW_HOURS * 3600 * 1000).toISOString(),
   });
-  return buildPointsBalanceSnapshot(config, usage.totalCostUsd, now);
+
+  // Add any active one-time credits to the effective daily budget.
+  let creditPoints = 0;
+  try {
+    const { getApplicationDataSource, isApplicationDatabaseConfigured } = await import("../db/applicationDataSource.js");
+    if (isApplicationDatabaseConfigured()) {
+      const ds = await getApplicationDataSource();
+      const rows = await ds.query(
+        `SELECT COALESCE(SUM(points), 0) AS total
+           FROM user_points_credits
+          WHERE user_id = $1 AND expires_at > NOW()`,
+        [userId]
+      ) as Array<{ total: string }>;
+      creditPoints = Number(rows[0]?.total ?? 0);
+    }
+  } catch {
+    // Credits are additive; failure to read them is non-fatal.
+  }
+
+  const effectiveConfig: PointsBudgetConfig = {
+    dailyBudgetPoints: config.dailyBudgetPoints + creditPoints,
+  };
+
+  return buildPointsBalanceSnapshot(effectiveConfig, usage.totalCostUsd, now);
 }
 
 export async function ensurePointsBudgetAvailable(

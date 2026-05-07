@@ -605,6 +605,46 @@ async function executeClaimedStep(ds: DataSource, step: ClaimedStepWorkItem): Pr
   // LLM-backed step kinds: gather inputs → build prompt → call LLM → validate → persist.
   const handler = handlerFor(step.kind);
   const model = await resolveStepModel(ds, step.userId, step.kind, step.modelTierUsed ?? "balanced");
+
+  // Per-step budget gate (v5 Bug 2): check remaining balance before each LLM call.
+  // If exhausted, pause the job so it can resume when the 24h window resets.
+  // This prevents a single job from spending 5–10× the daily budget.
+  const { ensurePointsBudgetAvailable } = await import("../pointsBudgetService.js");
+  const budgetCheck = await ensurePointsBudgetAvailable(step.userId);
+  if (!budgetCheck.allowed) {
+    // Pause the job — do not fail the step. The step stays 'running' with the
+    // lock released so the executor won't re-claim it until the job is resumed.
+    await ds.query(
+      `UPDATE step_work_items
+          SET status = 'pending',
+              owner_lock_id = NULL,
+              last_error = 'points_budget_exhausted: paused pending window reset'
+        WHERE id = $1`,
+      [step.id]
+    );
+    await ds.query(
+      `UPDATE jobs
+          SET status = 'paused',
+              paused_at = NOW(),
+              pause_reason = 'points_budget_exhausted'
+        WHERE id = $1 AND status = 'running'`,
+      [step.jobId]
+    );
+    await recordLifecycle(ds, {
+      stepId: step.id,
+      fromStatus: "running",
+      toStatus: "pending",
+      attemptN: step.attempts,
+      tierUsed: step.modelTierUsed,
+      errorClass: "rate_limit",
+      errorMessage: `points_budget_exhausted: windowEnd=${budgetCheck.balance.windowEnd}`,
+    });
+    logger.info(
+      `Step queue: paused job ${step.jobId} for user ${step.userId} — budget exhausted (windowEnd=${budgetCheck.balance.windowEnd})`
+    );
+    return;
+  }
+
   const inputs = await handler.gatherInputs(step, ws);
   const prompt = handler.buildPrompt(inputs, model.tier);
 
@@ -615,6 +655,15 @@ async function executeClaimedStep(ds: DataSource, step: ClaimedStepWorkItem): Pr
   const selfCorrectEnabled = await isFeatureEnabled("self_correcting_retry_enabled");
 
   let raw = await handler.call(prompt, model, step, inputs);
+
+  // Systemic guard: if the LLM double-serialized (returned a JSON string at root
+  // instead of a parsed object), attempt JSON.parse before Zod validation.
+  // This eliminates the entire "Expected object, received string" failure class
+  // regardless of which handler or model is involved. (v5 Bug 1)
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { /* let Zod report the failure */ }
+  }
+
   let validation = handler.validate(raw, prompt.schema, inputs);
 
   if (!validation.ok && selfCorrectEnabled) {
@@ -625,6 +674,10 @@ async function executeClaimedStep(ds: DataSource, step: ClaimedStepWorkItem): Pr
       .join("\n");
 
     // Write a lifecycle event so admin can see the LLM succeeded but output was unusable.
+    // Include a truncated snapshot of the raw response for debugging (Gap 5).
+    const rawSnapshot = typeof raw === "string"
+      ? raw.slice(0, 300)
+      : JSON.stringify(raw).slice(0, 300);
     await recordLifecycle(ds, {
       stepId: step.id,
       fromStatus: "running",
@@ -633,7 +686,7 @@ async function executeClaimedStep(ds: DataSource, step: ClaimedStepWorkItem): Pr
       modelUsed: model.primary,
       tierUsed: model.tier,
       errorClass: "zod",
-      errorMessage: `schema_invalid_pre_retry: ${zodSummary.slice(0, 500)}`,
+      errorMessage: `schema_invalid_pre_retry: ${zodSummary.slice(0, 300)} | raw_snapshot: ${rawSnapshot}`,
     });
 
     const correctionPrompt = {

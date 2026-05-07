@@ -456,6 +456,35 @@ router.patch(
   handler(patchUserPointsBudget)
 );
 
+// POST /api/admin/users/:userId/budget/credit — grant a one-time temporary credit
+router.post(
+  "/users/:userId/budget/credit",
+  handler(async (req, res) => {
+    const userId = req.params.userId as string;
+    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+    if (!requireStepQueueDatabase(res)) return;
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const points = Number(body["points"]);
+    const note = typeof body["note"] === "string" ? body["note"].slice(0, 200) : null;
+    if (!Number.isFinite(points) || points <= 0) {
+      res.status(400).json({ error: "points must be a positive number" });
+      return;
+    }
+
+    const ds = await getApplicationDataSource();
+    const { randomUUID } = await import("crypto");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    await ds.query(
+      `INSERT INTO user_points_credits (id, user_id, points, note, granted_by, granted_at, expires_at)
+       VALUES ($1, $2, $3, $4, 'admin', NOW(), $5)`,
+      [randomUUID(), userId, points, note, expiresAt]
+    );
+    logger.info(`Admin granted ${points} credit points to ${userId} (expires ${expiresAt})`);
+    res.json({ ok: true, userId, points, expiresAt, note });
+  })
+);
+
 // PATCH /api/admin/users/:userId/model-tier
 router.patch(
   "/users/:userId/model-tier",

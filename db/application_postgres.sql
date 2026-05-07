@@ -704,3 +704,21 @@ CREATE TABLE IF NOT EXISTS user_analyst_config (
 );
 CREATE INDEX IF NOT EXISTS idx_user_analyst_config_user
   ON user_analyst_config (user_id);
+
+-- ============================================================================
+-- One-time budget credits — admin can grant temporary point boosts
+-- that apply only to the current 24h window without changing dailyBudgetPoints.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS user_points_credits (
+  id          UUID PRIMARY KEY,
+  user_id     VARCHAR(64) NOT NULL,
+  points      NUMERIC(18,6) NOT NULL,
+  note        TEXT,
+  granted_by  VARCHAR(64) NOT NULL,
+  granted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_user_points_credits_user_expires
+  ON user_points_credits (user_id, expires_at DESC)
+  WHERE expires_at > NOW();

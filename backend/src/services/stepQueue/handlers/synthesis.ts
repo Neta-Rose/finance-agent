@@ -20,17 +20,33 @@ export const synthesisHandler = makePromptHandler({
     };
   },
   normalizeRaw(raw, inputs) {
-    if (!raw || typeof raw !== "object" || !inputs) return raw;
+    // Guard: if the LLM double-serialized (returned a JSON string instead of an object),
+    // attempt to parse it before proceeding. This eliminates the entire
+    // "root value is a string" failure class (v5 Bug 1).
+    let obj: Record<string, unknown>;
+    if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        obj = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+      } catch {
+        obj = {};
+      }
+    } else if (!raw || typeof raw !== "object" || !inputs) {
+      return raw;
+    } else {
+      obj = raw as Record<string, unknown>;
+    }
+
+    if (!inputs) return obj;
+
     const portfolioContext = asRecord(inputs.data["portfolioContext"]);
     const isHeld = portfolioContext["isHeld"] !== false;
     const now = new Date().toISOString();
-    const metadata = asRecord((raw as Record<string, unknown>)["metadata"]);
+    const metadata = asRecord(obj["metadata"]);
     return {
-      ...raw as Record<string, unknown>,
+      ...obj,
       ticker: inputs.step.ticker,
-      updatedAt: typeof (raw as Record<string, unknown>)["updatedAt"] === "string"
-        ? (raw as Record<string, unknown>)["updatedAt"]
-        : now,
+      updatedAt: typeof obj["updatedAt"] === "string" ? obj["updatedAt"] : now,
       deepDiveTriggeredBy: "step_queue",
       metadata: {
         ...metadata,
@@ -39,7 +55,7 @@ export const synthesisHandler = makePromptHandler({
         generatedAt: typeof metadata["generatedAt"] === "string" ? metadata["generatedAt"] : now,
         userGuidanceApplied: metadata["userGuidanceApplied"] === true,
       },
-      assetScope: isHeld ? "portfolio" : ((raw as Record<string, unknown>)["assetScope"] ?? "tracking"),
+      assetScope: isHeld ? "portfolio" : (obj["assetScope"] ?? "tracking"),
     };
   },
   async artifactPath(artifact, ws, step) {

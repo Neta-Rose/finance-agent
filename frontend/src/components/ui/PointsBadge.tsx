@@ -3,9 +3,18 @@ import { fetchBalance } from "../../api/balance";
 
 /**
  * Global points badge — shown in the top-right of every protected page.
- * Fetches the balance independently so it's always current regardless of
- * which page the user is on.
+ * When exhausted, shows time until the 24h window resets.
  */
+
+function timeUntilReset(windowEnd: string): string {
+  const ms = new Date(windowEnd).getTime() - Date.now();
+  if (ms <= 0) return "soon";
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 export function PointsBadge() {
   const { data: balance } = useQuery({
     queryKey: ["balance"],
@@ -17,10 +26,11 @@ export function PointsBadge() {
 
   if (!balance) return null;
 
-  const label =
-    balance.pointsRemaining >= 1000
-      ? `${(balance.pointsRemaining / 1000).toFixed(1)}k pts`
-      : `${balance.pointsRemaining.toFixed(0)} pts`;
+  const label = balance.exhausted
+    ? `Resets in ${timeUntilReset(balance.windowEnd)}`
+    : balance.pointsRemaining >= 1000
+    ? `${(balance.pointsRemaining / 1000).toFixed(1)}k pts`
+    : `${balance.pointsRemaining.toFixed(0)} pts`;
 
   return (
     <div
