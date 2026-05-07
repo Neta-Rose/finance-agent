@@ -1,5 +1,3 @@
-import type { ZodTypeAny } from "zod";
-
 /**
  * LlmProvider abstraction — Phase 4, task 4.2.
  *
@@ -22,8 +20,6 @@ export interface ProviderMessage {
 export interface ProviderInvokeArgs {
   model: string;
   messages: ProviderMessage[];
-  /** When set, the provider uses schema-bound output mode. */
-  outputSchema?: ZodTypeAny;
   /** Provider-specific thinking/reasoning budget (tokens). 0 = disabled. */
   thinkingBudget?: number;
   timeoutMs?: number;

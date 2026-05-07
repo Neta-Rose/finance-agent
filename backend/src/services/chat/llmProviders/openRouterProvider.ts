@@ -1,12 +1,10 @@
 import type { LlmProvider, ProviderInvokeArgs, ProviderResult } from "./index.js";
 
 /**
- * OpenRouter provider — Phase 4.
+ * OpenRouter provider — Phase 5 chat agent transport.
  *
- * Used for all existing analyst steps (free/cheap/balanced tiers).
- * Sends `response_format: { type: "json_object" }` when an outputSchema is
- * provided (the schema-bound path is the Phase 4 `structuredOutputs.ts`
- * wrapper; this provider is the transport layer only).
+ * Step-queue structured output now uses instructorClient.ts (TOOLS mode).
+ * This provider handles plain-text and future Phase 5 chat invocations.
  */
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions";
@@ -43,9 +41,6 @@ export class OpenRouterProvider implements LlmProvider {
         model: args.model,
         messages: args.messages,
       };
-      if (args.outputSchema) {
-        body["response_format"] = { type: "json_object" };
-      }
 
       const response = await fetch(OPENROUTER_BASE, {
         method: "POST",
@@ -82,8 +77,6 @@ export class OpenRouterProvider implements LlmProvider {
         content: parsed,
         usage: usageFromPayload(payload),
         model: payload.model ?? args.model,
-        // OpenRouter uses json_object mode, not provider-native schema binding.
-        // The structuredOutputs wrapper will validate and may fall back to normalizeRaw.
         schemaMode: "normalize_fallback",
       };
     } finally {

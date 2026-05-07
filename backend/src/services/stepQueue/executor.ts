@@ -648,96 +648,17 @@ async function executeClaimedStep(ds: DataSource, step: ClaimedStepWorkItem): Pr
   const inputs = await handler.gatherInputs(step, ws);
   const prompt = handler.buildPrompt(inputs, model.tier);
 
-  // Self-correcting retry: on Zod failure, re-prompt the model once with the
-  // validation error message and the malformed output (H2.1–H2.3).
-  // Gated by feature_flags.self_correcting_retry_enabled (default true).
-  const { isFeatureEnabled } = await import("../featureFlagService.js");
-  const selfCorrectEnabled = await isFeatureEnabled("self_correcting_retry_enabled");
-
-  let raw = await handler.call(prompt, model, step, inputs);
-
-  // Systemic guard: if the LLM double-serialized (returned a JSON string at root
-  // instead of a parsed object), attempt JSON.parse before Zod validation.
-  // This eliminates the entire "Expected object, received string" failure class
-  // regardless of which handler or model is involved. (v5 Bug 1)
-  if (typeof raw === "string") {
-    try { raw = JSON.parse(raw); } catch { /* let Zod report the failure */ }
-  }
-
-  let validation = handler.validate(raw, prompt.schema, inputs);
-
-  if (!validation.ok && selfCorrectEnabled) {
-    // Record the initial Zod failure for observability (Bug 5 fix).
-    const zodSummary = validation.error.errors
-      .slice(0, 5)
-      .map((e) => `  ${e.path.join(".")}: ${e.message}`)
-      .join("\n");
-
-    // Write a lifecycle event so admin can see the LLM succeeded but output was unusable.
-    // Include a truncated snapshot of the raw response for debugging (Gap 5).
-    const rawSnapshot = typeof raw === "string"
-      ? raw.slice(0, 300)
-      : JSON.stringify(raw).slice(0, 300);
-    await recordLifecycle(ds, {
-      stepId: step.id,
-      fromStatus: "running",
-      toStatus: "running",
-      attemptN: step.attempts,
-      modelUsed: model.primary,
-      tierUsed: model.tier,
-      errorClass: "zod",
-      errorMessage: `schema_invalid_pre_retry: ${zodSummary.slice(0, 300)} | raw_snapshot: ${rawSnapshot}`,
-    });
-
-    const correctionPrompt = {
-      ...prompt,
-      user: [
-        prompt.user,
-        "---",
-        "Your previous response failed schema validation. Please correct it.",
-        "",
-        "Validation errors:",
-        zodSummary,
-        "",
-        "Your malformed response was:",
-        typeof raw === "string" ? raw : JSON.stringify(raw),
-        "",
-        "Return only the corrected JSON object. Do not include any explanation or markdown.",
-      ].join("\n"),
-    };
-    const retryRaw = await handler.call(correctionPrompt, model, step, inputs);
-    const retryValidation = handler.validate(retryRaw, prompt.schema, inputs);
-    if (retryValidation.ok) {
-      // Self-correcting retry succeeded — record it and use the corrected output.
-      raw = retryRaw;
-      validation = retryValidation;
-      await recordLifecycle(ds, {
-        stepId: step.id,
-        fromStatus: "running",
-        toStatus: "running",
-        attemptN: step.attempts,
-        modelUsed: model.primary,
-        tierUsed: model.tier,
-        errorClass: "zod",
-        errorMessage: `zod_self_corrected: ${zodSummary.slice(0, 500)}`,
-      });
-    }
-    // If retry also fails, fall through to throw validation.error below.
-    // The combined call counts as one logical attempt (H2.2).
-  }
-
-  if (!validation.ok) {
-    throw validation.error;
-  }
+  // instructor (TOOLS mode) validates against the Zod schema and retries with
+  // correction prompts on failure — no hand-rolled retry or extraction needed here.
+  const raw = await handler.call(prompt, model, step, inputs);
+  const validation = handler.validate(raw, prompt.schema, inputs);
+  if (!validation.ok) throw validation.error;
 
   const outputPath = await handler.persistArtifact(validation.artifact, ws, step);
 
-  // Record schema_mode on the step for observability (H1.4).
-  const directParse = prompt.schema.safeParse(raw);
-  const schemaMode = directParse.success ? "provider_native" : "normalize_fallback";
   await ds.query(
     `UPDATE step_work_items SET schema_mode = $2 WHERE id = $1`,
-    [step.id, schemaMode]
+    [step.id, "provider_native"]
   );
 
   await markStepCompleted(ds, step, outputPath);

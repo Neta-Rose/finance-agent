@@ -243,14 +243,14 @@ export const quickCheckHandler: StepHandler<QuickCheckResult> = {
       system: "",
       user: `quick_check.evaluate for ${inputs.step.ticker}`,
       schema: QuickCheckResultSchema,
+      schemaName: "QuickCheckResultSchema",
     };
   },
 
-  // The handler bypasses the LLM entirely; `call` is never invoked by the
-  // executor for this step kind. We implement it as a no-op that returns
-  // the pre-computed result stored in `inputs.data`.
+  // The executor bypasses the LLM for this deterministic step kind and calls
+  // executeQuickCheckStep directly. This `call` implementation is never reached.
   async call(_prompt, _model, _step, inputs) {
-    return inputs?.data["result"] ?? null;
+    return (inputs?.data["result"] ?? null) as QuickCheckResult;
   },
 
   validate(raw, _schema, _inputs): ValidationResult<QuickCheckResult> {

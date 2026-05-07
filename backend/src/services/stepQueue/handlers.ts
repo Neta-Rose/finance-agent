@@ -22,6 +22,7 @@ export interface BuiltPrompt {
   system: string;
   user: string;
   schema: ZodTypeAny;
+  schemaName: string;
 }
 
 export type ValidationResult<T> =
@@ -37,8 +38,8 @@ export interface StepHandler<TArtifact = unknown> {
     model: { tier: ModelTier; primary: string; fallback: string | null },
     step?: ClaimedStepWorkItem,
     inputs?: StepInputs
-  ): Promise<unknown>;
-  validate(raw: unknown, schema: z.ZodType<TArtifact>, inputs?: StepInputs): ValidationResult<TArtifact>;
+  ): Promise<TArtifact>;
+  validate(raw: TArtifact, schema: z.ZodType<TArtifact>, inputs?: StepInputs): ValidationResult<TArtifact>;
   persistArtifact(artifact: TArtifact, ws: UserWorkspace, step: ClaimedStepWorkItem): Promise<string>;
 }
 

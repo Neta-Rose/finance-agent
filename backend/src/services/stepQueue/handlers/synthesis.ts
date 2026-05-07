@@ -2,6 +2,7 @@ import { StrategySchema, type Strategy } from "../../../schemas/strategy.js";
 import { atomicWriteJson } from "../artifactIO.js";
 import { gatherAnalystArtifacts, gatherCommonInputs, makePromptHandler, readJsonIfExists } from "../handlerUtils.js";
 import { dualWriteStrategy } from "../../strategyExportService.js";
+import type { StepInputs } from "../handlers.js";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -19,43 +20,24 @@ export const synthesisHandler = makePromptHandler({
       debate: await readJsonIfExists(ws.reportFile(step.ticker, "debate")),
     };
   },
-  normalizeRaw(raw, inputs) {
-    // Guard: if the LLM double-serialized (returned a JSON string instead of an object),
-    // attempt to parse it before proceeding. This eliminates the entire
-    // "root value is a string" failure class (v5 Bug 1).
-    let obj: Record<string, unknown>;
-    if (typeof raw === "string") {
-      try {
-        const parsed = JSON.parse(raw);
-        obj = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-      } catch {
-        obj = {};
-      }
-    } else if (!raw || typeof raw !== "object" || !inputs) {
-      return raw;
-    } else {
-      obj = raw as Record<string, unknown>;
-    }
-
-    if (!inputs) return obj;
-
-    const portfolioContext = asRecord(inputs.data["portfolioContext"]);
+  enrichArtifact(raw: Strategy, inputs?: StepInputs): Strategy {
+    const portfolioContext = asRecord(inputs?.data["portfolioContext"]);
     const isHeld = portfolioContext["isHeld"] !== false;
     const now = new Date().toISOString();
-    const metadata = asRecord(obj["metadata"]);
+    const metadata = asRecord(raw.metadata);
     return {
-      ...obj,
-      ticker: inputs.step.ticker,
-      updatedAt: typeof obj["updatedAt"] === "string" ? obj["updatedAt"] : now,
+      ...raw,
+      ticker: inputs?.step.ticker ?? raw.ticker,
+      updatedAt: raw.updatedAt ?? now,
       deepDiveTriggeredBy: "step_queue",
       metadata: {
         ...metadata,
         source: isHeld ? "full_report" : "deep_dive",
-        status: metadata["status"] ?? "validated",
+        status: (metadata["status"] as string | undefined) ?? "validated",
         generatedAt: typeof metadata["generatedAt"] === "string" ? metadata["generatedAt"] : now,
         userGuidanceApplied: metadata["userGuidanceApplied"] === true,
-      },
-      assetScope: isHeld ? "portfolio" : (obj["assetScope"] ?? "tracking"),
+      } as Strategy["metadata"],
+      assetScope: isHeld ? "portfolio" : (raw.assetScope ?? "tracking"),
     };
   },
   async artifactPath(artifact, ws, step) {

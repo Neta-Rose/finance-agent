@@ -4,9 +4,9 @@ import type { UserWorkspace } from "../../middleware/userIsolation.js";
 import { PortfolioFileSchema } from "../../schemas/portfolio.js";
 import type { Exchange } from "../../types/index.js";
 import { getPrice, getPriceHistory, getUsdIlsRate } from "../priceService.js";
-import { getLlmProvider } from "../chat/llmProviders/index.js";
 import { eventStore } from "../eventStore.js";
 import { atomicWriteJson } from "./artifactIO.js";
+import { callWithInstructor } from "./instructorClient.js";
 import type { BuiltPrompt, StepHandler, StepInputs, ValidationResult } from "./handlers.js";
 import type { ClaimedStepWorkItem, ModelTier, StepKind } from "./types.js";
 
@@ -119,15 +119,6 @@ export async function gatherTechnicalData(step: ClaimedStepWorkItem, ws: UserWor
   return { ...common, history: history.slice(-90) };
 }
 
-export function schemaInstruction(schemaName: string): string {
-  return `Return exactly one JSON object matching ${schemaName}. No markdown, no prose, no code, no tool calls.`;
-}
-
-export function validateWithSchema<T>(schema: z.ZodType<T>, raw: unknown): ValidationResult<T> {
-  const parsed = schema.safeParse(raw);
-  return parsed.success ? { ok: true, artifact: parsed.data } : { ok: false, error: parsed.error };
-}
-
 export function persistReportArtifact<T>(analyst: string) {
   return async (artifact: T, ws: UserWorkspace, step: ClaimedStepWorkItem): Promise<string> => {
     const filePath = ws.reportFile(step.ticker, analyst);
@@ -136,25 +127,23 @@ export function persistReportArtifact<T>(analyst: string) {
   };
 }
 
-export async function callStepLlm(
+export async function callStepLlm<T>(
   step: ClaimedStepWorkItem,
   prompt: BuiltPrompt,
   model: { tier: ModelTier; primary: string; fallback: string | null },
   analyst: string
-): Promise<unknown> {
+): Promise<T> {
   const startedAt = Date.now();
-  // Resolve provider from model string prefix or default to openrouter.
-  // Phase 5 will read the provider column from model_tier_assignments;
-  // for now we default to openrouter for all analyst steps.
-  const provider = getLlmProvider("openrouter");
   try {
-    const result = await provider.invoke({
+    const result = await callWithInstructor<T>({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      schema: prompt.schema as any,
+      schemaName: prompt.schemaName,
       model: model.primary,
       messages: [
         { role: "system", content: prompt.system },
         { role: "user", content: prompt.user },
       ],
-      outputSchema: prompt.schema,
     });
     await eventStore.logRequest({
       userId: step.userId,
@@ -175,7 +164,7 @@ export async function callStepLlm(
       rejectionReason: null,
       timestamp: new Date().toISOString(),
     });
-    return result.content;
+    return result.value;
   } catch (error) {
     await eventStore.logRequest({
       userId: step.userId,
@@ -203,12 +192,17 @@ export async function callStepLlm(
 export function makePromptHandler<T>(config: {
   kind: StepKind;
   analyst: string;
-  schema: z.ZodType<T>;
+  // ZodType<T, Def, unknown> allows schemas where input type differs from output
+  // (e.g. fields with .optional() + .default()) while still requiring Output = T.
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>;
   schemaName: string;
   gatherData: (step: ClaimedStepWorkItem, ws: UserWorkspace) => Promise<Record<string, unknown>>;
   artifactPath: (artifact: T, ws: UserWorkspace, step: ClaimedStepWorkItem) => Promise<string>;
   buildUserPrompt: (inputs: StepInputs) => string;
-  normalizeRaw?: (raw: unknown, inputs?: StepInputs) => unknown;
+  /** Post-validation enrichment: override fields with authoritative values from step context.
+   *  Only needed when context-derived fields (ticker, metadata, assetScope) must be injected
+   *  after the schema is validated. NOT for coercion or defaults — instructor handles those. */
+  enrichArtifact?: (raw: T, inputs?: StepInputs) => T;
 }): StepHandler<T> {
   return {
     kind: config.kind,
@@ -224,19 +218,20 @@ export function makePromptHandler<T>(config: {
       return {
         system: [
           `You are Clawd's ${config.analyst} step for portfolio user ${inputs.step.userId}.`,
-          schemaInstruction(config.schemaName),
           "Use only the provided data. If a field is unknown, use null or an explicit unknown enum value allowed by the schema.",
         ].join("\n"),
         user: config.buildUserPrompt(inputs),
         schema: config.schema,
+        schemaName: config.schemaName,
       };
     },
     call(prompt, model, step, _inputs) {
       if (!step) throw new Error(`Step context is required for ${config.kind}`);
-      return callStepLlm(step, prompt, model, config.analyst);
+      return callStepLlm<T>(step, prompt, model, config.analyst);
     },
-    validate(raw, _schema, inputs) {
-      return validateWithSchema(config.schema, config.normalizeRaw ? config.normalizeRaw(raw, inputs) : raw);
+    validate(raw, _schema, inputs): ValidationResult<T> {
+      const artifact = config.enrichArtifact ? config.enrichArtifact(raw, inputs) : raw;
+      return { ok: true, artifact };
     },
     persistArtifact: config.artifactPath,
   };
