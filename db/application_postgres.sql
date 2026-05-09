@@ -722,3 +722,57 @@ CREATE TABLE IF NOT EXISTS user_points_credits (
 CREATE INDEX IF NOT EXISTS idx_user_points_credits_user_expires
   ON user_points_credits (user_id, expires_at DESC)
   WHERE expires_at > NOW();
+
+-- ============================================================================
+-- Pilot feature review state — mutable admin annotations for tracked catalog ids
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS pilot_feature_reviews (
+  feature_id TEXT PRIMARY KEY,
+  status VARCHAR(32) NOT NULL DEFAULT 'unreviewed'
+    CHECK (status IN ('unreviewed', 'needs_fix', 'beta', 'hidden', 'ready')),
+  admin_comment TEXT,
+  incorrect_description BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by VARCHAR(128) NOT NULL
+);
+
+ALTER TABLE pilot_feature_reviews
+  ADD COLUMN IF NOT EXISTS admin_comment TEXT;
+
+ALTER TABLE pilot_feature_reviews
+  ADD COLUMN IF NOT EXISTS incorrect_description BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE pilot_feature_reviews
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE pilot_feature_reviews
+  ADD COLUMN IF NOT EXISTS updated_by VARCHAR(128) NOT NULL DEFAULT 'system';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'pilot_feature_reviews_status_check'
+  ) THEN
+    ALTER TABLE pilot_feature_reviews
+      ADD CONSTRAINT pilot_feature_reviews_status_check
+      CHECK (status IN ('unreviewed', 'needs_fix', 'beta', 'hidden', 'ready'));
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'pilot_feature_reviews_admin_comment_length_check'
+  ) THEN
+    ALTER TABLE pilot_feature_reviews
+      ADD CONSTRAINT pilot_feature_reviews_admin_comment_length_check
+      CHECK (admin_comment IS NULL OR LENGTH(admin_comment) <= 2000);
+  END IF;
+END
+$$;

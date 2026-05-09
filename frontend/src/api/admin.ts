@@ -107,6 +107,47 @@ export interface ProfileDefinition {
 
 export type ProfilesRegistry = Record<string, ProfileDefinition>;
 
+export type PilotFeatureSurface = "admin" | "operator" | "telegram" | "web";
+export type PilotFeatureReviewStatus = "unreviewed" | "needs_fix" | "beta" | "hidden" | "ready";
+export type PilotFeatureRecommendation = "pilot" | "beta" | "defer" | "hide";
+
+export interface PilotFeatureReview {
+  status: PilotFeatureReviewStatus;
+  adminComment: string | null;
+  incorrectDescription: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+export interface PilotFeature {
+  id: string;
+  surface: PilotFeatureSurface;
+  title: string;
+  shortSummary: string;
+  detailedExplanation: string;
+  happyPath: string[];
+  edgeCases: string[];
+  errorHandling: string[];
+  evidencePaths: string[];
+  pilotRecommendation: PilotFeatureRecommendation;
+  review: PilotFeatureReview;
+}
+
+export interface PilotFeaturesListResponse {
+  items: PilotFeature[];
+  total: number;
+  limit: number;
+  offset: number;
+  databaseAvailable: boolean;
+}
+
+export interface PilotFeatureReviewPatch {
+  status?: PilotFeatureReviewStatus;
+  adminComment?: string | null;
+  incorrectDescription?: boolean;
+  updatedBy?: string;
+}
+
 export type { AgentHealth };
 
 export interface StepQueueJobSummary {
@@ -356,6 +397,31 @@ export const adminGetSystemAgent = async (): Promise<SystemAgentSummary> =>
 
 export const adminFetchProfiles = async (): Promise<{ profiles: ProfilesRegistry }> =>
   adminFetch("/api/admin/profiles");
+
+export const adminListPilotFeatures = async (filters?: {
+  surface?: PilotFeatureSurface | "";
+  status?: PilotFeatureReviewStatus | "";
+  limit?: number;
+  offset?: number;
+}): Promise<PilotFeaturesListResponse> => {
+  const params = new URLSearchParams();
+  if (filters?.surface) params.set("surface", filters.surface);
+  if (filters?.status) params.set("status", filters.status);
+  params.set("limit", String(filters?.limit ?? 200));
+  params.set("offset", String(filters?.offset ?? 0));
+  return adminFetch(`/api/admin/pilot-features?${params.toString()}`) as Promise<PilotFeaturesListResponse>;
+};
+
+export const adminUpdatePilotFeatureReview = async (
+  featureId: string,
+  patch: PilotFeatureReviewPatch
+): Promise<PilotFeature> => {
+  const payload = await adminFetch(`/api/admin/pilot-features/${encodeURIComponent(featureId)}/review`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...patch, updatedBy: patch.updatedBy ?? "admin-ui" }),
+  }) as { feature: PilotFeature };
+  return payload.feature;
+};
 
 export const adminCreateProfile = async (name: string, definition: ProfileDefinition): Promise<void> => {
   await adminFetch("/api/admin/profiles", {

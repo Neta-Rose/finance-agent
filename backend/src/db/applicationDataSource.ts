@@ -30,6 +30,7 @@ import { ToolCallEntitySchema } from "./entities/ToolCallEntity.js";
 import { OutputFilterEventEntitySchema } from "./entities/OutputFilterEventEntity.js";
 import { PositionTransactionEntitySchema } from "./entities/PositionTransactionEntity.js";
 import { CorporateActionEntitySchema } from "./entities/CorporateActionEntity.js";
+import { PilotFeatureReviewEntitySchema } from "./entities/PilotFeatureReviewEntity.js";
 import { logger } from "../services/logger.js";
 
 const APP_DATABASE_URL =
@@ -88,6 +89,8 @@ function buildDataSource(): DataSource {
       // Phase 7 (design.md §4.6–4.7):
       PositionTransactionEntitySchema,
       CorporateActionEntitySchema,
+      // Pilot admin review state:
+      PilotFeatureReviewEntitySchema,
     ],
     synchronize: false,
     logging: false,

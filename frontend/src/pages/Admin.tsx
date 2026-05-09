@@ -24,6 +24,8 @@ import {
   adminUpdateUserModelTier,
   adminGetDefaults,
   adminUpdateDefaults,
+  adminListPilotFeatures,
+  adminUpdatePilotFeatureReview,
   type UserSummary,
   type PointsBudget,
   type ModelTier,
@@ -38,6 +40,9 @@ import {
   type StepQueueModelAssignment,
   type StepQueueCostRow,
   type UserDailySummary,
+  type PilotFeature,
+  type PilotFeatureReviewStatus,
+  type PilotFeatureSurface,
 } from "../api/admin";
 import type { SupportMessageRecord } from "../types/api";
 import { usePreferencesStore } from "../store/preferencesStore";
@@ -1994,6 +1999,375 @@ function UserCard({
   );
 }
 
+const PILOT_FEATURE_STATUSES: Array<{ value: PilotFeatureReviewStatus; label: string; help: string }> = [
+  { value: "unreviewed", label: "Unreviewed", help: "No owner decision recorded yet." },
+  { value: "needs_fix", label: "Needs fix", help: "Description or behavior needs correction before pilot use." },
+  { value: "beta", label: "Beta", help: "Acceptable for pilot use with known caveats." },
+  { value: "hidden", label: "Hidden", help: "Should not be presented as pilot-ready." },
+  { value: "ready", label: "Ready", help: "Description and behavior are approved for pilot use." },
+];
+
+const PILOT_FEATURE_SURFACES: Array<{ value: PilotFeatureSurface; label: string }> = [
+  { value: "web", label: "Web" },
+  { value: "telegram", label: "Telegram" },
+  { value: "admin", label: "Admin" },
+  { value: "operator", label: "Operator" },
+];
+
+type PilotFeatureDraft = {
+  status: PilotFeatureReviewStatus;
+  adminComment: string;
+  incorrectDescription: boolean;
+};
+
+function statusLabel(status: PilotFeatureReviewStatus): string {
+  return PILOT_FEATURE_STATUSES.find((item) => item.value === status)?.label ?? status;
+}
+
+function PilotFeaturesPanel({ onError }: { onError: (message: string) => void }) {
+  const queryClient = useQueryClient();
+  const [surfaceFilter, setSurfaceFilter] = useState<PilotFeatureSurface | "">("");
+  const [statusFilter, setStatusFilter] = useState<PilotFeatureReviewStatus | "">("");
+  const [search, setSearch] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, PilotFeatureDraft>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
+
+  const query = useQuery({
+    queryKey: ["admin-pilot-features", surfaceFilter, statusFilter],
+    queryFn: () => adminListPilotFeatures({ surface: surfaceFilter, status: statusFilter, limit: 200, offset: 0 }),
+  });
+
+  useEffect(() => {
+    if (query.error) {
+      onError(query.error instanceof Error ? query.error.message : "Failed to load pilot features");
+    }
+  }, [query.error, onError]);
+
+  const features = query.data?.items ?? [];
+
+  useEffect(() => {
+    if (features.length === 0) return;
+    setDrafts((current) => {
+      const next = { ...current };
+      for (const feature of features) {
+        if (!next[feature.id]) {
+          next[feature.id] = {
+            status: feature.review.status,
+            adminComment: feature.review.adminComment ?? "",
+            incorrectDescription: feature.review.incorrectDescription,
+          };
+        }
+      }
+      return next;
+    });
+  }, [features]);
+
+  const visibleFeatures = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return features;
+    return features.filter((feature) =>
+      [
+        feature.id,
+        feature.surface,
+        feature.title,
+        feature.shortSummary,
+        feature.detailedExplanation,
+        feature.pilotRecommendation,
+        ...feature.errorHandling,
+        ...feature.evidencePaths,
+      ].some((value) => value.toLowerCase().includes(needle))
+    );
+  }, [features, search]);
+
+  const setDraft = (featureId: string, patch: Partial<PilotFeatureDraft>) => {
+    setDrafts((current) => ({
+      ...current,
+      [featureId]: {
+        status: current[featureId]?.status ?? "unreviewed",
+        adminComment: current[featureId]?.adminComment ?? "",
+        incorrectDescription: current[featureId]?.incorrectDescription ?? false,
+        ...patch,
+      },
+    }));
+    setSavedId((current) => (current === featureId ? null : current));
+    setSaveErrors((current) => {
+      if (!current[featureId]) return current;
+      const next = { ...current };
+      delete next[featureId];
+      return next;
+    });
+  };
+
+  const isDirty = (feature: PilotFeature, draft?: PilotFeatureDraft): boolean => {
+    if (!draft) return false;
+    return (
+      draft.status !== feature.review.status ||
+      draft.adminComment !== (feature.review.adminComment ?? "") ||
+      draft.incorrectDescription !== feature.review.incorrectDescription
+    );
+  };
+
+  const saveFeature = async (feature: PilotFeature) => {
+    const draft = drafts[feature.id];
+    if (!draft || savingId) return;
+    setSavingId(feature.id);
+    setSavedId(null);
+    setSaveErrors((current) => {
+      const next = { ...current };
+      delete next[feature.id];
+      return next;
+    });
+    try {
+      const updated = await adminUpdatePilotFeatureReview(feature.id, {
+        status: draft.status,
+        adminComment: draft.adminComment.trim() ? draft.adminComment.trim() : null,
+        incorrectDescription: draft.incorrectDescription,
+      });
+      setDrafts((current) => ({
+        ...current,
+        [feature.id]: {
+          status: updated.review.status,
+          adminComment: updated.review.adminComment ?? "",
+          incorrectDescription: updated.review.incorrectDescription,
+        },
+      }));
+      setSavedId(feature.id);
+      await queryClient.invalidateQueries({ queryKey: ["admin-pilot-features"] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save pilot feature review";
+      setSaveErrors((current) => ({ ...current, [feature.id]: message }));
+      onError(message);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const clearFilters = () => {
+    setSurfaceFilter("");
+    setStatusFilter("");
+    setSearch("");
+  };
+
+  const hasFilters = Boolean(surfaceFilter || statusFilter || search.trim());
+  const total = query.data?.total ?? features.length;
+
+  return (
+    <section className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
+      <div className="px-4 py-4 space-y-3" style={{ background: "var(--color-bg-subtle)" }}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wide">Pilot Features</h2>
+            <p className="text-[11px] mt-1 leading-5" style={{ color: "var(--color-fg-subtle)" }}>
+              Browse the tracked pilot catalog, review error-handling expectations, and record admin review state.
+            </p>
+          </div>
+          <span className="shrink-0 text-[10px] font-mono rounded-full px-2 py-1" style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>
+            {query.isFetching ? "Syncing" : `${total} total`}
+          </span>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-[1fr,130px,140px,auto]">
+          <label className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+            Search
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search descriptions, IDs, paths, or error handling"
+              className="mt-1 w-full rounded-lg px-3 py-2 text-xs outline-none"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+            Surface
+            <select
+              value={surfaceFilter}
+              onChange={(e) => setSurfaceFilter(e.target.value as PilotFeatureSurface | "")}
+              className="mt-1 w-full rounded-lg px-3 py-2 text-xs outline-none"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+            >
+              <option value="">All surfaces</option>
+              {PILOT_FEATURE_SURFACES.map((surface) => (
+                <option key={surface.value} value={surface.value}>{surface.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+            Status
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as PilotFeatureReviewStatus | "")}
+              className="mt-1 w-full rounded-lg px-3 py-2 text-xs outline-none"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+            >
+              <option value="">All statuses</option>
+              {PILOT_FEATURE_STATUSES.map((status) => (
+                <option key={status.value} value={status.value}>{status.label}</option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button
+              onClick={clearFilters}
+              disabled={!hasFilters}
+              className="w-full rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-40"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-3 space-y-3" style={{ background: "var(--color-bg-base)" }} aria-live="polite">
+        {query.isLoading ? (
+          <div className="rounded-lg border p-4 text-xs" style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
+            Loading pilot feature catalog and review state...
+          </div>
+        ) : query.error ? (
+          <div className="rounded-lg border p-4 text-xs" role="alert" style={{ borderColor: "rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.08)", color: "var(--color-accent-red)" }}>
+            Could not load pilot features: {query.error instanceof Error ? query.error.message : "Request failed"}
+            <button onClick={() => void query.refetch()} className="ml-2 underline">Retry</button>
+          </div>
+        ) : features.length === 0 ? (
+          <div className="rounded-lg border p-4 text-xs" style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
+            No pilot features were returned. Clear filters or check the catalog and database connection.
+          </div>
+        ) : visibleFeatures.length === 0 ? (
+          <div className="rounded-lg border p-4 text-xs" style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
+            No pilot features match the current search. <button onClick={clearFilters} className="underline">Clear filters</button>.
+          </div>
+        ) : (
+          visibleFeatures.map((feature) => {
+            const draft = drafts[feature.id] ?? {
+              status: feature.review.status,
+              adminComment: feature.review.adminComment ?? "",
+              incorrectDescription: feature.review.incorrectDescription,
+            };
+            const dirty = isDirty(feature, draft);
+            const statusHelp = PILOT_FEATURE_STATUSES.find((item) => item.value === draft.status)?.help;
+            const statusSelectId = `pilot-feature-status-${feature.id}`;
+            const commentId = `pilot-feature-comment-${feature.id}`;
+            const incorrectId = `pilot-feature-incorrect-${feature.id}`;
+            return (
+              <article key={feature.id} className="rounded-xl border p-4 space-y-4" style={{ borderColor: dirty ? "rgba(59,130,246,0.55)" : "var(--color-border)", background: "var(--color-bg-subtle)" }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: "var(--color-bg-muted)", color: "var(--color-fg-muted)" }}>{feature.surface}</span>
+                      <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: "rgba(59,130,246,0.10)", color: "var(--color-accent-blue)" }}>{feature.pilotRecommendation}</span>
+                      <span className="font-mono text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>{feature.id}</span>
+                    </div>
+                    <h3 className="mt-2 text-sm font-bold">{feature.title}</h3>
+                    <p className="mt-1 text-xs leading-5" style={{ color: "var(--color-fg-muted)" }}>{feature.shortSummary}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold" style={{ background: dirty ? "rgba(59,130,246,0.12)" : "var(--color-bg-muted)", color: dirty ? "var(--color-accent-blue)" : "var(--color-fg-subtle)" }}>
+                    {savingId === feature.id ? "Saving" : savedId === feature.id ? "Saved" : dirty ? "Unsaved" : statusLabel(feature.review.status)}
+                  </span>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg border p-3" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>Detailed description</p>
+                    <p className="mt-2 text-xs leading-5" style={{ color: "var(--color-fg-muted)" }}>{feature.detailedExplanation}</p>
+                  </div>
+                  <div className="rounded-lg border p-3" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>Error handling expectations</p>
+                    <ul className="mt-2 space-y-1.5 text-xs leading-5" style={{ color: "var(--color-fg-muted)" }}>
+                      {feature.errorHandling.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                </div>
+
+                <details className="rounded-lg border p-3" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
+                  <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>Happy path, edge cases, and evidence</summary>
+                  <div className="mt-3 grid gap-3 md:grid-cols-3 text-xs leading-5" style={{ color: "var(--color-fg-muted)" }}>
+                    <div>
+                      <p className="font-bold mb-1" style={{ color: "var(--color-fg-default)" }}>Happy path</p>
+                      <ul className="space-y-1">{feature.happyPath.map((item) => <li key={item}>• {item}</li>)}</ul>
+                    </div>
+                    <div>
+                      <p className="font-bold mb-1" style={{ color: "var(--color-fg-default)" }}>Edge cases</p>
+                      <ul className="space-y-1">{feature.edgeCases.map((item) => <li key={item}>• {item}</li>)}</ul>
+                    </div>
+                    <div>
+                      <p className="font-bold mb-1" style={{ color: "var(--color-fg-default)" }}>Evidence paths</p>
+                      <ul className="space-y-1 font-mono text-[10px]">{feature.evidencePaths.map((item) => <li key={item}>{item}</li>)}</ul>
+                    </div>
+                  </div>
+                </details>
+
+                <div className="grid gap-3 md:grid-cols-[180px,1fr]">
+                  <label htmlFor={statusSelectId} className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+                    Review status
+                    <select
+                      id={statusSelectId}
+                      value={draft.status}
+                      onChange={(e) => setDraft(feature.id, { status: e.target.value as PilotFeatureReviewStatus })}
+                      className="mt-1 w-full rounded-lg px-3 py-2 text-xs outline-none"
+                      style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+                    >
+                      {PILOT_FEATURE_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                    </select>
+                    <span className="mt-1 block normal-case font-normal leading-4" style={{ color: "var(--color-fg-subtle)" }}>{statusHelp}</span>
+                  </label>
+                  <label htmlFor={commentId} className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-subtle)" }}>
+                    Admin comment
+                    <textarea
+                      id={commentId}
+                      value={draft.adminComment}
+                      onChange={(e) => setDraft(feature.id, { adminComment: e.target.value })}
+                      rows={3}
+                      maxLength={2000}
+                      placeholder="Optional context for the next review pass."
+                      className="mt-1 w-full resize-y rounded-lg px-3 py-2 text-xs leading-5 outline-none"
+                      style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+                    />
+                  </label>
+                </div>
+
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <label htmlFor={incorrectId} className="inline-flex items-start gap-2 text-xs" style={{ color: "var(--color-fg-muted)" }}>
+                    <input
+                      id={incorrectId}
+                      type="checkbox"
+                      checked={draft.incorrectDescription}
+                      onChange={(e) => setDraft(feature.id, { incorrectDescription: e.target.checked })}
+                      className="mt-0.5"
+                    />
+                    <span>Mark description as incorrect or incomplete.</span>
+                  </label>
+                  <div className="flex items-center gap-2 md:justify-end">
+                    <span className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+                      Updated {feature.review.updatedAt ? new Date(feature.review.updatedAt).toLocaleString() : "never"}
+                      {feature.review.updatedBy ? ` by ${feature.review.updatedBy}` : ""}
+                    </span>
+                    <button
+                      onClick={() => void saveFeature(feature)}
+                      disabled={!dirty || savingId !== null}
+                      className="rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-40"
+                      style={{ background: "var(--color-accent-blue)", color: "white" }}
+                    >
+                      {savingId === feature.id ? "Saving..." : savedId === feature.id ? "Saved" : "Save review"}
+                    </button>
+                  </div>
+                </div>
+
+                {saveErrors[feature.id] && (
+                  <p className="rounded-lg px-3 py-2 text-xs" role="alert" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-accent-red)" }}>
+                    Save failed: {saveErrors[feature.id]}
+                  </p>
+                )}
+              </article>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ---- Main Admin Page ----
 export function Admin() {
   const language = usePreferencesStore((s) => s.language);
@@ -2004,7 +2378,7 @@ export function Admin() {
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<"overview" | "users" | "support" | "settings">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "users" | "features" | "support" | "settings">("overview");
   const [userSearch, setUserSearch] = useState("");
 
   const load = useCallback(async () => {
@@ -2113,10 +2487,11 @@ export function Admin() {
 
       <div className="px-4 py-4 max-w-2xl mx-auto space-y-4">
 
-        <div className="grid grid-cols-4 gap-2 rounded-xl border p-1" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
+        <div className="grid grid-cols-5 gap-2 rounded-xl border p-1" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
           {[
             { key: "overview", label: "Overview" },
             { key: "users", label: "Users" },
+            { key: "features", label: "Features" },
             { key: "support", label: "Support" },
             { key: "settings", label: "Settings" },
           ].map((item) => (
@@ -2203,6 +2578,8 @@ export function Admin() {
             )}
           </>
         )}
+
+        {activeSection === "features" && <PilotFeaturesPanel onError={setError} />}
 
         {activeSection === "support" && <SupportInbox onError={setError} />}
 

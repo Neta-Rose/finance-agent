@@ -105,14 +105,14 @@ function withDailySections<T extends {
   };
 }
 
-test("daily brief defaults all users to pro coverage", async () => {
+test("daily brief defaults to the configured coverage limit", async () => {
   const ctx = await setupWorkspace("daily-brief-default");
   const limit = await ctx.getDailyBriefCoverageLimit(ctx.ws);
-  assert.equal(limit, Number.POSITIVE_INFINITY);
+  assert.equal(limit, 10);
 });
 
-test("daily brief low plan is capped at 10 positions", async () => {
-  const ctx = await setupWorkspace("daily-brief-low", "low");
+test("daily brief ignores legacy user plan when resolving coverage limit", async () => {
+  const ctx = await setupWorkspace("daily-brief-legacy-pro", "pro");
   const limit = await ctx.getDailyBriefCoverageLimit(ctx.ws);
   assert.equal(limit, 10);
 });

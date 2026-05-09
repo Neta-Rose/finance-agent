@@ -1,0 +1,222 @@
+{
+  "entries": [
+    {
+      "id": "web.onboarding-portfolio",
+      "surface": "web",
+      "title": "Onboarding and portfolio foundation",
+      "shortSummary": "Guides a pilot user through account setup, schedule, Telegram connection, portfolio entry, and then shows the portfolio health overview.",
+      "detailedExplanation": "The onboarding flow collects user credentials or password change input, daily/weekly schedule preferences, optional Telegram bot details, portfolio accounts and positions, and optional position guidance before routing the user into the main portfolio screen. The portfolio screen shows a concise health headline, holdings, account grouping, active analysis jobs, attention cards, and quick-check controls derived from current portfolio and verdict data.",
+      "happyPath": [
+        "Authenticated or invited user completes the onboarding steps with valid account, schedule, and portfolio data.",
+        "Completed onboarding redirects to /portfolio, where holdings, health score, attention items, and account grouping render from API data.",
+        "The user can add or remove empty accounts and positions from the portfolio surface without leaving the pilot app."
+      ],
+      "edgeCases": [
+        "Incomplete onboarding redirects protected routes back to /onboarding.",
+        "An empty or unavailable portfolio renders an empty or retryable error state rather than a blank screen.",
+        "Bootstrapping users see setup progress and pending analysis context before normal portfolio health is available."
+      ],
+      "errorHandling": [
+        "Client-side validation blocks missing account, password, ticker, share, average-price, and Telegram input before submission.",
+        "Onboarding submission failures show a toast and leave the user in the current step for correction.",
+        "Portfolio fetch errors render ErrorState with retry support; active job trigger failures surface backend reasons in toast copy."
+      ],
+      "evidencePaths": [
+        "frontend/src/App.tsx",
+        "frontend/src/pages/Onboarding.tsx",
+        "frontend/src/pages/Portfolio.tsx"
+      ],
+      "pilotRecommendation": "pilot"
+    },
+    {
+      "id": "web.reports-feed",
+      "surface": "web",
+      "title": "Reports feed and detail reader",
+      "shortSummary": "Lets a pilot user browse daily briefs, deep dives, quick checks, weekly reports, and new ideas from the reports feed.",
+      "detailedExplanation": "The reports page fetches paged feed items, filters by report mode, renders active analysis jobs, and expands report cards into per-ticker analyst detail tabs including strategy, fundamentals, technical, sentiment, macro, risk, quick-check, and bull/bear views when data is present.",
+      "happyPath": [
+        "User opens /reports and sees recent feed items with report type, date, summary, verdict, and confidence metadata.",
+        "User expands a report card and reads ticker-specific analyst sections with source links where available.",
+        "User can filter by report type and inspect active job progress from the same surface."
+      ],
+      "edgeCases": [
+        "Missing optional analyst sections render explicit no-data copy instead of crashing.",
+        "Multi-ticker daily briefs group escalated, positive, on-track, and tracking entries for readable browsing.",
+        "Older daily brief metadata is labeled when auto-queue evidence is incomplete."
+      ],
+      "errorHandling": [
+        "Report feed fetch failures render ErrorState with retry support.",
+        "Individual detail report fetch failures are isolated so other available tabs can still render.",
+        "Job cancel/resume failures surface through the surrounding query and toast patterns rather than mutating local report data silently."
+      ],
+      "evidencePaths": [
+        "frontend/src/pages/Reports.tsx"
+      ],
+      "pilotRecommendation": "pilot"
+    },
+    {
+      "id": "web.strategies",
+      "surface": "web",
+      "title": "Strategy list and thesis drill-down",
+      "shortSummary": "Shows current portfolio and tracked strategies with verdict, confidence, timeframe, sizing, and detailed thesis modal access.",
+      "detailedExplanation": "The strategies page fetches current strategy rows, separates portfolio holdings from non-portfolio tracking ideas, supports ticker search and verdict filtering, sorts urgent verdicts ahead of holds, and opens the shared strategy detail modal for a selected ticker.",
+      "happyPath": [
+        "User opens /strategies and sees strategy rows grouped by portfolio or tracking scope.",
+        "User filters by verdict or searches by ticker to narrow the list.",
+        "User taps a ticker to inspect detailed catalysts, bull/bear cases, entry conditions, and exit conditions."
+      ],
+      "edgeCases": [
+        "No strategies in the selected scope render a useful empty state.",
+        "Search or verdict filters with no matches render a no-results empty state.",
+        "Tracking strategies display potential, urgency, stance, and suggested allocation metadata when present."
+      ],
+      "errorHandling": [
+        "Strategy fetch failures render ErrorState with retry support.",
+        "Missing tracking metadata falls back to neutral labels instead of hiding the card.",
+        "Expired catalysts are visually marked without blocking access to the rest of the strategy."
+      ],
+      "evidencePaths": [
+        "frontend/src/pages/Strategies.tsx",
+        "frontend/src/components/portfolio/StrategyModal.tsx"
+      ],
+      "pilotRecommendation": "pilot"
+    },
+    {
+      "id": "web.alerts-notifications",
+      "surface": "web",
+      "title": "Alerts, web notifications, and notification preferences",
+      "shortSummary": "Surfaces report, daily brief, market news, and web notification activity in the app and lets users tune notification channels.",
+      "detailedExplanation": "The Alerts page fetches the report feed with alert-focused filters and expandable cards. The app shell polls unread web notifications and turns them into toasts, then marks them read. Settings exposes primary channel, channel enablement, and category preferences for daily briefs, report runs, and market news.",
+      "happyPath": [
+        "User opens /alerts and browses alert cards filtered by all, news, quick, daily, deep, ideas, or weekly modes.",
+        "Unread web notifications appear as toasts in the protected app shell and are marked read after display.",
+        "User opens Settings and saves notification channel/category preferences."
+      ],
+      "edgeCases": [
+        "No feed items render the alerts empty state.",
+        "Unavailable external channels are disabled or omitted from channel choices.",
+        "Grouped notification batches produce one toast per category/batch instead of noisy duplicates."
+      ],
+      "errorHandling": [
+        "Alert feed failures render ErrorState with retry support.",
+        "Notification preference save failures show an error toast and preserve current draft state.",
+        "Notification API list and mark-read routes clamp limits and filter channel values to supported channels."
+      ],
+      "evidencePaths": [
+        "frontend/src/App.tsx",
+        "frontend/src/pages/Alerts.tsx",
+        "frontend/src/pages/Settings.tsx",
+        "backend/src/routes/notifications.ts"
+      ],
+      "pilotRecommendation": "pilot"
+    },
+    {
+      "id": "telegram.daily-brief-chat",
+      "surface": "telegram",
+      "title": "Telegram connection, delivery, and chat webhook",
+      "shortSummary": "Connects a pilot user's Telegram chat for daily brief/report delivery and forwards inbound Telegram text into the portfolio assistant.",
+      "detailedExplanation": "Telegram can be configured during onboarding or from Settings. The backend webhook verifies the Telegram secret when configured, completes channel binding from connect codes, resolves bound chat IDs to users, calls the shared agent chat service for inbound messages, and sends replies through Telegram while splitting long messages to the platform limit.",
+      "happyPath": [
+        "User provides a valid Telegram bot token and chat ID during onboarding or Settings.",
+        "Inbound /connect or connect code binds the Telegram chat to the user.",
+        "Subsequent Telegram messages are resolved to the user, answered by the agent chat service, and delivered back to Telegram."
+      ],
+      "edgeCases": [
+        "Missing or unknown chat bindings are acknowledged to Telegram without exposing backend internals.",
+        "Replies longer than Telegram's 4096-character limit are split into multiple sendMessage calls.",
+        "If no user bot token is available, the webhook logs the condition and still returns Telegram-safe success."
+      ],
+      "errorHandling": [
+        "Webhook secret mismatch records a best-effort audit event and returns HTTP 200 to avoid Telegram retry storms.",
+        "Malformed updates without text or chat ID are ignored with a successful acknowledgement.",
+        "Telegram delivery and webhook exceptions are logged with safe reasons and do not expose tokens in responses."
+      ],
+      "evidencePaths": [
+        "frontend/src/pages/Onboarding.tsx",
+        "frontend/src/pages/Settings.tsx",
+        "backend/src/routes/telegram.ts"
+      ],
+      "pilotRecommendation": "pilot"
+    },
+    {
+      "id": "web.chat",
+      "surface": "web",
+      "title": "Portfolio assistant chat",
+      "shortSummary": "Provides an in-app chat panel for portfolio questions, strategy explanations, and quick analysis requests.",
+      "detailedExplanation": "The chat page keeps a local 14-day conversation session, sends user messages to the backend chat API with the current conversation ID, appends assistant replies, and offers starter prompts for portfolio overview, attention items, and quick checks.",
+      "happyPath": [
+        "User opens /chat, enters a portfolio question, and receives an assistant response.",
+        "The conversation ID persists so follow-up questions stay in context during the saved session.",
+        "User can start a new conversation and clear the local chat session."
+      ],
+      "edgeCases": [
+        "Empty input and duplicate sends while a response is pending are blocked client-side.",
+        "Expired saved sessions are removed after the local TTL.",
+        "Replies are rendered as plain text without client-side tool execution."
+      ],
+      "errorHandling": [
+        "Chat send failures append a visible assistant error message asking the user to retry.",
+        "localStorage parse or quota failures are safely ignored so chat remains usable.",
+        "The send button is disabled while pending to prevent repeated requests."
+      ],
+      "evidencePaths": [
+        "frontend/src/pages/Chat.tsx"
+      ],
+      "pilotRecommendation": "pilot"
+    },
+    {
+      "id": "web.controls-settings",
+      "surface": "web",
+      "title": "Controls, jobs, settings, and account preferences",
+      "shortSummary": "Lets a pilot user trigger supported analysis jobs, inspect job progress/history, update account settings, and tune delivery preferences.",
+      "detailedExplanation": "The Controls page exposes daily brief and deep dive actions, marks weekly report and new ideas as currently blocked, and shows active/recent jobs. Settings lets users update display name, password, schedule, theme, Telegram, WhatsApp, notification preferences, analyst pipeline configuration, and logout.",
+      "happyPath": [
+        "User opens /controls and queues a daily brief or ticker-specific deep dive.",
+        "Active and recent jobs render with status, progress, and completion/failure notifications.",
+        "User opens /settings and saves schedule, notification, Telegram, theme, password, or display-name changes."
+      ],
+      "edgeCases": [
+        "Ticker-required jobs block submission until a ticker is selected.",
+        "Blocked pilot actions explain that the feature is coming soon rather than silently failing.",
+        "External channels show connected/disconnected state and unavailable channels are not selectable as primary delivery targets."
+      ],
+      "errorHandling": [
+        "Job trigger failures show backend-provided reason text in error toasts.",
+        "Settings save failures show error toasts or inline field errors and keep the draft available.",
+        "Password, Telegram, and WhatsApp forms validate format and required fields before sending requests."
+      ],
+      "evidencePaths": [
+        "frontend/src/pages/Controls.tsx",
+        "frontend/src/pages/Settings.tsx"
+      ],
+      "pilotRecommendation": "pilot"
+    },
+    {
+      "id": "admin.operator-console",
+      "surface": "admin",
+      "title": "Admin and operator console",
+      "shortSummary": "Gives the owner an admin-key protected console for user setup, controls, observability, support, budgets, defaults, and model routing.",
+      "detailedExplanation": "The admin page uses the existing admin key model to list and create users, attach Telegram credentials, inspect user and system health, manage account controls, force logout, review observability and support messages, update daily points budgets and model tiers, inspect step-queue jobs, and configure default model assignments.",
+      "happyPath": [
+        "Owner signs into /admin with the admin key and sees current users and system status.",
+        "Owner creates or updates users, controls restrictions, budgets, defaults, support status, and model assignments.",
+        "Owner inspects observability windows and step-queue job details for operational debugging."
+      ],
+      "edgeCases": [
+        "No users, support messages, model rows, or step-queue jobs render explicit empty states.",
+        "Restricted, inactive, degraded, and unhealthy users are labeled distinctly.",
+        "Custom observability ranges fall back to a safe recent window when invalid."
+      ],
+      "errorHandling": [
+        "Invalid admin login removes the stored admin key and shows the admin login error.",
+        "Admin API failures are surfaced through inline error callbacks and do not silently mutate UI state.",
+        "Budget and model edits validate required numeric/model inputs before save."
+      ],
+      "evidencePaths": [
+        "frontend/src/pages/Admin.tsx",
+        "frontend/src/api/admin.ts"
+      ],
+      "pilotRecommendation": "pilot"
+    }
+  ]
+}

@@ -52,6 +52,20 @@ export type {
   NotificationPreferences,
 } from "./notifications.js";
 export {
+  PilotFeatureSurfaceSchema,
+  PilotFeatureReviewStatusSchema,
+  PilotFeatureRecommendationSchema,
+  PilotFeatureCatalogEntrySchema,
+  PilotFeatureCatalogFileSchema,
+} from "./pilotFeature.js";
+export type {
+  PilotFeatureSurface,
+  PilotFeatureReviewStatus,
+  PilotFeatureRecommendation,
+  PilotFeatureCatalogEntry,
+  PilotFeatureCatalogFile,
+} from "./pilotFeature.js";
+export {
   TelegramConnectRequestSchema,
   WhatsAppConnectionSchema,
   ConnectWhatsAppRequestSchema,
