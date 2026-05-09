@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import { z } from "zod";
 import { promises as fs } from "fs";
 import path from "path";
 import { isApplicationDatabaseConfigured, getApplicationDataSource } from "../db/applicationDataSource.js";
@@ -62,9 +63,44 @@ import {
 import { MODEL_TIERS, STEP_KINDS } from "../services/stepQueue/types.js";
 import type { ModelTier, StepKind, JobAction as StepQueueJobAction } from "../services/stepQueue/types.js";
 import { getAdminDefaults, updateAdminDefaults, type AdminDefaultsPatch } from "../services/adminDefaultsService.js";
+import {
+  listPilotFeaturesWithReviews,
+  upsertPilotFeatureReview,
+  PilotFeatureReviewServiceError,
+  type PilotFeatureWithReview,
+  type UpsertPilotFeatureReviewInput,
+} from "../services/pilotFeatureReviewService.js";
+import {
+  PilotFeatureReviewStatusSchema,
+  PilotFeatureSurfaceSchema,
+  type PilotFeatureReviewStatus,
+  type PilotFeatureSurface,
+} from "../schemas/pilotFeature.js";
 
 const USERS_DIR = process.env["USERS_DIR"] ?? "../users";
 const ADMIN_KEY = process.env["ADMIN_KEY"] ?? "";
+const PILOT_FEATURE_DEFAULT_LIMIT = 50;
+const PILOT_FEATURE_MAX_LIMIT = 200;
+const PILOT_FEATURE_MAX_ADMIN_COMMENT_LENGTH = 2_000;
+const PILOT_FEATURE_MAX_UPDATED_BY_LENGTH = 128;
+
+interface PilotFeatureAdminRouteDeps {
+  databaseConfigured: () => boolean;
+  listPilotFeaturesWithReviews: typeof listPilotFeaturesWithReviews;
+  upsertPilotFeatureReview: typeof upsertPilotFeatureReview;
+}
+
+const defaultPilotFeatureAdminRouteDeps: PilotFeatureAdminRouteDeps = {
+  databaseConfigured: isApplicationDatabaseConfigured,
+  listPilotFeaturesWithReviews,
+  upsertPilotFeatureReview,
+};
+
+let pilotFeatureAdminRouteDeps: PilotFeatureAdminRouteDeps = defaultPilotFeatureAdminRouteDeps;
+
+export function setPilotFeatureAdminRouteDepsForTest(deps: PilotFeatureAdminRouteDeps | null): void {
+  pilotFeatureAdminRouteDeps = deps ?? defaultPilotFeatureAdminRouteDeps;
+}
 
 const router = Router();
 
@@ -120,6 +156,204 @@ router.patch(
       res.json({ defaults });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : "invalid_defaults" });
+    }
+  })
+);
+
+const PilotFeatureReviewPatchSchema = z.object({
+  status: PilotFeatureReviewStatusSchema.optional(),
+  adminComment: z.string().max(PILOT_FEATURE_MAX_ADMIN_COMMENT_LENGTH).nullable().optional(),
+  incorrectDescription: z.boolean().optional(),
+  updatedBy: z.string().trim().min(1).max(PILOT_FEATURE_MAX_UPDATED_BY_LENGTH).optional(),
+}).strict();
+
+function firstQueryValue(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === "string") return value;
+  return null;
+}
+
+function parsePilotFeatureListQuery(req: Request):
+  | { ok: true; surface?: PilotFeatureSurface; status?: PilotFeatureReviewStatus; limit: number; offset: number }
+  | { ok: false; message: string } {
+  const rawSurface = firstQueryValue(req.query["surface"]);
+  const rawStatus = firstQueryValue(req.query["status"]);
+  const rawLimit = firstQueryValue(req.query["limit"]);
+  const rawOffset = firstQueryValue(req.query["offset"]);
+
+  const parsedSurface = rawSurface === undefined ? undefined : PilotFeatureSurfaceSchema.safeParse(rawSurface);
+  if (rawSurface === null || (parsedSurface && !parsedSurface.success)) {
+    return { ok: false, message: "surface must be one of admin, operator, telegram, web" };
+  }
+
+  const parsedStatus = rawStatus === undefined ? undefined : PilotFeatureReviewStatusSchema.safeParse(rawStatus);
+  if (rawStatus === null || (parsedStatus && !parsedStatus.success)) {
+    return { ok: false, message: "status must be one of unreviewed, needs_fix, beta, hidden, ready" };
+  }
+
+  const limitNumber = rawLimit === undefined ? PILOT_FEATURE_DEFAULT_LIMIT : Number(rawLimit);
+  if (rawLimit === null || !Number.isFinite(limitNumber)) {
+    return { ok: false, message: "limit must be a number" };
+  }
+  const offsetNumber = rawOffset === undefined ? 0 : Number(rawOffset);
+  if (rawOffset === null || !Number.isFinite(offsetNumber)) {
+    return { ok: false, message: "offset must be a number" };
+  }
+
+  return {
+    ok: true,
+    ...(parsedSurface?.success ? { surface: parsedSurface.data } : {}),
+    ...(parsedStatus?.success ? { status: parsedStatus.data } : {}),
+    limit: Math.min(Math.max(Math.trunc(limitNumber), 1), PILOT_FEATURE_MAX_LIMIT),
+    offset: Math.max(Math.trunc(offsetNumber), 0),
+  };
+}
+
+function serviceErrorToHttp(error: PilotFeatureReviewServiceError): {
+  status: number;
+  body: Record<string, unknown>;
+  safeReason: string;
+} {
+  switch (error.code) {
+    case "INVALID_REVIEW_INPUT":
+      return {
+        status: 422,
+        body: { error: "invalid_pilot_feature_review", details: error.details },
+        safeReason: error.code,
+      };
+    case "UNKNOWN_FEATURE_ID":
+      return {
+        status: 404,
+        body: { error: "pilot_feature_not_found" },
+        safeReason: error.code,
+      };
+    case "DATABASE_UNAVAILABLE":
+      return {
+        status: 503,
+        body: { error: "application_database_unavailable", databaseAvailable: false },
+        safeReason: error.code,
+      };
+    case "CATALOG_LOAD_FAILED":
+      return {
+        status: 503,
+        body: { error: "pilot_feature_catalog_unavailable" },
+        safeReason: error.code,
+      };
+  }
+}
+
+function respondPilotFeatureServiceError(
+  res: Response,
+  error: PilotFeatureReviewServiceError,
+  context: "list" | "patch",
+  featureId?: string
+): void {
+  const mapped = serviceErrorToHttp(error);
+  logger.warn(
+    `pilot_feature_admin_${context}_failed feature_id=${featureId ?? "<list>"} reason=${mapped.safeReason}`
+  );
+  res.status(mapped.status).json(mapped.body);
+}
+
+function filterPilotFeatures(
+  features: PilotFeatureWithReview[],
+  filters: { surface?: PilotFeatureSurface; status?: PilotFeatureReviewStatus }
+): PilotFeatureWithReview[] {
+  return features.filter((feature) => {
+    if (filters.surface && feature.surface !== filters.surface) return false;
+    if (filters.status && feature.review.status !== filters.status) return false;
+    return true;
+  });
+}
+
+router.get(
+  "/pilot-features",
+  handler(async (req, res) => {
+    const parsed = parsePilotFeatureListQuery(req);
+    if (!parsed.ok) {
+      res.status(400).json({ error: "invalid_pilot_feature_filter", message: parsed.message });
+      return;
+    }
+
+    if (!pilotFeatureAdminRouteDeps.databaseConfigured()) {
+      logger.warn("pilot_feature_admin_list_failed feature_id=<list> reason=DATABASE_UNAVAILABLE");
+      res.status(503).json({ error: "application_database_unavailable", databaseAvailable: false });
+      return;
+    }
+
+    try {
+      const features = await pilotFeatureAdminRouteDeps.listPilotFeaturesWithReviews();
+      const filtered = filterPilotFeatures(features, parsed);
+      const items = filtered.slice(parsed.offset, parsed.offset + parsed.limit);
+      res.json({
+        items,
+        total: filtered.length,
+        limit: parsed.limit,
+        offset: parsed.offset,
+        databaseAvailable: true,
+      });
+    } catch (error) {
+      if (error instanceof PilotFeatureReviewServiceError) {
+        respondPilotFeatureServiceError(res, error, "list");
+        return;
+      }
+      logger.warn("pilot_feature_admin_list_failed feature_id=<list> reason=UNEXPECTED_ERROR");
+      throw error;
+    }
+  })
+);
+
+router.patch(
+  "/pilot-features/:featureId/review",
+  handler(async (req, res) => {
+    const featureId = String(req.params.featureId ?? "").trim();
+    if (!featureId) {
+      res.status(400).json({ error: "feature_id_required" });
+      return;
+    }
+
+    const parsedBody = PilotFeatureReviewPatchSchema.safeParse(req.body ?? {});
+    if (!parsedBody.success) {
+      res.status(422).json({ error: "invalid_pilot_feature_review" });
+      return;
+    }
+
+    if (!pilotFeatureAdminRouteDeps.databaseConfigured()) {
+      logger.warn(`pilot_feature_admin_patch_failed feature_id=${featureId} reason=DATABASE_UNAVAILABLE`);
+      res.status(503).json({ error: "application_database_unavailable", databaseAvailable: false });
+      return;
+    }
+
+    try {
+      const currentFeature = (await pilotFeatureAdminRouteDeps.listPilotFeaturesWithReviews())
+        .find((feature) => feature.id === featureId);
+      if (!currentFeature) {
+        logger.warn(`pilot_feature_admin_patch_failed feature_id=${featureId} reason=UNKNOWN_FEATURE_ID`);
+        res.status(404).json({ error: "pilot_feature_not_found" });
+        return;
+      }
+
+      const patch = parsedBody.data;
+      const input: UpsertPilotFeatureReviewInput = {
+        featureId,
+        status: patch.status ?? currentFeature.review.status,
+        adminComment: Object.prototype.hasOwnProperty.call(patch, "adminComment")
+          ? patch.adminComment ?? null
+          : currentFeature.review.adminComment,
+        incorrectDescription: Object.prototype.hasOwnProperty.call(patch, "incorrectDescription")
+          ? patch.incorrectDescription ?? false
+          : currentFeature.review.incorrectDescription,
+        updatedBy: patch.updatedBy ?? "admin-ui",
+      };
+      const feature = await pilotFeatureAdminRouteDeps.upsertPilotFeatureReview(input);
+      res.json({ feature });
+    } catch (error) {
+      if (error instanceof PilotFeatureReviewServiceError) {
+        respondPilotFeatureServiceError(res, error, "patch", featureId);
+        return;
+      }
+      logger.warn(`pilot_feature_admin_patch_failed feature_id=${featureId} reason=UNEXPECTED_ERROR`);
+      throw error;
     }
   })
 );
