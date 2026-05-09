@@ -23,6 +23,10 @@ export const fundamentalsHandler = makePromptHandler({
     return { ...common, fundamentalsFacts };
   },
   artifactPath: persistReportArtifact("fundamentals"),
+  enrichArtifact(raw, inputs) {
+    // Authoritative ticker from step context — guard against LLM returning a missing or wrong ticker.
+    return { ...raw, ticker: inputs?.step.ticker ?? raw.ticker };
+  },
   buildUserPrompt(inputs) {
     return [
       `User: ${inputs.step.userId}`,

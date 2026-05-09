@@ -10,6 +10,7 @@ import type { ClaimedStepWorkItem } from "./stepQueue/types.js";
 const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), "step-queue-"));
 const usersDir = path.join(testRoot, "users");
 process.env["USERS_DIR"] = usersDir;
+process.env["OPENROUTER_API_KEY"] = process.env["OPENROUTER_API_KEY"] ?? "test-openrouter-key";
 delete process.env["USE_STEP_QUEUE"];
 
 const [{ buildWorkspace }, { expandStepQueueJob }, { isStepQueueServiceEnabled, isStepQueueEnabledForUser }, { handlerFor, registeredStepKinds }, { resolveTerminalJobStatus }] =
@@ -565,7 +566,7 @@ test("synthesis handler writes tracking fields for non-held deep dive ideas", as
   mockLlmJsonOnce(strategyFixture("GOOGL", true));
   const raw = await handler.call(prompt, { tier: "cheap", primary: "stub", fallback: null }, step, inputs);
   assertLlmCalledOnce();
-  const validated = handler.validate(raw, prompt.schema);
+  const validated = handler.validate(raw, prompt.schema, inputs);
   assert.equal(validated.ok, true);
   if (!validated.ok) return;
 
