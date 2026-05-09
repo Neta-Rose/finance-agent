@@ -40,6 +40,24 @@ function feature(
   };
 }
 
+function assertPilotFeatureApiContract(item: PilotFeatureWithReview): void {
+  assert.equal(typeof item.id, "string");
+  assert.ok(["admin", "operator", "telegram", "web"].includes(item.surface));
+  assert.equal(typeof item.title, "string");
+  assert.equal(typeof item.shortSummary, "string");
+  assert.equal(typeof item.detailedExplanation, "string");
+  assert.ok(Array.isArray(item.happyPath) && item.happyPath.length > 0);
+  assert.ok(Array.isArray(item.edgeCases) && item.edgeCases.length > 0);
+  assert.ok(Array.isArray(item.errorHandling) && item.errorHandling.length > 0);
+  assert.ok(Array.isArray(item.evidencePaths) && item.evidencePaths.length > 0);
+  assert.ok(["pilot", "beta", "defer", "hide"].includes(item.pilotRecommendation));
+  assert.ok(["unreviewed", "needs_fix", "beta", "hidden", "ready"].includes(item.review.status));
+  assert.ok(typeof item.review.incorrectDescription === "boolean");
+  assert.ok(item.review.adminComment === null || typeof item.review.adminComment === "string");
+  assert.ok(item.review.updatedAt === null || typeof item.review.updatedAt === "string");
+  assert.ok(item.review.updatedBy === null || typeof item.review.updatedBy === "string");
+}
+
 async function invokeAdminRouterJson(options: {
   method: "GET" | "PATCH";
   url: string;
@@ -107,6 +125,11 @@ test("admin pilot features GET /pilot-features composes review state, filters, a
     offset: 1,
     databaseAvailable: true,
   });
+  const items = (result.body as { items: PilotFeatureWithReview[] }).items;
+  assert.equal(items.length, 1);
+  for (const item of items) {
+    assertPilotFeatureApiContract(item);
+  }
 });
 
 test("admin pilot features PATCH /pilot-features/:featureId/review updates state and subsequent list reads it", async () => {
@@ -149,7 +172,9 @@ test("admin pilot features PATCH /pilot-features/:featureId/review updates state
   });
 
   assert.equal(patch.statusCode, 200);
-  assert.equal((patch.body as { feature: PilotFeatureWithReview }).feature.review.status, "needs_fix");
+  const patchedFeature = (patch.body as { feature: PilotFeatureWithReview }).feature;
+  assertPilotFeatureApiContract(patchedFeature);
+  assert.equal(patchedFeature.review.status, "needs_fix");
 
   const list = await invokeAdminRouterJson({ method: "GET", url: "/pilot-features" });
   const listed = (list.body as { items: PilotFeatureWithReview[] }).items[0];

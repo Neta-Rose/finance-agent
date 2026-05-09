@@ -62,6 +62,24 @@ function configuredDeps(ds: { query<T = unknown>(sql: string, params: unknown[])
   };
 }
 
+function assertFeatureWithReviewContract(feature: Awaited<ReturnType<typeof listPilotFeaturesWithReviews>>[number]): void {
+  assert.equal(typeof feature.id, "string");
+  assert.ok(["admin", "operator", "telegram", "web"].includes(feature.surface));
+  assert.equal(typeof feature.title, "string");
+  assert.equal(typeof feature.shortSummary, "string");
+  assert.equal(typeof feature.detailedExplanation, "string");
+  assert.ok(Array.isArray(feature.happyPath) && feature.happyPath.length > 0);
+  assert.ok(Array.isArray(feature.edgeCases) && feature.edgeCases.length > 0);
+  assert.ok(Array.isArray(feature.errorHandling) && feature.errorHandling.length > 0);
+  assert.ok(Array.isArray(feature.evidencePaths) && feature.evidencePaths.length > 0);
+  assert.ok(["pilot", "beta", "defer", "hide"].includes(feature.pilotRecommendation));
+  assert.ok(["unreviewed", "needs_fix", "beta", "hidden", "ready"].includes(feature.review.status));
+  assert.ok(typeof feature.review.incorrectDescription === "boolean");
+  assert.ok(feature.review.adminComment === null || typeof feature.review.adminComment === "string");
+  assert.ok(feature.review.updatedAt === null || typeof feature.review.updatedAt === "string");
+  assert.ok(feature.review.updatedBy === null || typeof feature.review.updatedBy === "string");
+}
+
 test("pilot feature review service composes catalog entries with default and persisted review state", async () => {
   const { ds, calls } = makeDataSource([
     [
@@ -81,6 +99,9 @@ test("pilot feature review service composes catalog entries with default and per
   assert.equal(calls.length, 1);
   assert.match(calls[0]!.sql, /WHERE feature_id = ANY\(\$1::text\[\]\)/);
   assert.deepEqual(calls[0]!.params, [["web.portfolio", "telegram.daily-brief"]]);
+  for (const feature of result) {
+    assertFeatureWithReviewContract(feature);
+  }
   assert.equal(result[0]!.review.status, "unreviewed");
   assert.equal(result[0]!.review.updatedAt, null);
   assert.equal(result[1]!.review.status, "beta");
@@ -124,6 +145,7 @@ test("pilot feature review service upserts a known feature review", async () => 
     "owner",
   ]);
   assert.equal(result.id, "web.portfolio");
+  assertFeatureWithReviewContract(result);
   assert.deepEqual(result.review, {
     status: "ready",
     adminComment: "Good enough for pilot.",

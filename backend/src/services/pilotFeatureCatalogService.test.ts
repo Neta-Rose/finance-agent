@@ -28,6 +28,23 @@ async function makeCatalogDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), "pilot-feature-catalog-"));
 }
 
+function assertCatalogEntryContract(entry: typeof baseEntry): void {
+  assert.equal(typeof entry.id, "string");
+  assert.match(entry.id, /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/);
+  assert.ok(["admin", "operator", "telegram", "web"].includes(entry.surface));
+  assert.equal(typeof entry.title, "string");
+  assert.equal(typeof entry.shortSummary, "string");
+  assert.equal(typeof entry.detailedExplanation, "string");
+  assert.ok(entry.title.trim().length > 0);
+  assert.ok(entry.shortSummary.trim().length > 0);
+  assert.ok(entry.detailedExplanation.trim().length > 0);
+  assert.ok(Array.isArray(entry.happyPath) && entry.happyPath.length > 0);
+  assert.ok(Array.isArray(entry.edgeCases) && entry.edgeCases.length > 0);
+  assert.ok(Array.isArray(entry.errorHandling) && entry.errorHandling.length > 0);
+  assert.ok(Array.isArray(entry.evidencePaths) && entry.evidencePaths.length > 0);
+  assert.ok(["pilot", "beta", "defer", "hide"].includes(entry.pilotRecommendation));
+}
+
 test("pilot feature catalog loads valid entries and sorts by surface, title, and id", async () => {
   const catalogDir = await makeCatalogDir();
   await writeCatalog(catalogDir, "pilot-core.json", {
@@ -53,15 +70,20 @@ test("pilot feature catalog loads valid entries and sorts by surface, title, and
 test("default pilot feature catalog includes substantive Web, Telegram, and admin coverage", async () => {
   const entries = await loadPilotFeatureCatalog();
   const ids = new Set(entries.map((entry) => entry.id));
+  const webEntries = entries.filter((entry) => entry.surface === "web");
+  const telegramEntries = entries.filter((entry) => entry.surface === "telegram");
+  const adminEntries = entries.filter((entry) => entry.surface === "admin");
 
   assert.ok(entries.length >= 8);
-  assert.ok(entries.some((entry) => entry.surface === "web"));
-  assert.ok(entries.some((entry) => entry.surface === "telegram"));
-  assert.ok(entries.some((entry) => entry.surface === "admin"));
+  assert.ok(webEntries.length >= 5);
+  assert.ok(telegramEntries.length >= 1);
+  assert.ok(adminEntries.length >= 1);
   assert.ok(ids.has("web.onboarding-portfolio"));
   assert.ok(ids.has("telegram.daily-brief-chat"));
-  assert.ok(entries.every((entry) => entry.shortSummary.length > 20));
-  assert.ok(entries.every((entry) => entry.errorHandling.length > 0));
+  for (const entry of entries) {
+    assertCatalogEntryContract(entry);
+    assert.ok(entry.shortSummary.length > 20);
+  }
 });
 
 test("pilot feature catalog rejects duplicate feature ids across files", async () => {
