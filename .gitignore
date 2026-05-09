@@ -23,6 +23,10 @@ users/
 memory/
 canvas/
 docs/
+!docs/
+docs/*
+!docs/pilot-features/
+!docs/pilot-features/*.json
 .openclaw/
 .clawhub/
 
