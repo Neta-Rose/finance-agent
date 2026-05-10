@@ -1,0 +1,217 @@
+
+> clawd-backend@1.0.0 test
+> node scripts/run-tests.mjs --test-name-pattern notification composer|notification service|telegram delivery
+
+TAP version 13
+1..0
+# Subtest: /root/clawd/backend/src/routes/adminPilotFeatures.test.ts
+ok 1 - /root/clawd/backend/src/routes/adminPilotFeatures.test.ts
+  ---
+  duration_ms: 770.377266
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/fullReportRoutes.test.ts
+ok 2 - /root/clawd/backend/src/routes/fullReportRoutes.test.ts
+  ---
+  duration_ms: 280.882656
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/llmProxy.test.ts
+ok 3 - /root/clawd/backend/src/routes/llmProxy.test.ts
+  ---
+  duration_ms: 1031.480831
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/strategiesRoutes.test.ts
+ok 4 - /root/clawd/backend/src/routes/strategiesRoutes.test.ts
+  ---
+  duration_ms: 238.775704
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/schemas/strategy.test.ts
+ok 5 - /root/clawd/backend/src/schemas/strategy.test.ts
+  ---
+  duration_ms: 252.951637
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/scripts/supersedeStuckJob.test.ts
+ok 6 - /root/clawd/backend/src/scripts/supersedeStuckJob.test.ts
+  ---
+  duration_ms: 239.996519
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/advisorLlmService.test.ts
+ok 7 - /root/clawd/backend/src/services/advisorLlmService.test.ts
+  ---
+  duration_ms: 321.855053
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/baselineCoverageService.test.ts
+ok 8 - /root/clawd/backend/src/services/baselineCoverageService.test.ts
+  ---
+  duration_ms: 194.572111
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/dailyBriefService.selection.test.ts
+ok 9 - /root/clawd/backend/src/services/dailyBriefService.selection.test.ts
+  ---
+  duration_ms: 1003.844341
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/dailyBriefService.test.ts
+ok 10 - /root/clawd/backend/src/services/dailyBriefService.test.ts
+  ---
+  duration_ms: 218.260046
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/deepDiveService.test.ts
+ok 11 - /root/clawd/backend/src/services/deepDiveService.test.ts
+  ---
+  duration_ms: 214.86149
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/feedService.test.ts
+ok 12 - /root/clawd/backend/src/services/feedService.test.ts
+  ---
+  duration_ms: 197.932517
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/fullReportService.test.ts
+ok 13 - /root/clawd/backend/src/services/fullReportService.test.ts
+  ---
+  duration_ms: 201.332484
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobAdmissionService.test.ts
+ok 14 - /root/clawd/backend/src/services/jobAdmissionService.test.ts
+  ---
+  duration_ms: 200.502108
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobStateReconciler.test.ts
+ok 15 - /root/clawd/backend/src/services/jobStateReconciler.test.ts
+  ---
+  duration_ms: 229.73005
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobTriggerService.test.ts
+ok 16 - /root/clawd/backend/src/services/jobTriggerService.test.ts
+  ---
+  duration_ms: 944.610719
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/llmProxy.test.ts
+ok 17 - /root/clawd/backend/src/services/llmProxy.test.ts
+  ---
+  duration_ms: 237.38164
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/newIdeasService.test.ts
+ok 18 - /root/clawd/backend/src/services/newIdeasService.test.ts
+  ---
+  duration_ms: 240.666466
+  type: 'test'
+  ...
+# Subtest: notification composer maps owned semantic kinds to persisted categories
+ok 19 - notification composer maps owned semantic kinds to persisted categories
+  ---
+  duration_ms: 1.085416
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/notificationService.test.ts
+ok 20 - /root/clawd/backend/src/services/notificationService.test.ts
+  ---
+  duration_ms: 225.816877
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pilotFeatureCatalogService.test.ts
+ok 21 - /root/clawd/backend/src/services/pilotFeatureCatalogService.test.ts
+  ---
+  duration_ms: 246.325114
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pilotFeatureReviewService.test.ts
+ok 22 - /root/clawd/backend/src/services/pilotFeatureReviewService.test.ts
+  ---
+  duration_ms: 751.83096
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pointsBudgetService.test.ts
+ok 23 - /root/clawd/backend/src/services/pointsBudgetService.test.ts
+  ---
+  duration_ms: 664.54418
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/quickCheckService.test.ts
+ok 24 - /root/clawd/backend/src/services/quickCheckService.test.ts
+  ---
+  duration_ms: 224.91153
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/stepQueue.test.ts
+ok 25 - /root/clawd/backend/src/services/stepQueue.test.ts
+  ---
+  duration_ms: 1032.392188
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/strategyBaselineService.test.ts
+ok 26 - /root/clawd/backend/src/services/strategyBaselineService.test.ts
+  ---
+  duration_ms: 206.360674
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/strategyFileService.test.ts
+ok 27 - /root/clawd/backend/src/services/strategyFileService.test.ts
+  ---
+  duration_ms: 252.011541
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/workspaceService.test.ts
+ok 28 - /root/clawd/backend/src/services/workspaceService.test.ts
+  ---
+  duration_ms: 428.131596
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/workspaceTemplate.test.ts
+ok 29 - /root/clawd/backend/src/services/workspaceTemplate.test.ts
+  ---
+  duration_ms: 210.602417
+  type: 'test'
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3929.300013
+EXIT_CODE=0 DURATION_MS=4116

@@ -1,0 +1,34 @@
+git head: 71a14d6
+71a14d6 merge: deploy S01 pilot feature inventory
+
+working tree:
+M  .gitignore
+ M db/application_postgres.sql
+?? .agents/
+?? .claude/
+?? data/cache/exa/2026-05-07/ViBsYXRlc3Qgc3RvY2sgbmV3cyBhbmFseXN0IGFjdGlvbnMgaW5zaWRlciB0cmFuc2FjdGlvbnM.json
+?? data/cache/exa/2026-05-07/ViBzZWN0b3IgbWFjcm8gcmF0ZXMgY3VycmVuY3kgbWFya2V0IHJlZ2ltZQ.json
+?? data/cache/exa/2026-05-07/ViBzdG9jayBuZXdzIGFuYWx5c3QgdXBncmFkZSBkb3duZ3JhZGUgZWFybmluZ3M.json
+?? skills-lock.json
+?? skills/code-review-excellence
+?? skills/docx
+?? skills/error-handling-patterns
+?? skills/find-skills
+?? skills/git-advanced-workflows
+?? skills/pdf
+?? skills/postgresql-table-design
+?? skills/pptx
+?? skills/skill-creator
+?? skills/sql-code-review
+?? skills/sql-optimization
+?? skills/xlsx
+
+backend health:
+{"status":"ok","timestamp":"2026-05-10T02:36:33.820Z"}
+service state:
+active
+
+admin pilot feature route unauthenticated status:
+401
+admin probe body preview:
+{"error":"unauthorized"}

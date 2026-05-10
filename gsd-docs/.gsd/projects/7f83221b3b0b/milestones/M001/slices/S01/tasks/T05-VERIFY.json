@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T05",
+  "unitId": "M001/S01/T05",
+  "timestamp": 1778334386784,
+  "passed": false,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "npm --prefix backend test",
+      "exitCode": 1,
+      "durationMs": 8041,
+      "verdict": "fail"
+    },
+    {
+      "command": "npm --prefix frontend run build",
+      "exitCode": 0,
+      "durationMs": 5742,
+      "verdict": "pass"
+    }
+  ],
+  "retryAttempt": 1,
+  "maxRetries": 2
+}

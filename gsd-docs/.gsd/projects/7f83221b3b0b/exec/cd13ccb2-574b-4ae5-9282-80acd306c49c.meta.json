@@ -1,0 +1,18 @@
+{
+  "id": "cd13ccb2-574b-4ae5-9282-80acd306c49c",
+  "runtime": "bash",
+  "purpose": "T04 pilot surface verification",
+  "script_chars": 37,
+  "started_at": "2026-05-10T12:03:21.876Z",
+  "finished_at": "2026-05-10T12:03:21.944Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 68,
+  "stdout_bytes": 165,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/cd13ccb2-574b-4ae5-9282-80acd306c49c.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/cd13ccb2-574b-4ae5-9282-80acd306c49c.stderr"
+}

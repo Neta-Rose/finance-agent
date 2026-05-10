@@ -1,0 +1,260 @@
+diff --git a/frontend/src/pages/Settings.tsx b/frontend/src/pages/Settings.tsx
+index 422e113..fd4e482 100644
+--- a/frontend/src/pages/Settings.tsx
++++ b/frontend/src/pages/Settings.tsx
+@@ -7,14 +7,12 @@ import { t, type TranslationKey } from "../store/i18n";
+ import { apiClient } from "../api/client";
+ import {
+   connectTelegram,
+-  connectWhatsApp,
+   disconnectTelegram,
+-  disconnectWhatsApp,
+   fetchOnboardStatus,
+ } from "../api/onboarding";
+ import { useQuery, useQueryClient } from "@tanstack/react-query";
+ import { Card } from "../components/ui/Card";
+-import { User, Lock, Clock, Bot, LogOut, ChevronRight, ChevronDown, X, Sun, Moon, Monitor, Bell, MessageCircle } from "lucide-react";
++import { User, Lock, Clock, Bot, LogOut, ChevronRight, ChevronDown, X, Sun, Moon, Monitor, Bell } from "lucide-react";
+ import type { NotificationPreferences } from "../types/api";
+ import { AnalystPipelineConfig } from "../components/AnalystPipelineConfig";
+ 
+@@ -44,6 +42,30 @@ const inputCls = "w-full bg-[var(--color-bg-muted)] border border-[var(--color-b
+ const labelCls = "text-xs font-medium text-[var(--color-fg-muted)] mb-1.5 block";
+ const guideItemCls = "text-xs leading-5 text-[var(--color-fg-muted)]";
+ 
++const defaultPilotNotifications: NotificationPreferences = {
++  primaryChannel: "telegram",
++  enabledChannels: {
++    telegram: true,
++    web: true,
++    whatsapp: false,
++  },
++  categories: {
++    dailyBriefs: true,
++    reportRuns: true,
++    marketNews: true,
++  },
++};
++
++const sanitizePilotNotifications = (preferences?: NotificationPreferences): NotificationPreferences => ({
++  primaryChannel: preferences?.primaryChannel === "whatsapp" ? "web" : preferences?.primaryChannel ?? defaultPilotNotifications.primaryChannel,
++  enabledChannels: {
++    telegram: preferences?.enabledChannels.telegram ?? defaultPilotNotifications.enabledChannels.telegram,
++    web: preferences?.enabledChannels.web ?? defaultPilotNotifications.enabledChannels.web,
++    whatsapp: false,
++  },
++  categories: preferences?.categories ?? defaultPilotNotifications.categories,
++});
++
+ export function Settings() {
+   const navigate = useNavigate();
+   const queryClient = useQueryClient();
+@@ -88,25 +110,9 @@ export function Settings() {
+   const [telegramChatId, setTelegramChatId] = useState("");
+   const [telegramError, setTelegramError] = useState("");
+   const [telegramLoading, setTelegramLoading] = useState(false);
+-  const [showWhatsAppForm, setShowWhatsAppForm] = useState(false);
+-  const [whatsAppAccessToken, setWhatsAppAccessToken] = useState("");
+-  const [whatsAppPhoneNumberId, setWhatsAppPhoneNumberId] = useState("");
+-  const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState("");
+-  const [whatsAppError, setWhatsAppError] = useState("");
+-  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
+-  const [notifications, setNotifications] = useState<NotificationPreferences>({
+-    primaryChannel: onboardStatus?.notifications?.primaryChannel ?? "telegram",
+-    enabledChannels: onboardStatus?.notifications?.enabledChannels ?? {
+-      telegram: true,
+-      web: true,
+-      whatsapp: false,
+-    },
+-    categories: onboardStatus?.notifications?.categories ?? {
+-      dailyBriefs: true,
+-      reportRuns: true,
+-      marketNews: true,
+-    },
+-  });
++  const [notifications, setNotifications] = useState<NotificationPreferences>(() =>
++    sanitizePilotNotifications(onboardStatus?.notifications)
++  );
+   const [notificationsLoading, setNotificationsLoading] = useState(false);
+ 
+   const handleLogout = () => {
+@@ -205,69 +211,12 @@ export function Settings() {
+     }
+   };
+ 
+-  const handleConnectWhatsApp = async () => {
+-    setWhatsAppError("");
+-    if (!whatsAppAccessToken.trim() || !whatsAppPhoneNumberId.trim() || !whatsAppRecipientPhone.trim()) {
+-      setWhatsAppError(t("errorBothFields", lang));
+-      return;
+-    }
+-    if (whatsAppAccessToken.trim().length < 20) {
+-      setWhatsAppError(t("errorInvalidAccessToken", lang));
+-      return;
+-    }
+-    if (!/^\d+$/.test(whatsAppPhoneNumberId)) {
+-      setWhatsAppError(t("errorInvalidPhoneNumberId", lang));
+-      return;
+-    }
+-    if (!/^\+[1-9]\d{7,14}$/.test(whatsAppRecipientPhone)) {
+-      setWhatsAppError(t("errorInvalidRecipientPhone", lang));
+-      return;
+-    }
+-
+-    setWhatsAppLoading(true);
+-    try {
+-      await connectWhatsApp({
+-        accessToken: whatsAppAccessToken,
+-        phoneNumberId: whatsAppPhoneNumberId,
+-        recipientPhone: whatsAppRecipientPhone,
+-      });
+-      await refreshOnboardStatus();
+-      showToast(t("whatsappConnected", lang), "success");
+-      setShowWhatsAppForm(false);
+-      setWhatsAppAccessToken("");
+-      setWhatsAppPhoneNumberId("");
+-      setWhatsAppRecipientPhone("");
+-    } catch {
+-      setWhatsAppError(t("errorConnectWhatsApp", lang));
+-      showToast(t("errorConnectWhatsApp", lang), "error");
+-    } finally {
+-      setWhatsAppLoading(false);
+-    }
+-  };
+-
+-  const handleDisconnectWhatsApp = async () => {
+-    setWhatsAppError("");
+-    setWhatsAppLoading(true);
+-    try {
+-      await disconnectWhatsApp();
+-      await refreshOnboardStatus();
+-      showToast(t("channelDisconnected", lang), "success");
+-      setShowWhatsAppForm(false);
+-      setWhatsAppAccessToken("");
+-      setWhatsAppPhoneNumberId("");
+-      setWhatsAppRecipientPhone("");
+-    } catch {
+-      setWhatsAppError(t("errorConnectWhatsApp", lang));
+-      showToast(t("errorConnectWhatsApp", lang), "error");
+-    } finally {
+-      setWhatsAppLoading(false);
+-    }
+-  };
+-
+   const handleSaveNotifications = async () => {
++    const sanitizedNotifications = sanitizePilotNotifications(notifications);
++    setNotifications(sanitizedNotifications);
+     setNotificationsLoading(true);
+     try {
+-      await apiClient.patch("/onboard/notifications", notifications);
++      await apiClient.patch("/onboard/notifications", sanitizedNotifications);
+       await refreshOnboardStatus();
+       showToast(t("notificationsUpdated", lang), "success");
+     } catch {
+@@ -296,11 +245,9 @@ export function Settings() {
+   const statusSchedule = onboardStatus?.schedule;
+   const connectivity = onboardStatus?.connectivity;
+   const telegramConnected = connectivity?.telegram.connected ?? onboardStatus?.telegramConnected ?? false;
+-  const whatsappConnected = connectivity?.whatsapp.connected ?? false;
+ 
+   useEffect(() => {
+-    if (!onboardStatus?.notifications) return;
+-    setNotifications(onboardStatus.notifications);
++    setNotifications(sanitizePilotNotifications(onboardStatus?.notifications));
+   }, [onboardStatus?.notifications]);
+ 
+   const themeOptions: Array<{ value: Theme; label: string; icon: React.ReactNode }> = [
+@@ -597,85 +544,6 @@ export function Settings() {
+           )}
+         </section>
+ 
+-        <section>
+-          <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+-            <MessageCircle size={15} /> {t("whatsapp", lang).toUpperCase()}
+-          </h3>
+-          {!showWhatsAppForm ? (
+-            <Card className="p-4 space-y-3">
+-              <div className="flex items-center justify-between">
+-                <div>
+-                  <p className="text-sm font-bold text-[var(--color-fg-default)]">
+-                    {whatsappConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
+-                  </p>
+-                  <p className="text-xs text-[var(--color-fg-muted)] mt-1">
+-                    {whatsappConnected && connectivity?.whatsapp.target
+-                      ? `${t("connectedTo", lang)} ${connectivity.whatsapp.target}`
+-                      : t("whatsAppGuideStep1", lang)}
+-                  </p>
+-                </div>
+-                <button
+-                  onClick={() => {
+-                    if (whatsappConnected) {
+-                      void handleDisconnectWhatsApp();
+-                      return;
+-                    }
+-                    setShowWhatsAppForm(true);
+-                  }}
+-                  disabled={whatsAppLoading}
+-                  className="py-1.5 px-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold"
+-                >
+-                  {whatsAppLoading ? "..." : whatsappConnected ? t("disconnect", lang) : t("connect", lang)}
+-                </button>
+-              </div>
+-              <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
+-                <p className="text-[11px] font-bold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+-                <ol className="space-y-1">
+-                  <li className={guideItemCls}>1. {t("whatsAppGuideStep1", lang)}</li>
+-                  <li className={guideItemCls}>2. {t("whatsAppGuideStep2", lang)}</li>
+-                  <li className={guideItemCls}>3. {t("whatsAppGuideStep3", lang)}</li>
+-                </ol>
+-              </div>
+-            </Card>
+-          ) : (
+-            <Card className="p-4 space-y-3">
+-              <div className="flex items-center justify-between mb-2">
+-                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("whatsapp", lang)}</p>
+-                <button onClick={() => setShowWhatsAppForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
+-                  <X size={16} />
+-                </button>
+-              </div>
+-              <div>
+-                <label className={labelCls}>{t("accessToken", lang)}</label>
+-                <input type="password" value={whatsAppAccessToken} onChange={(e) => setWhatsAppAccessToken(e.target.value)} className={inputCls} />
+-              </div>
+-              <div>
+-                <label className={labelCls}>{t("phoneNumberId", lang)}</label>
+-                <input type="text" value={whatsAppPhoneNumberId} onChange={(e) => setWhatsAppPhoneNumberId(e.target.value.replace(/\D/g, ""))} className={inputCls} />
+-              </div>
+-              <div>
+-                <label className={labelCls}>{t("recipientPhone", lang)}</label>
+-                <input type="text" value={whatsAppRecipientPhone} onChange={(e) => setWhatsAppRecipientPhone(e.target.value)} placeholder="+14155550123" className={inputCls} />
+-              </div>
+-              <div className="rounded-lg bg-[var(--color-bg-muted)] p-3">
+-                <p className="text-[11px] font-bold text-[var(--color-fg-default)] mb-2">{t("setupGuide", lang)}</p>
+-                <ol className="space-y-1">
+-                  <li className={guideItemCls}>1. {t("whatsAppGuideStep1", lang)}</li>
+-                  <li className={guideItemCls}>2. {t("whatsAppGuideStep2", lang)}</li>
+-                  <li className={guideItemCls}>3. {t("whatsAppGuideStep3", lang)}</li>
+-                </ol>
+-              </div>
+-              {whatsAppError && <p className="text-[10px] text-[var(--color-accent-red)]">{whatsAppError}</p>}
+-              <div className="flex gap-2">
+-                <button onClick={() => setShowWhatsAppForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+-                <button onClick={handleConnectWhatsApp} disabled={whatsAppLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
+-                  {whatsAppLoading ? "..." : t("connect", lang)}
+-                </button>
+-              </div>
+-            </Card>
+-          )}
+-        </section>
+-
+         <section>
+           <h3 className="text-xs font-bold text-[var(--color-fg-muted)] uppercase mb-2 flex items-center gap-1.5">
+             <Bell size={15} /> {t("notifications", lang).toUpperCase()}
+@@ -695,7 +563,6 @@ export function Settings() {
+                   className={inputCls}
+                 >
+                   {telegramConnected && <option value="telegram">{t("telegram", lang)}</option>}
+-                  {whatsappConnected && <option value="whatsapp">{t("whatsapp", lang)}</option>}
+                   <option value="web">{t("webChannel", lang)}</option>
+                   <option value="none">{t("noAlerts", lang)}</option>
+                 </select>

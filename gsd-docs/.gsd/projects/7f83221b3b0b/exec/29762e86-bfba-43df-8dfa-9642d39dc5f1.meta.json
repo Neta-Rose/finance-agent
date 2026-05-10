@@ -1,0 +1,18 @@
+{
+  "id": "29762e86-bfba-43df-8dfa-9642d39dc5f1",
+  "runtime": "bash",
+  "purpose": "Verify live runtime after S01 merge",
+  "script_chars": 551,
+  "started_at": "2026-05-10T02:36:33.780Z",
+  "finished_at": "2026-05-10T02:36:33.844Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 64,
+  "stdout_bytes": 964,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/29762e86-bfba-43df-8dfa-9642d39dc5f1.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/29762e86-bfba-43df-8dfa-9642d39dc5f1.stderr"
+}

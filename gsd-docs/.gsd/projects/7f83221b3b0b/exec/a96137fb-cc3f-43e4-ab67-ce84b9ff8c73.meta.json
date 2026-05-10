@@ -1,0 +1,18 @@
+{
+  "id": "a96137fb-cc3f-43e4-ab67-ce84b9ff8c73",
+  "runtime": "bash",
+  "purpose": "verify S03/S04 research artifacts after blocked subagent dispatch",
+  "script_chars": 225,
+  "started_at": "2026-05-10T11:43:33.150Z",
+  "finished_at": "2026-05-10T11:43:33.160Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 10,
+  "stdout_bytes": 44,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/a96137fb-cc3f-43e4-ab67-ce84b9ff8c73.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/a96137fb-cc3f-43e4-ab67-ce84b9ff8c73.stderr"
+}

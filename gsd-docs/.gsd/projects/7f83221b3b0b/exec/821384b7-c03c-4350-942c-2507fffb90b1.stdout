@@ -1,0 +1,6 @@
+
+> clawd-backend@1.0.0 build
+> tsc
+
+src/services/chat/conversationStore.savedChats.test.ts(27,39): error TS2322: Type 'Promise<unknown>' is not assignable to type 'Promise<T | undefined>'.
+  Type 'unknown' is not assignable to type 'T | undefined'.

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T01",
+  "unitId": "M001/S03/T01",
+  "timestamp": 1778413886108,
+  "passed": true,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "npm --prefix backend test -- --test-name-pattern \"notification composer\"",
+      "exitCode": 0,
+      "durationMs": 3727,
+      "verdict": "pass"
+    }
+  ]
+}

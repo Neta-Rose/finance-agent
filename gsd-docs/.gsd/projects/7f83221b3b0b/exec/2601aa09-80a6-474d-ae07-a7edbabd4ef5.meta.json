@@ -1,0 +1,18 @@
+{
+  "id": "2601aa09-80a6-474d-ae07-a7edbabd4ef5",
+  "runtime": "bash",
+  "purpose": "Slice verification frontend lint",
+  "script_chars": 30,
+  "started_at": "2026-05-10T12:01:37.603Z",
+  "finished_at": "2026-05-10T12:01:44.017Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 6414,
+  "stdout_bytes": 605,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/2601aa09-80a6-474d-ae07-a7edbabd4ef5.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/2601aa09-80a6-474d-ae07-a7edbabd4ef5.stderr"
+}

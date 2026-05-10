@@ -1,0 +1,18 @@
+{
+  "id": "6629fd11-f7e0-4e06-a652-fc1eb537421c",
+  "runtime": "bash",
+  "purpose": "frontend build after notification composer contract",
+  "script_chars": 31,
+  "started_at": "2026-05-10T11:50:37.415Z",
+  "finished_at": "2026-05-10T11:50:42.936Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 5521,
+  "stdout_bytes": 405,
+  "stderr_bytes": 360,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/6629fd11-f7e0-4e06-a652-fc1eb537421c.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/6629fd11-f7e0-4e06-a652-fc1eb537421c.stderr"
+}

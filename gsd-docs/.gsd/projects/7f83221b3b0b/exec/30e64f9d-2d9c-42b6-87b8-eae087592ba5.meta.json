@@ -1,0 +1,18 @@
+{
+  "id": "30e64f9d-2d9c-42b6-87b8-eae087592ba5",
+  "runtime": "bash",
+  "purpose": "direct saved chat tests from repo root",
+  "script_chars": 87,
+  "started_at": "2026-05-10T12:14:29.561Z",
+  "finished_at": "2026-05-10T12:14:29.653Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 92,
+  "stdout_bytes": 1540,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/30e64f9d-2d9c-42b6-87b8-eae087592ba5.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/30e64f9d-2d9c-42b6-87b8-eae087592ba5.stderr"
+}

@@ -1,0 +1,402 @@
+PWD=/root/clawd
+
+Top level:
+./backend/package.json
+./backend/tsconfig.json
+./frontend/package.json
+./frontend/tsconfig.json
+./frontend/vite.config.ts
+
+Admin/backend mentions:
+docs/core-stabilization-plan.md:45:Add a normalization/repair layer for every `strategy.json`: enforce review catalyst, typed price catalysts, explicit freshness fields, valid `lastDeepDiveAt`, and computed portfolio fields. Repair legacy migrated strategies in-place or through a migration command.
+docs/core-stabilization-plan.md:235:- scheduled review catalyst
+docs/core-stabilization-plan.md:247:## Product-facing features unlocked by this stabilization
+docs/core-stabilization-plan.md:249:After the above, the next useful features become safe to implement:
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:10:2. When agent model auth fails repeatedly (e.g. expired API key, out of credits), the failure is silent. The job stays frozen at `status: "running"`. Neither the admin nor the user sees anything wrong.
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:11:3. The admin panel has no way to view or change a user's active model profile.
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:21:Single source of truth for all profile definitions. Admin creates/edits/deletes profiles here. All users reference a profile by name only.
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:111:#### New admin profile routes (added to `admin.ts`)
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:115:| GET | `/api/admin/profiles` | List all profiles |
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:116:| POST | `/api/admin/profiles` | Create a new profile |
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:117:| PATCH | `/api/admin/profiles/:name` | Update a profile's model assignments |
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:118:| DELETE | `/api/admin/profiles/:name` | Delete a profile (fails if any user is on it) |
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:119:| PATCH | `/api/admin/users/:userId/profile` | Switch a user's active profile |
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:121:#### Enhanced `GET /api/admin/users`
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:142:#### Admin page — new "Model Profiles" section
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:151:#### Admin page — per-user card additions
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:168:No forced migration. Existing users' config.json retains embedded `profiles` — these are ignored at runtime. On next profile switch by admin, `setUserProfile` writes a clean `{ modelProfile: "..." }` stripping the embedded block. No migration script needed.
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:172:- All profile admin routes protected by `adminAuth` middleware (X-Admin-Key), same as existing admin routes.
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:189:| `backend/src/routes/admin.ts` | **Edit** — add profile routes, enrich user list response |
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:191:| `frontend/src/api/admin.ts` | **Edit** — add profile API calls |
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:192:| `frontend/src/pages/Admin.tsx` | **Edit** — profile management section + per-user profile/health |
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md:199:- No UI for users to see or select profiles (admin-only).
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:4:**Audience:** 2 pilot users arriving 2026-05-04
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:135:A position with verdict BUY/ADD/HOLD can legitimately land below 70 (e.g., stale review + no catalyst + low confidence). It stays in the clear list, just labelled "Watch". The attention block is gated on verdict and expired catalysts only — not on score.
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:151:| 3 | `lastDeepDiveAt < 7d` AND has future catalyst | `"Fresh review · catalyst {date}"` |
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:260:~12 new keys, both languages required (Hebrew-first pilot users likely).
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:272:| `healthHeroSummary` | "{N} of {M} clear · reviewed {timeAgo}" | "{N} מתוך {M} תקין · נבדק {timeAgo}" |
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:278:| `factoidFreshReview` | "Fresh review · catalyst {date}" | "סקירה עדכנית · קטליזטור {date}" |
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:289:| **Morning (3–4h)** | Hebrew translations, edge cases (no positions, all attention, mid-bootstrap, very small portfolio), final pixel polish, deploy to prod, sanity check on 2 pilot accounts |
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:305:## 13. Phase 2 follow-ups (post-pilot, captured here for spec completeness)
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md:313:## 14. Acceptance checks (must pass before declaring pilot-ready)
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:41:6. **Admin observability.** Real-time per-step status, per-step cost, per-tier spend dashboards.
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:83:  source                TEXT NOT NULL,                    -- 'dashboard_action' | 'auto_brief' | 'admin'
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:169:  updated_by  TEXT NOT NULL DEFAULT 'admin',
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:327:## 8. Model tiers & admin configuration
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:329:Four tiers: `free`, `cheap`, `balanced`, `expensive`. Default `balanced`. Per-user setting in `profile.json`. Per-`(tier, step_kind)` model in PG. Both admin-editable.
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:349:Initial values; admin edits each cell independently.
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:361:### 8.3 Admin panel: `/admin/models`
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:363:A 4 × 7 grid. Each cell: model dropdown (populated from cached `https://openrouter.ai/api/v1/models`) + optional fallback dropdown. Save → UPSERT row. The `updated_by` column captures the admin user. A toggle at the top of the page disables the `free` tier globally (useful if OpenRouter free pool degrades).
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:365:### 8.4 Admin panel: `/admin/users` extension
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:402:| `budget_exhausted` | (When daily caps ship) projected next-step cost exceeds remaining headroom. No-op for `free` and during initial pilot. | Daily cron at user-TZ rollover flips back to `running` |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:403:| `manual` | User or admin click | Manual resume click |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:421:- Admin cancels via `/admin/jobs`
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:450:Idempotent admin script:
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:464:soofke (or admin via `/admin/jobs`) clicks "Full Report" in `/controls`. Dispatcher creates 1 `JobEntity` + 10 `TickerWorkItem` + 70 `StepWorkItem` rows. Executor processes them. Progress visible per-step in the UI. Completes within 1–2 days at `balanced` tier (target $0.50/user/day envelope).
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:470:## 11. Observability & admin panel
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:479:### 11.2 Admin panel additions
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:483:| `/admin/jobs` | Live job inspector. Filter by user/status/action. Drill-down: ticker progress, per-step status, per-step cost, error trail. Buttons: Pause / Resume / Cancel (job), Retry (step). |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:484:| `/admin/models` | 4 × 7 tier matrix; OpenRouter model picker; audit log. |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:485:| `/admin/cost` | Per-user daily spend (last 30 days line chart); per-step-kind cost distribution (box plot); per-tier spend share (donut). |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:494:Infrastructure is built (`UserPointsBudgetEntity` exists; the budget gate function is wired into `tick()` but starts as a no-op when no cap is set). After 1–2 weeks of pilot data, admin sets per-user daily caps based on observed distributions.
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:524:| Persistent ZodError | 6 attempts (3 + 3 escalated). Step fails → ticker fails. Full chain in `/admin/jobs`. | Admin reviews lifecycle events, edits handler prompt, clicks "Retry Step" (re-runs that step in place without restarting the job). |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:534:| Bad ticker (delisted / typo) | yahoo-finance2 returns no data; ticker fails fast with clear message | User edits portfolio; admin removes ticker |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:542:| New executor produces worse outputs | Per-user feature flag; both paths coexist 2 weeks |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:543:| Need to roll back a user | Admin button: flag off + cancel any in-flight step-queue jobs for that user |
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:551:- **No automatic prompt evolution.** Failing prompts are admin-edited.
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:578:- Per-user feature flag `USE_STEP_QUEUE`; defaults to `false`
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:583:### PR 3 — Remaining handlers + exa wrapper + admin pages (~1.5 weeks)
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:587:- `/admin/jobs`, `/admin/models`, `/admin/cost` screens
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:618:- **Schedule cadence for `step_daily_rollup` materialized-view refresh.** Nightly is the default; may need adjustment if admin dashboard latency is poor.
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:619:- **Exact OpenRouter model IDs** for the default tier matrix. Picked at PR 3 time based on then-current OpenRouter listings; admin edits any cell post-launch.
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md:620:- **Per-job model-tier override.** Currently job inherits from user's `profile.json` at admit time. Future hook: admin override per-job in `/admin/jobs`.
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:11:3. Admin panel shows static config state only — no live agent activity, request counts, cost breakdown, or sub-agent visibility.
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:22:4. **Admin panel** — new visibility: per-user agent activity, sub-agents, daily request counts, cost
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:49:Admin API  →  Admin Panel UI
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:106:## Admin API Endpoints (new)
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:109:GET /api/admin/observability/summary          — all users, today's counts + costs
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:110:GET /api/admin/observability/users/:userId    — per-user: recent requests, daily totals
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:111:GET /api/admin/observability/users/:userId/activity — last N llm_requests rows
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:116:## Admin Panel UI (new section)
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:118:**In the Admin page**, new "Agent Activity" section per user:
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:154:5. Admin API: 3 new endpoints reading from event store
+docs/superpowers/specs/2026-04-09-observability-logging-design.md:155:6. Admin panel UI: Agent Activity section
+docs/superpowers/specs/2026-04-09-ticker-search-add-position-design.md:10:Two tightly coupled features:
+docs/superpowers/specs/2026-04-09-ticker-search-add-position-design.md:22:- Auth: JWT required (existing `authMiddleware`)
+frontend/package.json:10:    "preview": "vite preview"
+docs/superpowers/plans/2026-04-09-ticker-search-add-position.md:174:Note: the search route uses JWT auth (inherited from `app.use("/api", authMiddleware, userIsolationMiddleware)` at line 60) but does NOT use `res.locals.workspace` — that is fine, the middleware still runs.
+docs/superpowers/plans/2026-04-09-ticker-search-add-position.md:181:TOKEN=$(curl -s -X POST http://localhost:8081/api/auth/login \
+docs/superpowers/plans/2026-04-09-ticker-search-add-position.md:337:TOKEN=$(curl -s -X POST http://localhost:8081/api/auth/login \
+shared/user-workspace/SOUL.md:2:# Last authorized change: 2026-04-14
+shared/user-workspace/SOUL.md:28:- Never answer technical questions, coding questions, or administrative questions
+shared/user-workspace/SOUL.md:37:`Your account is blocked for non-financial use. Telegram access has been disconnected. Contact admin.`
+backend/logs/server.out:81:2026-04-26 11:48:47 [WARN] Failed to create cron for neta: Error: Command failed: openclaw cron add --agent neta --every 30m --thinking low --name neta-heartbeat --message You have pending backend-owned work. Check /root/clawd/users/neta/data/triggers/ for .json trigger files. For each trigger: read it, update jobs/[job_id].json status→running if needed, delete the trigger, and execute only the requested action. If execution hits points_budget_exhausted, budget exhaustion, or repeated provider/rate-limit failure before any report artifact is written, update the matching jobs/[job_id].json status→paused with a short error that includes points_budget_exhausted or rate_limit, then stop processing that trigger. Do not start scheduled portfolio tasks on your own. Do not run daily briefs, weekly reviews, or exploratory analysis unless a trigger explicitly asks for it. If no triggers are pending, reply exactly HEARTBEAT_OK and stop. Do not explain your reasoning in idle heartbeats. Your workspace is /root/clawd/users/neta. --session isolated --no-deliver --best-effort-deliver --timeout-seconds 1800
+docs/superpowers/plans/2026-04-10-admin-controls.md:1:# Admin Controls Implementation Plan
+docs/superpowers/plans/2026-04-10-admin-controls.md:5:**Goal:** Build a full admin control panel — per-user restriction levels (readonly/blocked/suspended), system-wide lock, broadcast messages, force-logout via tokenVersion, kill active jobs, rate-limit override, plus proxy-level enforcement that blocks Telegram and scheduled crons too.
+docs/superpowers/plans/2026-04-10-admin-controls.md:7:**Architecture:** Control state lives in `users/{userId}/control.json` (per-user) and `data/system-control.json` (system-wide). The LLM proxy is the universal enforcement choke point — blocked users' agent sessions die at the first LLM call, covering Telegram and cron triggers automatically. The HTTP API enforces at `jobs.ts` (fast-fail before trigger file is written) and `authMiddleware` (tokenVersion for force-logout). The frontend polls `GET /api/me/control` and renders the appropriate UI state: normal, info banner, warning banner, or full-screen suspension page.
+docs/superpowers/plans/2026-04-10-admin-controls.md:25:- `backend/src/middleware/auth.ts` — tokenVersion check in authMiddleware + generateToken
+docs/superpowers/plans/2026-04-10-admin-controls.md:26:- `backend/src/routes/auth.ts` — read tokenVersion from auth.json on login
+docs/superpowers/plans/2026-04-10-admin-controls.md:29:- `backend/src/routes/admin.ts` — new control/system/force-logout/kill-job routes
+docs/superpowers/plans/2026-04-10-admin-controls.md:32:- `frontend/src/api/admin.ts` — new admin control API functions
+docs/superpowers/plans/2026-04-10-admin-controls.md:33:- `frontend/src/pages/Admin.tsx` — full redesign: system controls, reorganized user cards, profiles at bottom
+docs/superpowers/plans/2026-04-10-admin-controls.md:291:function authPath(userId: string): string {
+docs/superpowers/plans/2026-04-10-admin-controls.md:292:  return path.resolve(USERS_DIR, userId, "auth.json");
+docs/superpowers/plans/2026-04-10-admin-controls.md:297:    const raw  = await fs.readFile(authPath(userId), "utf-8");
+docs/superpowers/plans/2026-04-10-admin-controls.md:307:    const raw  = await fs.readFile(authPath(userId), "utf-8");
+docs/superpowers/plans/2026-04-10-admin-controls.md:310:    await fs.writeFile(authPath(userId), JSON.stringify(data, null, 2), "utf-8");
+docs/superpowers/plans/2026-04-10-admin-controls.md:339:- Modify: `backend/src/middleware/auth.ts`
+docs/superpowers/plans/2026-04-10-admin-controls.md:340:- Modify: `backend/src/routes/auth.ts`
+docs/superpowers/plans/2026-04-10-admin-controls.md:342:The JWT payload gets a `tokenVersion: number` field. On every authenticated request, authMiddleware reads the user's `auth.json` to compare. Force-logout = increment `auth.json`'s tokenVersion; all existing JWTs for that user instantly fail.
+docs/superpowers/plans/2026-04-10-admin-controls.md:344:Backward compat: existing tokens without `tokenVersion` field treat it as 0, which matches `auth.json` default of 0 — so existing sessions survive the deploy.
+docs/superpowers/plans/2026-04-10-admin-controls.md:346:- [ ] **Step 1: Update `backend/src/middleware/auth.ts`**
+docs/superpowers/plans/2026-04-10-admin-controls.md:351:// backend/src/middleware/auth.ts
+docs/superpowers/plans/2026-04-10-admin-controls.md:366:export function authMiddleware(
+docs/superpowers/plans/2026-04-10-admin-controls.md:371:  const authHeader = req.headers["authorization"];
+docs/superpowers/plans/2026-04-10-admin-controls.md:372:  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+docs/superpowers/plans/2026-04-10-admin-controls.md:373:    res.status(401).json({ error: "unauthorized" });
+docs/superpowers/plans/2026-04-10-admin-controls.md:377:  const token = authHeader.slice(7);
+docs/superpowers/plans/2026-04-10-admin-controls.md:382:      res.status(401).json({ error: "unauthorized" });
+docs/superpowers/plans/2026-04-10-admin-controls.md:386:    res.status(401).json({ error: "unauthorized" });
+docs/superpowers/plans/2026-04-10-admin-controls.md:391:  const authFile = path.resolve(USERS_DIR, payload.userId, "auth.json");
+docs/superpowers/plans/2026-04-10-admin-controls.md:392:  fs.readFile(authFile, "utf-8")
+docs/superpowers/plans/2026-04-10-admin-controls.md:425:- [ ] **Step 2: Update `backend/src/routes/auth.ts` login handler**
+docs/superpowers/plans/2026-04-10-admin-controls.md:430:    // Read tokenVersion from auth.json (default 0 if missing — backward compat)
+docs/superpowers/plans/2026-04-10-admin-controls.md:431:    const tokenVersion = (authData as { passwordHash: string; tokenVersion?: number }).tokenVersion ?? 0;
+docs/superpowers/plans/2026-04-10-admin-controls.md:436:Also update the `let authData` type annotation on the line that reads auth.json to:
+docs/superpowers/plans/2026-04-10-admin-controls.md:438:    let authData: { passwordHash: string; tokenVersion?: number };
+docs/superpowers/plans/2026-04-10-admin-controls.md:453:git add backend/src/middleware/auth.ts backend/src/routes/auth.ts
+docs/superpowers/plans/2026-04-10-admin-controls.md:495:      message: sysCtrl.lockReason || "System is temporarily unavailable. Contact admin.",
+docs/superpowers/plans/2026-04-10-admin-controls.md:506:      message: userCtrl.reason || "Your account is restricted. Contact admin.",
+docs/superpowers/plans/2026-04-10-admin-controls.md:566:          message: sysCtrl.lockReason || "System is temporarily locked. Contact admin.",
+docs/superpowers/plans/2026-04-10-admin-controls.md:577:          message: userCtrl.reason || "Your account is restricted. Contact admin.",
+docs/superpowers/plans/2026-04-10-admin-controls.md:648:After the `app.use("/api", authMiddleware, userIsolationMiddleware);` line, add:
+docs/superpowers/plans/2026-04-10-admin-controls.md:689:## Task 6: Admin API — control routes
+docs/superpowers/plans/2026-04-10-admin-controls.md:692:- Modify: `backend/src/routes/admin.ts`
+docs/superpowers/plans/2026-04-10-admin-controls.md:694:Six new admin routes:
+docs/superpowers/plans/2026-04-10-admin-controls.md:695:- `GET  /api/admin/system` — read system control state
+docs/superpowers/plans/2026-04-10-admin-controls.md:696:- `PATCH /api/admin/system` — set lock / broadcast
+docs/superpowers/plans/2026-04-10-admin-controls.md:697:- `PATCH /api/admin/users/:userId/control` — set user restriction
+docs/superpowers/plans/2026-04-10-admin-controls.md:698:- `DELETE /api/admin/users/:userId/control` — unblock user
+docs/superpowers/plans/2026-04-10-admin-controls.md:699:- `POST /api/admin/users/:userId/force-logout` — increment tokenVersion
+docs/superpowers/plans/2026-04-10-admin-controls.md:700:- `POST /api/admin/users/:userId/jobs/:jobId/kill` — force-fail a job
+docs/superpowers/plans/2026-04-10-admin-controls.md:702:- [ ] **Step 1: Add imports to `backend/src/routes/admin.ts`**
+docs/superpowers/plans/2026-04-10-admin-controls.md:724:// GET /api/admin/system — read system-wide control state
+docs/superpowers/plans/2026-04-10-admin-controls.md:733:// PATCH /api/admin/system — lock/unlock, set broadcast
+docs/superpowers/plans/2026-04-10-admin-controls.md:756:// PATCH /api/admin/users/:userId/control — set restriction
+docs/superpowers/plans/2026-04-10-admin-controls.md:781:// DELETE /api/admin/users/:userId/control — remove all restrictions
+docs/superpowers/plans/2026-04-10-admin-controls.md:792:// POST /api/admin/users/:userId/force-logout — invalidate all active sessions
+docs/superpowers/plans/2026-04-10-admin-controls.md:803:// POST /api/admin/users/:userId/jobs/:jobId/kill — force-fail a running job
+docs/superpowers/plans/2026-04-10-admin-controls.md:815:        error:        "Killed by admin",
+docs/superpowers/plans/2026-04-10-admin-controls.md:838:git add backend/src/routes/admin.ts
+docs/superpowers/plans/2026-04-10-admin-controls.md:839:git commit -m "feat: admin control routes — restrict/unblock users, system lock, force-logout, kill job"
+docs/superpowers/plans/2026-04-10-admin-controls.md:848:- Modify: `frontend/src/api/admin.ts`
+docs/superpowers/plans/2026-04-10-admin-controls.md:887:- [ ] **Step 2: Add admin control API functions to `frontend/src/api/admin.ts`**
+docs/superpowers/plans/2026-04-10-admin-controls.md:889:Append to end of `frontend/src/api/admin.ts`:
+docs/superpowers/plans/2026-04-10-admin-controls.md:892:// ── Admin control API ─────────────────────────────────────────────────────────
+docs/superpowers/plans/2026-04-10-admin-controls.md:908:export const adminGetSystem = async (): Promise<{ locked: boolean; lockReason: string; lockedAt: string | null; lockedUntil: string | null; broadcast: import("./control").Banner | null }> =>
+docs/superpowers/plans/2026-04-10-admin-controls.md:909:  adminFetch("/api/admin/system") as Promise<ReturnType<typeof adminGetSystem>>;
+docs/superpowers/plans/2026-04-10-admin-controls.md:911:export const adminPatchSystem = async (patch: SystemControlPatch): Promise<void> => {
+docs/superpowers/plans/2026-04-10-admin-controls.md:912:  await adminFetch("/api/admin/system", { method: "PATCH", body: JSON.stringify(patch) });
+docs/superpowers/plans/2026-04-10-admin-controls.md:915:export const adminSetUserControl = async (userId: string, patch: UserControlPatch): Promise<void> => {
+docs/superpowers/plans/2026-04-10-admin-controls.md:916:  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/control`, {
+docs/superpowers/plans/2026-04-10-admin-controls.md:922:export const adminClearUserControl = async (userId: string): Promise<void> => {
+docs/superpowers/plans/2026-04-10-admin-controls.md:923:  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/control`, { method: "DELETE" });
+docs/superpowers/plans/2026-04-10-admin-controls.md:926:export const adminForceLogout = async (userId: string): Promise<void> => {
+docs/superpowers/plans/2026-04-10-admin-controls.md:927:  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/force-logout`, { method: "POST" });
+docs/superpowers/plans/2026-04-10-admin-controls.md:930:export const adminKillJob = async (userId: string, jobId: string): Promise<void> => {
+docs/superpowers/plans/2026-04-10-admin-controls.md:931:  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/jobs/${encodeURIComponent(jobId)}/kill`, { method: "POST" });
+docs/superpowers/plans/2026-04-10-admin-controls.md:947:git add frontend/src/api/control.ts frontend/src/api/admin.ts
+docs/superpowers/plans/2026-04-10-admin-controls.md:981:  blocked:   { text: "Your account has been restricted. Contact the administrator.",   type: "warning" },
+docs/superpowers/plans/2026-04-10-admin-controls.md:1102:Full-screen page shown when `restriction === "suspended"`. No nav, no way to navigate away. Shows admin's message + logout button.
+docs/superpowers/plans/2026-04-10-admin-controls.md:1108:import { useAuthStore } from "../store/authStore";
+docs/superpowers/plans/2026-04-10-admin-controls.md:1137:      {/* Admin message */}
+docs/superpowers/plans/2026-04-10-admin-controls.md:1144:          : "Your account has been suspended. Please contact the administrator for more information."}
+docs/superpowers/plans/2026-04-10-admin-controls.md:1297:## Task 11: Admin panel redesign
+docs/superpowers/plans/2026-04-10-admin-controls.md:1300:- Modify: `frontend/src/pages/Admin.tsx`
+docs/superpowers/plans/2026-04-10-admin-controls.md:1302:Full redesign. Layout A: single scroll. Order: header → stat bar → system controls → error banner → Add User → user cards → model profiles (collapsible). User cards get an inline block control section. All features (block, force-logout, kill job, rate override) accessible from each user card.
+docs/superpowers/plans/2026-04-10-admin-controls.md:1304:The existing component structure is preserved (subcomponents stay as named functions). We reorganize the main `AdminPage` render and replace/extend `UserCard`.
+docs/superpowers/plans/2026-04-10-admin-controls.md:1306:- [ ] **Step 1: Add new imports at top of `frontend/src/pages/Admin.tsx`**
+docs/superpowers/plans/2026-04-10-admin-controls.md:1308:Add to the existing import from `"../api/admin"`:
+docs/superpowers/plans/2026-04-10-admin-controls.md:1311:  adminSetUserControl,
+docs/superpowers/plans/2026-04-10-admin-controls.md:1312:  adminClearUserControl,
+docs/superpowers/plans/2026-04-10-admin-controls.md:1313:  adminForceLogout,
+docs/superpowers/plans/2026-04-10-admin-controls.md:1314:  adminKillJob,
+docs/superpowers/plans/2026-04-10-admin-controls.md:1315:  adminGetSystem,
+docs/superpowers/plans/2026-04-10-admin-controls.md:1316:  adminPatchSystem,
+docs/superpowers/plans/2026-04-10-admin-controls.md:1336:    queryKey: ["admin-system"],
+docs/superpowers/plans/2026-04-10-admin-controls.md:1337:    queryFn: adminGetSystem,
+docs/superpowers/plans/2026-04-10-admin-controls.md:1349:    try { await adminPatchSystem(p); void qc.invalidateQueries({ queryKey: ["admin-system"] }); }
+docs/superpowers/plans/2026-04-10-admin-controls.md:1357:      void patch({ locked: true, lockReason: lockReason || "System locked by admin", lockedUntil: lockedUntil || null });
+docs/superpowers/plans/2026-04-10-admin-controls.md:1524:      await adminSetUserControl(userId, {
+docs/superpowers/plans/2026-04-10-admin-controls.md:1542:      await adminClearUserControl(userId);
+docs/superpowers/plans/2026-04-10-admin-controls.md:1673:  // Most recent running job for kill-job feature
+docs/superpowers/plans/2026-04-10-admin-controls.md:1696:      await adminForceLogout(user.userId);
+docs/superpowers/plans/2026-04-10-admin-controls.md:1705:  const stateLabel      = user.state === "ACTIVE" ? t("adminStateActive", language)
+docs/superpowers/plans/2026-04-10-admin-controls.md:1706:    : user.state === "BOOTSTRAPPING"              ? t("adminStateBootstrapping", language)
+docs/superpowers/plans/2026-04-10-admin-controls.md:1708:  const portfolioLabel  = user.portfolioLoaded ? t("adminPortfolioLoaded", language) : t("adminPortfolioMissing", language);
+docs/superpowers/plans/2026-04-10-admin-controls.md:1738:          ? <p>{t("adminTelegramYes", language)}{user.telegramChatId ? ` (${user.telegramChatId})` : ""}</p>
+docs/superpowers/plans/2026-04-10-admin-controls.md:1739:          : <p>{t("adminTelegramNo", language)}</p>}
+docs/superpowers/plans/2026-04-10-admin-controls.md:1741:          {t("adminDeepDives", language)} {user.rateLimits.deep_dive.maxPerPeriod}/{t("perDay", language).replace("/ ","")} ·{" "}
+docs/superpowers/plans/2026-04-10-admin-controls.md:1742:          {t("adminFullReportsLabel", language)} {user.rateLimits.full_report.maxPerPeriod}/{t("perWeek", language).replace("/ ","")}
+docs/superpowers/plans/2026-04-10-admin-controls.md:1767:          {user.hasTelegram ? t("adminEditTelegram", language) : t("adminAddTelegram", language)}
+docs/superpowers/plans/2026-04-10-admin-controls.md:1772:          {t("adminEditLimits", language)}
+docs/superpowers/plans/2026-04-10-admin-controls.md:1792:          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>{t("adminTelegramSection", language)}</p>
+docs/superpowers/plans/2026-04-10-admin-controls.md:1803:              {t("adminSaveTelegram", language)}
+docs/superpowers/plans/2026-04-10-admin-controls.md:1817:          <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-fg-muted)" }}>{t("adminRateLimitsSection", language)}</p>
+docs/superpowers/plans/2026-04-10-admin-controls.md:1830:            {t("adminDeleteConfirmLabel", language)} <code>{user.userId}</code>
+docs/superpowers/plans/2026-04-10-admin-controls.md:1855:- [ ] **Step 5: Update `AdminPage` main render — new layout**
+docs/superpowers/plans/2026-04-10-admin-controls.md:1857:Find the `AdminPage` component's `return (...)` block and replace it with:
+docs/superpowers/plans/2026-04-10-admin-controls.md:1868:          <span className="font-bold text-sm">{t("adminTitle", language)}</span>
+docs/superpowers/plans/2026-04-10-admin-controls.md:1877:            onClick={() => { sessionStorage.removeItem("admin_key"); setLoggedIn(false); }}
+
+DB/schema files:
+backend/dist/db/entities/MigrationArchiveEntity.js
+backend/dist/scripts/verifyMigrationParity.js
+backend/dist/services/dbUtils.js
+backend/dist/services/migrationArchiveStore.js
+backend/node_modules/better-sqlite3/lib/database.js
+backend/node_modules/iconv-lite/encodings/dbcs-codec.js
+backend/node_modules/iconv-lite/encodings/dbcs-data.js
+backend/node_modules/mime-db/db.json
+backend/node_modules/openai/bin/migration-config.json
+backend/node_modules/openai/lib/jsonschema.d.mts
+backend/node_modules/openai/lib/jsonschema.d.mts.map
+backend/node_modules/openai/lib/jsonschema.d.ts
+backend/node_modules/openai/lib/jsonschema.d.ts.map
+backend/node_modules/openai/lib/jsonschema.js
+backend/node_modules/openai/lib/jsonschema.js.map
+backend/node_modules/openai/lib/jsonschema.mjs
+backend/node_modules/openai/lib/jsonschema.mjs.map
+backend/node_modules/tar-stream/sandbox.js
+backend/node_modules/typeorm/cache/DbQueryResultCache.d.ts
+backend/node_modules/typeorm/cache/DbQueryResultCache.js
+backend/node_modules/typeorm/cache/DbQueryResultCache.js.map
+backend/node_modules/typeorm/commands/MigrationCreateCommand.d.ts
+backend/node_modules/typeorm/commands/MigrationCreateCommand.js
+backend/node_modules/typeorm/commands/MigrationCreateCommand.js.map
+backend/node_modules/typeorm/commands/MigrationGenerateCommand.d.ts
+backend/node_modules/typeorm/commands/MigrationGenerateCommand.js
+backend/node_modules/typeorm/commands/MigrationGenerateCommand.js.map
+backend/node_modules/typeorm/commands/MigrationRevertCommand.d.ts
+backend/node_modules/typeorm/commands/MigrationRevertCommand.js
+backend/node_modules/typeorm/commands/MigrationRevertCommand.js.map
+backend/node_modules/typeorm/commands/MigrationRunCommand.d.ts
+backend/node_modules/typeorm/commands/MigrationRunCommand.js
+backend/node_modules/typeorm/commands/MigrationRunCommand.js.map
+backend/node_modules/typeorm/commands/MigrationShowCommand.d.ts
+backend/node_modules/typeorm/commands/MigrationShowCommand.js
+backend/node_modules/typeorm/commands/MigrationShowCommand.js.map
+backend/node_modules/typeorm/commands/SchemaDropCommand.d.ts
+backend/node_modules/typeorm/commands/SchemaDropCommand.js
+backend/node_modules/typeorm/commands/SchemaDropCommand.js.map
+backend/node_modules/typeorm/commands/SchemaLogCommand.d.ts
+backend/node_modules/typeorm/commands/SchemaLogCommand.js
+backend/node_modules/typeorm/commands/SchemaLogCommand.js.map
+backend/node_modules/typeorm/commands/SchemaSyncCommand.d.ts
+backend/node_modules/typeorm/commands/SchemaSyncCommand.js
+backend/node_modules/typeorm/commands/SchemaSyncCommand.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaCheckOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaCheckOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaCheckOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaColumnForeignKeyOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaColumnForeignKeyOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaColumnForeignKeyOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaColumnOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaColumnOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaColumnOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchema.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaEmbeddedColumnOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaEmbeddedColumnOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaEmbeddedColumnOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaEmbeddedError.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaEmbeddedError.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaEmbeddedError.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaExclusionOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaExclusionOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaExclusionOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaForeignKeyOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaForeignKeyOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaForeignKeyOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaIndexOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaIndexOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaIndexOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaInheritanceOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaInheritanceOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaInheritanceOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchema.js
+backend/node_modules/typeorm/entity-schema/EntitySchema.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaRelationIdOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaRelationIdOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaRelationIdOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaRelationOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaRelationOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaRelationOptions.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaTransformer.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaTransformer.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaTransformer.js.map
+backend/node_modules/typeorm/entity-schema/EntitySchemaUniqueOptions.d.ts
+backend/node_modules/typeorm/entity-schema/EntitySchemaUniqueOptions.js
+backend/node_modules/typeorm/entity-schema/EntitySchemaUniqueOptions.js.map
+backend/node_modules/typeorm/migration/Migration.d.ts
+backend/node_modules/typeorm/migration/MigrationExecutor.d.ts
+backend/node_modules/typeorm/migration/MigrationExecutor.js
+backend/node_modules/typeorm/migration/MigrationExecutor.js.map
+backend/node_modules/typeorm/migration/MigrationInterface.d.ts
+backend/node_modules/typeorm/migration/MigrationInterface.js
+backend/node_modules/typeorm/migration/MigrationInterface.js.map
+backend/node_modules/typeorm/migration/Migration.js
+backend/node_modules/typeorm/migration/Migration.js.map
+backend/node_modules/typeorm/persistence/SubjectDatabaseEntityLoader.d.ts
+
+Test config/files:
+./backend/dist/routes/fullReportRoutes.test.js
+./backend/dist/routes/llmProxy.test.js
+./backend/dist/routes/onboarding.test.js
+./backend/dist/routes/strategiesRoutes.test.js
+./backend/dist/schemas/strategy.test.js
+./backend/dist/scripts/supersedeStuckJob.test.js
+./backend/dist/services/advisorLlmService.test.js
+./backend/dist/services/agentService.test.js
+./backend/dist/services/baselineCoverageService.test.js
+./backend/dist/services/dailyBriefService.selection.test.js
+./backend/dist/services/dailyBriefService.test.js
+./backend/dist/services/deepDiveService.test.js
+./backend/dist/services/feedService.test.js
+./backend/dist/services/fullReportService.test.js
+./backend/dist/services/jobAdmissionService.test.js
+./backend/dist/services/jobStateReconciler.test.js
+./backend/dist/services/jobTriggerService.test.js
+./backend/dist/services/llmProxy.test.js
+./backend/dist/services/newIdeasService.test.js
+./backend/dist/services/notificationService.test.js
+./backend/dist/services/pointsBudgetService.test.js
+./backend/dist/services/quickCheckService.test.js
+./backend/dist/services/startupService.test.js
+./backend/dist/services/stepQueue.test.js
+./backend/dist/services/strategyBaselineService.test.js
+./backend/dist/services/strategyFileService.test.js
+./backend/dist/services/tokenBudgetService.test.js
+./backend/dist/services/workspaceService.test.js
+./backend/dist/services/workspaceTemplate.test.js
+./backend/node_modules/buffer-equal-constant-time/test.js
+./backend/node_modules/enabled/test.js
+./backend/node_modules/expand-template/test.js
+./backend/node_modules/fn.name/test.js
+./backend/node_modules/kuler/test.js
+./backend/node_modules/object-inspect/test-core-js.js
+./backend/node_modules/object-inspect/util.inspect.js
+./backend/node_modules/pg-types/index.test-d.ts
+./backend/node_modules/pump/test-browser.js
+./backend/node_modules/pump/test-node.js
+./backend/node_modules/requires-port/test.js
+./backend/node_modules/safer-buffer/tests.js
+./backend/node_modules/split2/test.js
+./backend/node_modules/text-hex/test.js
+./backend/node_modules/xtend/test.js
+./backend/src/routes/fullReportRoutes.test.ts
+./backend/src/routes/llmProxy.test.ts
+./backend/src/routes/strategiesRoutes.test.ts
+./backend/src/schemas/strategy.test.ts
+./backend/src/scripts/supersedeStuckJob.test.ts
+./backend/src/services/advisorLlmService.test.ts
+./backend/src/services/baselineCoverageService.test.ts
+./backend/src/services/dailyBriefService.selection.test.ts
+./backend/src/services/dailyBriefService.test.ts
+./backend/src/services/deepDiveService.test.ts
+./backend/src/services/feedService.test.ts
+./backend/src/services/fullReportService.test.ts
+./backend/src/services/jobAdmissionService.test.ts
+./backend/src/services/jobStateReconciler.test.ts
+./backend/src/services/jobTriggerService.test.ts
+./backend/src/services/llmProxy.test.ts
+./backend/src/services/newIdeasService.test.ts
+./backend/src/services/notificationService.test.ts
+./backend/src/services/pointsBudgetService.test.ts
+./backend/src/services/quickCheckService.test.ts
+./backend/src/services/stepQueue.test.ts
+./backend/src/services/strategyBaselineService.test.ts
+./backend/src/services/strategyFileService.test.ts
+./backend/src/services/workspaceService.test.ts
+./backend/src/services/workspaceTemplate.test.ts
+./frontend/node_modules/react-dom/test-utils.js
+
+Docs pilot features existing:
+docs/core-stabilization-plan.md
+docs/superpowers/handoffs/2026-04-30-pr1-complete.md
+docs/superpowers/plans/2026-04-09-model-profiles-admin-health.md
+docs/superpowers/plans/2026-04-09-observability-llm-proxy.md
+docs/superpowers/plans/2026-04-09-ticker-search-add-position.md
+docs/superpowers/plans/2026-04-10-admin-controls.md
+docs/superpowers/plans/2026-04-23-ui-ux-overhaul.md
+docs/superpowers/plans/2026-04-30-phase-0-soofke-defensive-fixes.md
+docs/superpowers/plans/2026-05-01-pr2-step-queue-foundation.md
+docs/superpowers/plans/2026-05-03-today-screen-pilot-v1.md
+docs/superpowers/plans/2026-05-05-portfolio-ui-redesign.md
+docs/superpowers/specs/2026-04-09-model-profiles-admin-health.md
+docs/superpowers/specs/2026-04-09-observability-logging-design.md
+docs/superpowers/specs/2026-04-09-ticker-search-add-position-design.md
+docs/superpowers/specs/2026-04-30-step-queue-execution-redesign-design.md
+docs/superpowers/specs/2026-05-03-today-screen-pilot-v1-design.md

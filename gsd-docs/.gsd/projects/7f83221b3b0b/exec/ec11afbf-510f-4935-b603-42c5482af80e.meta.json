@@ -1,0 +1,18 @@
+{
+  "id": "ec11afbf-510f-4935-b603-42c5482af80e",
+  "runtime": "bash",
+  "purpose": "scan S01 relevant admin/db/frontend/test structure",
+  "script_chars": 871,
+  "started_at": "2026-05-09T13:16:28.430Z",
+  "finished_at": "2026-05-09T13:16:28.561Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 131,
+  "stdout_bytes": 42208,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/ec11afbf-510f-4935-b603-42c5482af80e.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/ec11afbf-510f-4935-b603-42c5482af80e.stderr"
+}

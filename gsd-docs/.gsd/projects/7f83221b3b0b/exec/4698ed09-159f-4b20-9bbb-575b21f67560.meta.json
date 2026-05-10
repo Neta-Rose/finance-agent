@@ -1,0 +1,18 @@
+{
+  "id": "4698ed09-159f-4b20-9bbb-575b21f67560",
+  "runtime": "bash",
+  "purpose": "backend npm exec saved chat test file only",
+  "script_chars": 108,
+  "started_at": "2026-05-10T12:14:56.820Z",
+  "finished_at": "2026-05-10T12:15:01.427Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4607,
+  "stdout_bytes": 0,
+  "stderr_bytes": 157,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/4698ed09-159f-4b20-9bbb-575b21f67560.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/4698ed09-159f-4b20-9bbb-575b21f67560.stderr"
+}

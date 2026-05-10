@@ -1,0 +1,4 @@
+HEAD=71a14d6
+PREV=d945eceb9f4e
+health={"status":"ok","timestamp":"2026-05-09T14:09:42.638Z"}
+unauth_pilot_features_status=401

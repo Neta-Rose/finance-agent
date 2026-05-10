@@ -1,0 +1,18 @@
+{
+  "id": "896222ef-d9ce-4d48-9402-d28f76803dfa",
+  "runtime": "bash",
+  "purpose": "Authenticated S01 admin route smoke check without exposing admin key",
+  "script_chars": 2168,
+  "started_at": "2026-05-10T02:36:48.860Z",
+  "finished_at": "2026-05-10T02:36:48.891Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 31,
+  "stdout_bytes": 22,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/896222ef-d9ce-4d48-9402-d28f76803dfa.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/896222ef-d9ce-4d48-9402-d28f76803dfa.stderr"
+}

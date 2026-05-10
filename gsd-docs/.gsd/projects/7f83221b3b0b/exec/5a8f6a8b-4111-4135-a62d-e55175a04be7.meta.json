@@ -1,0 +1,18 @@
+{
+  "id": "5a8f6a8b-4111-4135-a62d-e55175a04be7",
+  "runtime": "bash",
+  "purpose": "identify backend route/database files for admin and entities",
+  "script_chars": 424,
+  "started_at": "2026-05-09T13:16:43.380Z",
+  "finished_at": "2026-05-09T13:16:43.402Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 22,
+  "stdout_bytes": 30709,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/5a8f6a8b-4111-4135-a62d-e55175a04be7.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/5a8f6a8b-4111-4135-a62d-e55175a04be7.stderr"
+}

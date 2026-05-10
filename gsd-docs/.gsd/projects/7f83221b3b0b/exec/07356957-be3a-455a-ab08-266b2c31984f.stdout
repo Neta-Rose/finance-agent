@@ -1,0 +1,17 @@
+
+S01
+  1:# S01: Pilot Feature Inventory + Admin Review
+  3:**Goal:** Deliver the pilot feature inventory foundation: tracked catalog entries for pilot-visible Web + Telegram features, Postgres-backed mutable admin review state, and an admin UI where the owner can browse descriptions, review error-handling expectations, and update status/comment/incorrect-description markers.
+  31:- [x] **T01: Create the tracked pilot feature catalog and validator** `est:1h30m`
+  36:- [x] **T02: Add Postgres review-state storage for pilot features** `est:1h30m`
+  41:- [x] **T03: Expose the admin pilot feature inventory API** `est:1h30m`
+  46:- [x] **T04: Add the admin Pilot Features review UI** `est:2h`
+  51:- [x] **T05: Document and verify the inventory boundary contract** `est:1h`
+  summary: present
+
+S02
+  1:# S02: Pilot Surface Gating + Nameless Copy
+  3:**Goal:** Pilot-visible product surfaces present Web and Telegram as the supported pilot channels, hide/defer WhatsApp setup and delivery controls, and use neutral nameless product copy instead of old/internal names.
+  45:- [ ] **T01: Hide WhatsApp from pilot Settings and notification controls** `est:1h`
+  50:- [ ] **T02: Neutralize pilot-facing product copy** `est:45m`
+  55:- [ ] **T03: Mark WhatsApp deferred in feature inventory and close verification** `est:1h`

@@ -1,0 +1,18 @@
+{
+  "id": "821384b7-c03c-4350-942c-2507fffb90b1",
+  "runtime": "bash",
+  "purpose": "backend typecheck after saved chat store changes",
+  "script_chars": 30,
+  "started_at": "2026-05-10T12:14:14.609Z",
+  "finished_at": "2026-05-10T12:14:19.248Z",
+  "exit_code": 2,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4639,
+  "stdout_bytes": 249,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/821384b7-c03c-4350-942c-2507fffb90b1.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/821384b7-c03c-4350-942c-2507fffb90b1.stderr"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "1a9dbf8f-f98c-4b2c-8d52-a930134fde02",
+  "runtime": "bash",
+  "purpose": "slice backend notification tests after T01",
+  "script_chars": 111,
+  "started_at": "2026-05-10T11:50:16.345Z",
+  "finished_at": "2026-05-10T11:50:19.974Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 3629,
+  "stdout_bytes": 5908,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/1a9dbf8f-f98c-4b2c-8d52-a930134fde02.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/1a9dbf8f-f98c-4b2c-8d52-a930134fde02.stderr"
+}

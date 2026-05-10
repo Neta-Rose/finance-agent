@@ -1,0 +1,18 @@
+{
+  "id": "cf2758cb-d76b-4401-a887-b5e900d33e77",
+  "runtime": "bash",
+  "purpose": "T04 final combined slice verification",
+  "script_chars": 255,
+  "started_at": "2026-05-10T12:04:16.547Z",
+  "finished_at": "2026-05-10T12:04:36.438Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 19891,
+  "stdout_bytes": 7309,
+  "stderr_bytes": 360,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/cf2758cb-d76b-4401-a887-b5e900d33e77.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/cf2758cb-d76b-4401-a887-b5e900d33e77.stderr"
+}

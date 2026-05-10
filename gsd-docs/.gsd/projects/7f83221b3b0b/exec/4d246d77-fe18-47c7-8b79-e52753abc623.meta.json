@@ -1,0 +1,18 @@
+{
+  "id": "4d246d77-fe18-47c7-8b79-e52753abc623",
+  "runtime": "bash",
+  "purpose": "task verification notification service and pilot surface",
+  "script_chars": 221,
+  "started_at": "2026-05-10T11:55:36.337Z",
+  "finished_at": "2026-05-10T11:55:40.457Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4120,
+  "stdout_bytes": 6050,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/4d246d77-fe18-47c7-8b79-e52753abc623.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/4d246d77-fe18-47c7-8b79-e52753abc623.stderr"
+}

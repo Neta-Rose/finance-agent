@@ -1,0 +1,25 @@
+Saved chat UI verification passed: Chat uses backend saved-chat APIs, keeps only a last-opened preference, exposes accessible lifecycle controls, and avoids legacy/internal copy.
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/root/clawd/frontend/src/pages/Admin.tsx
+  2049:9  warning  The 'features' logical expression could make the dependencies of useEffect Hook (at line 2066) change on every render. To fix this, wrap the initialization of 'features' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  2049:9  warning  The 'features' logical expression could make the dependencies of useMemo Hook (at line 2083) change on every render. To fix this, wrap the initialization of 'features' in its own useMemo() Hook    react-hooks/exhaustive-deps
+
+✖ 2 problems (0 errors, 2 warnings)
+
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+vite v8.0.5 building client environment for production...
+[2Ktransforming...✓ 1897 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.73 kB │ gzip:   0.37 kB
+dist/assets/index-05yGMIGa.css   51.68 kB │ gzip:   9.45 kB
+dist/assets/index-kmenyvhS.js   835.84 kB │ gzip: 234.53 kB
+
+✓ built in 481ms

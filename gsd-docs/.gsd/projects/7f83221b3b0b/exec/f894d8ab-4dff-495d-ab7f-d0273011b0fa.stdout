@@ -1,0 +1,6 @@
+
+> clawd-backend@1.0.0 build
+> tsc
+
+src/services/stepQueue/completionEffects.ts(284,9): error TS2353: Object literal may only specify known properties, and 'category' does not exist in type 'NotificationPublishRequest'.
+EXIT_CODE=2 DURATION_MS=4457

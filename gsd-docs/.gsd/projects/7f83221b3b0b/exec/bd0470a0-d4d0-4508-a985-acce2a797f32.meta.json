@@ -1,0 +1,18 @@
+{
+  "id": "bd0470a0-d4d0-4508-a985-acce2a797f32",
+  "runtime": "bash",
+  "purpose": "targeted notification service verification after semantic migration",
+  "script_chars": 180,
+  "started_at": "2026-05-10T11:54:45.194Z",
+  "finished_at": "2026-05-10T11:54:48.762Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 3568,
+  "stdout_bytes": 5879,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/bd0470a0-d4d0-4508-a985-acce2a797f32.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/bd0470a0-d4d0-4508-a985-acce2a797f32.stderr"
+}

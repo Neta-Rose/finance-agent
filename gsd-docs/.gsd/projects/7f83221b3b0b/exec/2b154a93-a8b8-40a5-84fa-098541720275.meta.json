@@ -1,0 +1,18 @@
+{
+  "id": "2b154a93-a8b8-40a5-84fa-098541720275",
+  "runtime": "bash",
+  "purpose": "red run notification composer tests before implementation",
+  "script_chars": 72,
+  "started_at": "2026-05-10T11:49:08.974Z",
+  "finished_at": "2026-05-10T11:49:12.581Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 3607,
+  "stdout_bytes": 7247,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/2b154a93-a8b8-40a5-84fa-098541720275.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/2b154a93-a8b8-40a5-84fa-098541720275.stderr"
+}

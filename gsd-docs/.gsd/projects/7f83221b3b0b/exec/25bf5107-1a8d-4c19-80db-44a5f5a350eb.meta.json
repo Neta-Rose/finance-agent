@@ -1,0 +1,18 @@
+{
+  "id": "25bf5107-1a8d-4c19-80db-44a5f5a350eb",
+  "runtime": "bash",
+  "purpose": "S03 notification code landscape",
+  "script_chars": 394,
+  "started_at": "2026-05-10T11:44:11.066Z",
+  "finished_at": "2026-05-10T11:44:11.092Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 26,
+  "stdout_bytes": 25442,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/25bf5107-1a8d-4c19-80db-44a5f5a350eb.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/25bf5107-1a8d-4c19-80db-44a5f5a350eb.stderr"
+}

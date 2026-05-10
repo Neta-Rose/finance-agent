@@ -1,0 +1,5 @@
+
+> clawd-backend@1.0.0 build
+> tsc
+
+EXIT_CODE=0 DURATION_MS=4746

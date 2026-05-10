@@ -1,0 +1,18 @@
+{
+  "id": "1946fa69-550e-47c5-8244-71493935431c",
+  "runtime": "bash",
+  "purpose": "T04 frontend lint",
+  "script_chars": 30,
+  "started_at": "2026-05-10T12:03:25.201Z",
+  "finished_at": "2026-05-10T12:03:31.845Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 6644,
+  "stdout_bytes": 605,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/1946fa69-550e-47c5-8244-71493935431c.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/1946fa69-550e-47c5-8244-71493935431c.stderr"
+}

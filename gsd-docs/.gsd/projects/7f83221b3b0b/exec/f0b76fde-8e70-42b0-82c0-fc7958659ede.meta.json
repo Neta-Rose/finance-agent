@@ -1,0 +1,18 @@
+{
+  "id": "f0b76fde-8e70-42b0-82c0-fc7958659ede",
+  "runtime": "bash",
+  "purpose": "Slice verification backend notification composer service telegram delivery tests",
+  "script_chars": 111,
+  "started_at": "2026-05-10T12:01:18.614Z",
+  "finished_at": "2026-05-10T12:01:22.106Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 3492,
+  "stdout_bytes": 6097,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/f0b76fde-8e70-42b0-82c0-fc7958659ede.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/f0b76fde-8e70-42b0-82c0-fc7958659ede.stderr"
+}

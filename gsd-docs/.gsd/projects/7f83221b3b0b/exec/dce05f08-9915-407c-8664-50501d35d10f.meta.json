@@ -1,0 +1,18 @@
+{
+  "id": "dce05f08-9915-407c-8664-50501d35d10f",
+  "runtime": "bash",
+  "purpose": "verify publisher notification calls are semantic",
+  "script_chars": 599,
+  "started_at": "2026-05-10T11:53:58.561Z",
+  "finished_at": "2026-05-10T11:53:58.595Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 34,
+  "stdout_bytes": 218,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/dce05f08-9915-407c-8664-50501d35d10f.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/dce05f08-9915-407c-8664-50501d35d10f.stderr"
+}

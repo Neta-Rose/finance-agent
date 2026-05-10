@@ -1,0 +1,252 @@
+
+> clawd-backend@1.0.0 test
+> node scripts/run-tests.mjs --test-name-pattern notification composer|notification service|telegram delivery
+
+TAP version 13
+1..0
+# Subtest: /root/clawd/backend/src/routes/adminPilotFeatures.test.ts
+ok 1 - /root/clawd/backend/src/routes/adminPilotFeatures.test.ts
+  ---
+  duration_ms: 694.203452
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/fullReportRoutes.test.ts
+ok 2 - /root/clawd/backend/src/routes/fullReportRoutes.test.ts
+  ---
+  duration_ms: 244.639592
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/llmProxy.test.ts
+ok 3 - /root/clawd/backend/src/routes/llmProxy.test.ts
+  ---
+  duration_ms: 869.63676
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/strategiesRoutes.test.ts
+ok 4 - /root/clawd/backend/src/routes/strategiesRoutes.test.ts
+  ---
+  duration_ms: 212.735128
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/schemas/strategy.test.ts
+ok 5 - /root/clawd/backend/src/schemas/strategy.test.ts
+  ---
+  duration_ms: 187.152011
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/scripts/supersedeStuckJob.test.ts
+ok 6 - /root/clawd/backend/src/scripts/supersedeStuckJob.test.ts
+  ---
+  duration_ms: 162.936798
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/advisorLlmService.test.ts
+ok 7 - /root/clawd/backend/src/services/advisorLlmService.test.ts
+  ---
+  duration_ms: 251.756593
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/baselineCoverageService.test.ts
+ok 8 - /root/clawd/backend/src/services/baselineCoverageService.test.ts
+  ---
+  duration_ms: 166.837472
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/dailyBriefService.selection.test.ts
+ok 9 - /root/clawd/backend/src/services/dailyBriefService.selection.test.ts
+  ---
+  duration_ms: 704.897099
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/dailyBriefService.test.ts
+ok 10 - /root/clawd/backend/src/services/dailyBriefService.test.ts
+  ---
+  duration_ms: 182.289311
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/deepDiveService.test.ts
+ok 11 - /root/clawd/backend/src/services/deepDiveService.test.ts
+  ---
+  duration_ms: 186.913962
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/feedService.test.ts
+ok 12 - /root/clawd/backend/src/services/feedService.test.ts
+  ---
+  duration_ms: 166.318705
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/fullReportService.test.ts
+ok 13 - /root/clawd/backend/src/services/fullReportService.test.ts
+  ---
+  duration_ms: 173.865285
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobAdmissionService.test.ts
+ok 14 - /root/clawd/backend/src/services/jobAdmissionService.test.ts
+  ---
+  duration_ms: 175.882067
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobStateReconciler.test.ts
+ok 15 - /root/clawd/backend/src/services/jobStateReconciler.test.ts
+  ---
+  duration_ms: 190.432948
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobTriggerService.test.ts
+ok 16 - /root/clawd/backend/src/services/jobTriggerService.test.ts
+  ---
+  duration_ms: 732.539659
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/llmProxy.test.ts
+ok 17 - /root/clawd/backend/src/services/llmProxy.test.ts
+  ---
+  duration_ms: 201.814352
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/newIdeasService.test.ts
+ok 18 - /root/clawd/backend/src/services/newIdeasService.test.ts
+  ---
+  duration_ms: 175.476238
+  type: 'test'
+  ...
+# Subtest: notification composer maps owned semantic kinds to persisted categories
+ok 19 - notification composer maps owned semantic kinds to persisted categories
+  ---
+  duration_ms: 1.113556
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/notificationService.test.ts
+ok 20 - /root/clawd/backend/src/services/notificationService.test.ts
+  ---
+  duration_ms: 182.1073
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pilotFeatureCatalogService.test.ts
+ok 21 - /root/clawd/backend/src/services/pilotFeatureCatalogService.test.ts
+  ---
+  duration_ms: 193.138667
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pilotFeatureReviewService.test.ts
+ok 22 - /root/clawd/backend/src/services/pilotFeatureReviewService.test.ts
+  ---
+  duration_ms: 570.942145
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pointsBudgetService.test.ts
+ok 23 - /root/clawd/backend/src/services/pointsBudgetService.test.ts
+  ---
+  duration_ms: 558.213616
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/quickCheckService.test.ts
+ok 24 - /root/clawd/backend/src/services/quickCheckService.test.ts
+  ---
+  duration_ms: 189.87266
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/stepQueue.test.ts
+ok 25 - /root/clawd/backend/src/services/stepQueue.test.ts
+  ---
+  duration_ms: 911.864221
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/strategyBaselineService.test.ts
+ok 26 - /root/clawd/backend/src/services/strategyBaselineService.test.ts
+  ---
+  duration_ms: 189.178004
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/strategyFileService.test.ts
+ok 27 - /root/clawd/backend/src/services/strategyFileService.test.ts
+  ---
+  duration_ms: 214.805891
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/telegramDelivery.test.ts
+ok 28 - /root/clawd/backend/src/services/telegramDelivery.test.ts
+  ---
+  duration_ms: 216.785393
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/workspaceService.test.ts
+ok 29 - /root/clawd/backend/src/services/workspaceService.test.ts
+  ---
+  duration_ms: 351.829092
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/workspaceTemplate.test.ts
+ok 30 - /root/clawd/backend/src/services/workspaceTemplate.test.ts
+  ---
+  duration_ms: 180.321178
+  type: 'test'
+  ...
+1..30
+# tests 30
+# suites 0
+# pass 30
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3321.153719
+
+> clawd-backend@1.0.0 build
+> tsc
+
+Pilot surface verification passed: WhatsApp setup and notification selection are hidden from Settings, saves force WhatsApp disabled, and pilot copy stays nameless.
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/root/clawd/frontend/src/pages/Admin.tsx
+  2049:9  warning  The 'features' logical expression could make the dependencies of useEffect Hook (at line 2066) change on every render. To fix this, wrap the initialization of 'features' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  2049:9  warning  The 'features' logical expression could make the dependencies of useMemo Hook (at line 2083) change on every render. To fix this, wrap the initialization of 'features' in its own useMemo() Hook    react-hooks/exhaustive-deps
+
+✖ 2 problems (0 errors, 2 warnings)
+
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+vite v8.0.5 building client environment for production...
+[2Ktransforming...✓ 1897 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.73 kB │ gzip:   0.37 kB
+dist/assets/index-Cs_c9cFO.css   50.73 kB │ gzip:   9.30 kB
+dist/assets/index-CaHzm6Py.js   825.37 kB │ gzip: 232.30 kB
+
+✓ built in 544ms

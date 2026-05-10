@@ -1,0 +1,18 @@
+{
+  "id": "d2d18544-52e7-4600-8945-7885f4a46b96",
+  "runtime": "bash",
+  "purpose": "Targeted telegram delivery and notification service tests",
+  "script_chars": 89,
+  "started_at": "2026-05-10T12:01:02.169Z",
+  "finished_at": "2026-05-10T12:01:05.927Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 3758,
+  "stdout_bytes": 6064,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/d2d18544-52e7-4600-8945-7885f4a46b96.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/d2d18544-52e7-4600-8945-7885f4a46b96.stderr"
+}

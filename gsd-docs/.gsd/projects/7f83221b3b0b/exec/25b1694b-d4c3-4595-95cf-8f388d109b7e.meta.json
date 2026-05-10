@@ -1,0 +1,18 @@
+{
+  "id": "25b1694b-d4c3-4595-95cf-8f388d109b7e",
+  "runtime": "bash",
+  "purpose": "T04 frontend build",
+  "script_chars": 31,
+  "started_at": "2026-05-10T12:03:36.170Z",
+  "finished_at": "2026-05-10T12:03:41.647Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 5477,
+  "stdout_bytes": 405,
+  "stderr_bytes": 360,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/25b1694b-d4c3-4595-95cf-8f388d109b7e.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/25b1694b-d4c3-4595-95cf-8f388d109b7e.stderr"
+}

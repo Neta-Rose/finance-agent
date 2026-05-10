@@ -1,0 +1,18 @@
+{
+  "id": "29edece3-b48c-4aae-ab85-168d8e275e5d",
+  "runtime": "bash",
+  "purpose": "final required saved chat store test command",
+  "script_chars": 83,
+  "started_at": "2026-05-10T12:15:59.045Z",
+  "finished_at": "2026-05-10T12:16:11.427Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 12382,
+  "stdout_bytes": 74053,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/29edece3-b48c-4aae-ab85-168d8e275e5d.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/29edece3-b48c-4aae-ab85-168d8e275e5d.stderr"
+}

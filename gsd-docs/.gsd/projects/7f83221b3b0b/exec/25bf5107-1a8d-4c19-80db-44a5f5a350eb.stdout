@@ -1,0 +1,263 @@
+notification files
+backend/src/routes/notifications.ts
+backend/src/routes/reports.ts
+backend/src/routes/fullReportRoutes.test.ts
+backend/src/routes/telegram.ts
+backend/src/services/notificationStore.ts
+backend/src/services/stepQueue/handlers/dailyBrief.ts
+backend/src/services/notificationService.ts
+backend/src/services/dailyBriefService.test.ts
+backend/src/services/reportIndexStore.ts
+backend/src/services/dailyBriefService.selection.test.ts
+backend/src/services/notificationService.test.ts
+backend/src/services/dailyBriefService.ts
+backend/src/services/fullReportService.ts
+backend/src/services/telegramSecurityService.ts
+backend/src/services/fullReportService.test.ts
+backend/src/schemas/notifications.ts
+backend/src/db/entities/NotificationEntity.ts
+backend/src/db/entities/ReportIndexEntity.ts
+backend/src/db/entities/ReportBatchEntity.ts
+backend/dist/routes/telegram.js
+backend/dist/routes/fullReportRoutes.test.js
+backend/dist/routes/reports.js
+backend/dist/routes/notifications.js
+backend/dist/services/dailyBriefService.test.js
+backend/dist/services/notificationService.test.js
+backend/dist/services/dailyBriefService.selection.test.js
+backend/dist/services/stepQueue/handlers/dailyBrief.js
+backend/dist/services/notificationService.js
+backend/dist/services/fullReportService.js
+backend/dist/services/reportIndexStore.js
+backend/dist/services/fullReportService.test.js
+backend/dist/services/telegramSecurityService.js
+backend/dist/services/notificationStore.js
+backend/dist/services/dailyBriefService.js
+backend/dist/schemas/notifications.js
+backend/dist/db/entities/ReportIndexEntity.js
+backend/dist/db/entities/NotificationEntity.js
+backend/dist/db/entities/ReportBatchEntity.js
+frontend/src/pages/Reports.tsx
+frontend/src/api/notifications.ts
+
+notificationService refs
+docs/pilot-features/README.md:20:- `id`: stable lowercase identifier such as `web.reports-feed` or `telegram.daily-brief-chat`.
+docs/pilot-features/README.md:21:- `surface`: one of `web`, `telegram`, `admin`, or `operator`.
+docs/pilot-features/pilot-core.json:35:      "shortSummary": "Lets a pilot user browse daily briefs, deep dives, quick checks, weekly reports, and new ideas from the reports feed.",
+docs/pilot-features/pilot-core.json:44:        "Multi-ticker daily briefs group escalated, positive, on-track, and tracking entries for readable browsing.",
+docs/pilot-features/pilot-core.json:45:        "Older daily brief metadata is labeled when auto-queue evidence is incomplete."
+docs/pilot-features/pilot-core.json:85:      "id": "web.alerts-notifications",
+docs/pilot-features/pilot-core.json:87:      "title": "Alerts, web notifications, and notification preferences",
+docs/pilot-features/pilot-core.json:88:      "shortSummary": "Surfaces report, daily brief, market news, and web notification activity in the app and lets users tune notification channels.",
+docs/pilot-features/pilot-core.json:89:      "detailedExplanation": "The Alerts page fetches the report feed with alert-focused filters and expandable cards. The app shell polls unread web notifications and turns them into toasts, then marks them read. Settings exposes primary channel, channel enablement, and category preferences for daily briefs, report runs, and market news.",
+docs/pilot-features/pilot-core.json:91:        "User opens /alerts and browses alert cards filtered by all, news, quick, daily, deep, ideas, or weekly modes.",
+docs/pilot-features/pilot-core.json:92:        "Unread web notifications appear as toasts in the protected app shell and are marked read after display.",
+docs/pilot-features/pilot-core.json:93:        "User opens Settings and saves notification channel/category preferences."
+docs/pilot-features/pilot-core.json:98:        "Grouped notification batches produce one toast per category/batch instead of noisy duplicates."
+docs/pilot-features/pilot-core.json:109:        "backend/src/routes/notifications.ts"
+docs/pilot-features/pilot-core.json:114:      "id": "telegram.daily-brief-chat",
+docs/pilot-features/pilot-core.json:115:      "surface": "telegram",
+docs/pilot-features/pilot-core.json:117:      "shortSummary": "Connects a pilot user's Telegram chat for daily brief/report delivery and forwards inbound Telegram text into the portfolio assistant.",
+docs/pilot-features/pilot-core.json:137:        "backend/src/routes/telegram.ts"
+docs/pilot-features/pilot-core.json:172:      "detailedExplanation": "The Controls page exposes daily brief and deep dive actions, marks weekly report and new ideas as currently blocked, and shows active/recent jobs. Settings lets users update display name, password, schedule, theme, Telegram, Web notification preferences, analyst pipeline configuration, and logout; WhatsApp setup and delivery controls are hidden/deferred for the pilot.",
+docs/pilot-features/pilot-core.json:174:        "User opens /controls and queues a daily brief or ticker-specific deep dive.",
+docs/pilot-features/pilot-core.json:175:        "Active and recent jobs render with status, progress, and completion/failure notifications.",
+docs/pilot-features/pilot-core.json:176:        "User opens /settings and saves schedule, notification, Telegram, theme, password, or display-name changes."
+frontend/src/App.tsx:22:import { fetchNotifications, markNotificationsRead } from "./api/notifications";
+frontend/src/App.tsx:61:  const { data: notifications } = useQuery({
+frontend/src/App.tsx:62:    queryKey: ["web-notifications"],
+frontend/src/App.tsx:70:    if (!notifications?.items.length) return;
+frontend/src/App.tsx:71:    const unseen = notifications.items.filter((item) => !seenNotificationIds.current.has(item.id));
+frontend/src/App.tsx:85:  }, [notifications?.items, showToast]);
+frontend/src/pages/Onboarding.tsx:85:  telegramChatId: string;
+frontend/src/pages/Onboarding.tsx:94:  telegramSkip: boolean;
+frontend/src/pages/Onboarding.tsx:105:  telegramChatId: "",
+frontend/src/pages/Onboarding.tsx:114:  telegramSkip: false,
+frontend/src/pages/Onboarding.tsx:340:    if (!state.botToken.trim() || !state.telegramChatId.trim()) {
+frontend/src/pages/Onboarding.tsx:348:    if (!/^\d+$/.test(state.telegramChatId)) {
+frontend/src/pages/Onboarding.tsx:355:      await apiClient.post("/onboard/telegram", {
+frontend/src/pages/Onboarding.tsx:357:        telegramChatId: state.telegramChatId,
+frontend/src/pages/Onboarding.tsx:369:    update("telegramSkip", true);
+frontend/src/pages/Onboarding.tsx:389:          <input type="text" value={state.telegramChatId} onChange={(e) => update("telegramChatId", e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
+frontend/src/pages/Onboarding.tsx:654:          {state.telegramChatId && (
+frontend/src/pages/Onboarding.tsx:1027:          telegramChatId: state.telegramChatId,
+frontend/src/pages/Settings.tsx:46:  primaryChannel: "telegram",
+frontend/src/pages/Settings.tsx:48:    telegram: true,
+frontend/src/pages/Settings.tsx:62:    telegram: preferences?.enabledChannels.telegram ?? defaultPilotNotifications.enabledChannels.telegram,
+frontend/src/pages/Settings.tsx:110:  const [telegramChatId, setTelegramChatId] = useState("");
+frontend/src/pages/Settings.tsx:111:  const [telegramError, setTelegramError] = useState("");
+frontend/src/pages/Settings.tsx:112:  const [telegramLoading, setTelegramLoading] = useState(false);
+frontend/src/pages/Settings.tsx:113:  const [notifications, setNotifications] = useState<NotificationPreferences>(() =>
+frontend/src/pages/Settings.tsx:114:    sanitizePilotNotifications(onboardStatus?.notifications)
+frontend/src/pages/Settings.tsx:116:  const [notificationsLoading, setNotificationsLoading] = useState(false);
+frontend/src/pages/Settings.tsx:169:    if (!botToken.trim() || !telegramChatId.trim()) {
+frontend/src/pages/Settings.tsx:177:    if (!/^\d+$/.test(telegramChatId)) {
+frontend/src/pages/Settings.tsx:183:      await connectTelegram({ botToken, telegramChatId });
+frontend/src/pages/Settings.tsx:185:      showToast(t("telegramConnected", lang), "success");
+frontend/src/pages/Settings.tsx:215:    const sanitizedNotifications = sanitizePilotNotifications(notifications);
+frontend/src/pages/Settings.tsx:219:      await apiClient.patch("/onboard/notifications", sanitizedNotifications);
+frontend/src/pages/Settings.tsx:221:      showToast(t("notificationsUpdated", lang), "success");
+frontend/src/pages/Settings.tsx:247:  const telegramConnected = connectivity?.telegram.connected ?? onboardStatus?.telegramConnected ?? false;
+frontend/src/pages/Settings.tsx:250:    setNotifications(sanitizePilotNotifications(onboardStatus?.notifications));
+frontend/src/pages/Settings.tsx:251:  }, [onboardStatus?.notifications]);
+frontend/src/pages/Settings.tsx:474:            <Bot size={15} /> {t("telegram", lang).toUpperCase()}
+frontend/src/pages/Settings.tsx:481:                    {telegramConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
+frontend/src/pages/Settings.tsx:484:                    {telegramConnected && connectivity?.telegram.target
+frontend/src/pages/Settings.tsx:485:                      ? `${t("connectedTo", lang)} ${connectivity.telegram.target}`
+frontend/src/pages/Settings.tsx:486:                      : t("telegramGuideStep1", lang)}
+frontend/src/pages/Settings.tsx:491:                    if (telegramConnected) {
+frontend/src/pages/Settings.tsx:497:                  disabled={telegramLoading}
+frontend/src/pages/Settings.tsx:500:                  {telegramLoading ? "..." : telegramConnected ? t("disconnect", lang) : t("connect", lang)}
+frontend/src/pages/Settings.tsx:506:                  <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
+frontend/src/pages/Settings.tsx:507:                  <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
+frontend/src/pages/Settings.tsx:508:                  <li className={guideItemCls}>3. {t("telegramGuideStep3", lang)}</li>
+frontend/src/pages/Settings.tsx:515:                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("telegram", lang)}</p>
+frontend/src/pages/Settings.tsx:526:                <input type="text" value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
+frontend/src/pages/Settings.tsx:531:                  <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
+frontend/src/pages/Settings.tsx:532:                  <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
+frontend/src/pages/Settings.tsx:533:                  <li className={guideItemCls}>3. {t("telegramGuideStep3", lang)}</li>
+frontend/src/pages/Settings.tsx:536:              {telegramError && <p className="text-[10px] text-[var(--color-accent-red)]">{telegramError}</p>}
+frontend/src/pages/Settings.tsx:539:                <button onClick={handleConnectTelegram} disabled={telegramLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
+frontend/src/pages/Settings.tsx:540:                  {telegramLoading ? "..." : t("connect", lang)}
+frontend/src/pages/Settings.tsx:549:            <Bell size={15} /> {t("notifications", lang).toUpperCase()}
+frontend/src/pages/Settings.tsx:556:                  value={notifications.primaryChannel}
+frontend/src/pages/Settings.tsx:565:                  {telegramConnected && <option value="telegram">{t("telegram", lang)}</option>}
+frontend/src/pages/Settings.tsx:574:              <p className="text-xs font-medium text-[var(--color-fg-muted)]">{t("notificationChannels", lang)}</p>
+frontend/src/pages/Settings.tsx:576:                ["telegram", t("telegram", lang), telegramConnected],
+frontend/src/pages/Settings.tsx:583:                    checked={notifications.enabledChannels[channel]}
+frontend/src/pages/Settings.tsx:610:                    checked={notifications.categories[key]}
+frontend/src/pages/Settings.tsx:627:              disabled={notificationsLoading}
+frontend/src/pages/Settings.tsx:630:              {notificationsLoading ? t("saving", lang) : t("save", lang)}
+frontend/src/pages/Reports.tsx:620:  const news = c.majorNews as Rec[] | undefined;
+frontend/src/pages/Reports.tsx:671:      {news && news.length > 0 ? (
+frontend/src/pages/Reports.tsx:673:          <p className="mb-2 text-xs font-bold text-[var(--color-fg-default)]">Recent news</p>
+frontend/src/pages/Reports.tsx:675:            {news.slice(0, 3).map((n, i) => (
+frontend/src/pages/Reports.tsx:1167:      ? "These positions were flagged for attention. This older daily brief did not store exact auto-queue metadata, so it should not be read as proof that every listed ticker had a deep dive queued."
+frontend/src/pages/Reports.tsx:1219:          {/* Single-ticker verdict (deep dive / quick check / new ideas) */}
+frontend/src/pages/Reports.tsx:1348:                    <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">Portfolio queued deep dives</p>
+frontend/src/pages/Reports.tsx:1354:                            {entry.reasoning}. {entry.deepDiveQueueReason ?? "Deep dive was queued by this daily brief."}
+frontend/src/pages/Reports.tsx:1369:                            {entry.reasoning}. {entry.deepDiveQueueReason ?? "Flagged for attention; no deep dive queue confirmation is attached to this daily brief."}
+frontend/src/pages/Reports.tsx:1519:      showToast("Failed to cancel deep dive", "error");
+frontend/src/pages/Reports.tsx:1531:      showToast("Not enough balance to resume this deep dive yet", "warning");
+frontend/src/pages/Reports.tsx:1539:    () => (feedData?.items ?? []).filter((item) => item.kind !== "market_news"),
+frontend/src/pages/Portfolio.tsx:209:  const telegramConnected = onboardStatus?.telegramConnected ?? false;
+frontend/src/pages/Portfolio.tsx:584:            telegramConnected={telegramConnected}
+frontend/src/pages/Admin.tsx:169:    telegramChatId: "",
+frontend/src/pages/Admin.tsx:201:        telegramChatId: form.telegramChatId || undefined,
+frontend/src/pages/Admin.tsx:202:        telegramBotToken: form.botToken || undefined,
+frontend/src/pages/Admin.tsx:260:                <input type="text" value={form.telegramChatId} onChange={set("telegramChatId")} className={inputCls} />
+frontend/src/pages/Admin.tsx:1167:    if (sourceClass === "telegram_command") return "tg";
+frontend/src/pages/Admin.tsx:1763:  const [chatId,        setChatId]        = useState(user.telegramChatId ?? "");
+frontend/src/pages/Admin.tsx:1855:          ? <p>{t("adminTelegramYes", language)}{user.telegramChatId ? ` (${user.telegramChatId})` : ""}</p>
+frontend/src/pages/Admin.tsx:2013:  { value: "telegram", label: "Telegram" },
+frontend/src/pages/Alerts.tsx:41:  if (item.kind === "market_news") return <Newspaper size={14} />;
+frontend/src/pages/Alerts.tsx:48:  if (item.kind === "market_news") return "Market News";
+frontend/src/pages/Alerts.tsx:159:                      {item.kind !== "market_news" && (
+frontend/src/pages/Alerts.tsx:184:                    {item.kind === "market_news" ? (
+frontend/src/components/today/SetupBanner.tsx:9:  telegramConnected: boolean;
+frontend/src/components/today/SetupBanner.tsx:20:  telegramConnected,
+frontend/src/components/today/SetupBanner.tsx:24:  const body = telegramConnected
+frontend/src/store/i18n.ts:18:  | "telegram" | "whatsapp" | "webChannel" | "notifications"
+frontend/src/store/i18n.ts:21:  | "telegramGuideStep1" | "telegramGuideStep2" | "telegramGuideStep3"
+frontend/src/store/i18n.ts:30:  | "botToken" | "chatId" | "telegramConnected" | "whatsappConnected" | "channelDisconnected"
+frontend/src/store/i18n.ts:35:  | "primaryChannel" | "notificationChannels" | "notifyMeAbout"
+frontend/src/store/i18n.ts:37:  | "notificationsUpdated" | "errorUpdateNotifications" | "noAlerts"
+frontend/src/store/i18n.ts:214:    telegram: "Telegram",
+frontend/src/store/i18n.ts:217:    notifications: "Notifications",
+frontend/src/store/i18n.ts:226:    telegramGuideStep1: 'Send "/newbot" to exactly @BotFather in Telegram, follow the prompts, and copy the token it gives you.',
+frontend/src/store/i18n.ts:227:    telegramGuideStep2: "Find your new bot by username and send it any message — this activates the chat.",
+frontend/src/store/i18n.ts:228:    telegramGuideStep3: 'Open @userinfobot in Telegram, send any message, and copy the numeric ID it shows.',
+frontend/src/store/i18n.ts:263:    telegramConnected: "Telegram connected!",
+frontend/src/store/i18n.ts:275:    notificationChannels: "Channels",
+frontend/src/store/i18n.ts:279:    marketNewsLabel: "Market news",
+frontend/src/store/i18n.ts:280:    notificationsUpdated: "Notifications updated",
+frontend/src/store/i18n.ts:281:    errorUpdateNotifications: "Failed to update notifications",
+frontend/src/store/i18n.ts:332:    emptyStrategies: "No strategies yet — run a full report",
+frontend/src/store/i18n.ts:426:    errorStartFullReport: "Failed to start full report",
+frontend/src/store/i18n.ts:674:    telegram: "טלגרם",
+frontend/src/store/i18n.ts:677:    notifications: "התראות",
+frontend/src/store/i18n.ts:686:    telegramGuideStep1: 'שלחו "/newbot" ל־@BotFather בטלגרם, עקבו אחרי ההוראות, והעתיקו את הטוקן שקיבלתם.',
+frontend/src/store/i18n.ts:687:    telegramGuideStep2: "חפשו את הבוט לפי שם המשתמש ושלחו לו הודעה כלשהי — זה מפעיל את הצ'אט.",
+frontend/src/store/i18n.ts:688:    telegramGuideStep3: "פתחו את @userinfobot, שלחו הודעה כלשהי, והעתיקו את המזהה המספרי שמוצג.",
+frontend/src/store/i18n.ts:723:    telegramConnected: "טלגרם חובר בהצלחה!",
+frontend/src/store/i18n.ts:735:    notificationChannels: "ערוצים",
+frontend/src/store/i18n.ts:740:    notificationsUpdated: "ההתראות עודכנו",
+frontend/src/api/onboarding.ts:12:  telegramChatId: string;
+frontend/src/api/onboarding.ts:13:}): Promise<{ connected: boolean; channel: "telegram"; connectivity: ChannelConnectivity }> {
+frontend/src/api/onboarding.ts:14:  return (await apiClient.post("/onboard/telegram", payload)).data;
+frontend/src/api/onboarding.ts:19:  channel: "telegram";
+frontend/src/api/onboarding.ts:22:  return (await apiClient.delete("/onboard/telegram")).data;
+frontend/src/api/onboarding.ts:54:  telegramChatId: string;
+frontend/src/components/AnalystPipelineConfig.tsx:30: * Shown in Settings — lets users toggle which analysts run on their deep dives.
+frontend/src/components/AnalystPipelineConfig.tsx:76:          ~{estimatedTotal} pts / deep dive
+frontend/src/types/api.ts:248:export type NotificationChannel = "telegram" | "web" | "none" | "whatsapp";
+frontend/src/types/api.ts:253:  telegram: boolean;
+frontend/src/types/api.ts:270: telegram: ChannelStatus;
+frontend/src/types/api.ts:312: kind: "daily_brief" | "report" | "market_news";
+frontend/src/types/api.ts:352: telegramChatId: string | null;
+frontend/src/types/api.ts:365: notifications: NotificationPreferences;
+frontend/src/types/api.ts:366: telegramConnected: boolean;
+frontend/src/api/notifications.ts:6:  category: "daily_brief" | "report" | "market_news";
+frontend/src/api/notifications.ts:11:  channel: "telegram" | "web" | "whatsapp";
+frontend/src/api/notifications.ts:26:  channel?: "web" | "telegram" | "whatsapp";
+frontend/src/api/notifications.ts:34:  return (await apiClient.get<NotificationsResponse>(`/notifications${suffix ? `?${suffix}` : ""}`)).data;
+frontend/src/api/notifications.ts:38:  return (await apiClient.post<{ updated: number }>("/notifications/read", { ids })).data;
+frontend/src/api/channels.ts:7:    telegram: string;
+frontend/src/api/admin.ts:68:  telegramChatId?: string;
+frontend/src/api/admin.ts:94:  telegramAccountId?: string;
+frontend/src/api/admin.ts:110:export type PilotFeatureSurface = "admin" | "operator" | "telegram" | "web";
+frontend/src/api/admin.ts:338:  telegramChatId?: string;
+frontend/src/api/admin.ts:339:  telegramBotToken?: string;
+frontend/src/api/admin.ts:386:  await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/telegram`, {
+frontend/src/api/admin.ts:388:    body: JSON.stringify({ botToken, telegramChatId: chatId }),
+frontend/src/api/admin.ts:466:  sourceClass: "backend_job" | "telegram_command" | "dashboard_action" | "direct_chat" | "unknown_agent_session";
+backend/src/db/entities/EncryptedSecretEntity.ts:4:  | "telegram_bot_token"
+frontend/src/components/portfolio/AddPositionModal.tsx:125:          showToast("Position added — deep dive queued", "success");
+frontend/src/components/portfolio/AddPositionModal.tsx:304:                      No analysis found for {selected.symbol} — a deep dive will be queued automatically when you save.
+backend/src/db/entities/ConversationEntity.ts:3:export type ConversationChannel = "dashboard" | "telegram" | "whatsapp";
+backend/src/db/entities/ChannelBindingEntity.ts:3:export type ChannelBindingChannel = "telegram" | "whatsapp";
+backend/src/schemas/onboarding.ts:2:import { NotificationPreferencesSchema } from "./notifications.js";
+backend/src/schemas/onboarding.ts:32:  telegramChatId: z.string().regex(/^\d+$/, "Must be numeric"),
+backend/src/schemas/onboarding.ts:69:  telegramChatId: z.string().nullable().optional(),
+backend/src/schemas/onboarding.ts:83:  notifications: NotificationPreferencesSchema.optional(),
+backend/src/app.ts:24:import telegramRoutes from "./routes/telegram.js";
+backend/src/app.ts:28:import notificationsRoutes from "./routes/notifications.js";
+backend/src/app.ts:72:  app.use("/api", telegramRoutes); // POST /api/telegram/webhook — public webhook path
+backend/src/app.ts:84:  app.use("/api", notificationsRoutes); // GET/POST /api/notifications*
+backend/src/schemas/pilotFeature.ts:3:export const PilotFeatureSurfaceSchema = z.enum(["admin", "operator", "telegram", "web"]);
+backend/src/db/entities/NotificationEntity.ts:3:export type NotificationCategory = "daily_brief" | "report" | "market_news";
+backend/src/db/entities/NotificationEntity.ts:4:export type NotificationChannel = "telegram" | "web" | "whatsapp";
+backend/src/db/entities/NotificationEntity.ts:24:  tableName: "notifications_outbox",
+backend/src/schemas/index.ts:49:} from "./notifications.js";
+backend/src/schemas/index.ts:53:} from "./notifications.js";
+backend/src/schemas/job.ts:26:  source: z.enum(["backend_job", "telegram_command", "dashboard_action"]).nullable().optional(),
+backend/src/scripts/migrateUserStateToPostgres.ts:14:import { insertNotification, type NotificationCategory, type NotificationChannel } from "../services/notificationStore.js";
+backend/src/scripts/migrateUserStateToPostgres.ts:58:  notifications: number;
+backend/src/scripts/migrateUserStateToPostgres.ts:73:    notifications: 0,
+backend/src/scripts/migrateUserStateToPostgres.ts:365:  const filePath = path.join(ws.root, "data", "feed", "notifications.json");
+backend/src/scripts/migrateUserStateToPostgres.ts:377:      await archiveCorruptInput(ctx.userId, filePath, "notification_missing_keys", item, ctx.options);
+backend/src/scripts/migrateUserStateToPostgres.ts:382:      ctx.counts.notifications += 1;
+backend/src/scripts/migrateUserStateToPostgres.ts:401:      ctx.counts.notifications += 1;
+backend/src/scripts/migrateUserStateToPostgres.ts:406:        ctx.errors.push(`notification ${id}: ${message.slice(0, 200)}`);
+backend/src/scripts/migrateUserStateToPostgres.ts:491:  const chatId = typeof profile?.["telegramChatId"] === "string"
+backend/src/scripts/migrateUserStateToPostgres.ts:492:    ? (profile["telegramChatId"] as string)
+backend/src/scripts/migrateUserStateToPostgres.ts:501:    channel: "telegram",
+backend/src/scripts/migrateUserStateToPostgres.ts:510:    payload: { channel: "telegram", chatId },
+backend/src/scripts/migrateUserStateToPostgres.ts:516:  const config = await readJsonOrNull<{ channels?: { telegram?: { accounts?: Record<string, { botToken?: string }> } } }>(
+backend/src/scripts/migrateUserStateToPostgres.ts:519:  const account = config?.channels?.telegram?.accounts?.[ctx.userId];
+backend/src/scripts/migrateUserStateToPostgres.ts:529:    secretKind: "telegram_bot_token",
+backend/src/scripts/migrateUserStateToPostgres.ts:535:    reason: "telegram_token_migrated",
+backend/src/schemas/notifications.ts:4:  "telegram",
+backend/src/schemas/notifications.ts:11:  primaryChannel: NotificationChannelSchema.default("telegram"),
+backend/src/schemas/notifications.ts:14:      telegram: z.boolean().default(true),
+backend/src/schemas/notifications.ts:19:      telegram: true,
+backend/src/scripts/verifyMigrationParity.ts:11:import { listNotifications } from "../services/notificationStore.js";
+backend/src/scripts/verifyMigrationParity.ts:30:  category: "strategy" | "escalation_history" | "notifications";
+backend/src/scripts/verifyMigrationParity.ts:43:    notificationsJson: number;
+backend/src/scripts/verifyMigrationParity.ts:44:    notificationsDb: number;
+backend/src/scripts/verifyMigrationParity.ts:184:  const filePath = path.join(ws.root, "data", "feed", "notifications.json");
+backend/src/scripts/verifyMigrationParity.ts:189:  counts.notificationsJson = jsonIds.size;
+backend/src/scripts/verifyMigrationParity.ts:193:  counts.notificationsDb = dbIds.size;
+backend/src/scripts/verifyMigrationParity.ts:199:        category: "notifications",
+backend/src/scripts/verifyMigrationParity.ts:217:    notificationsJson: 0,
+backend/src/scripts/verifyMigrationParity.ts:218:    notificationsDb: 0,

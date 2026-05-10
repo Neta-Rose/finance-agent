@@ -1,0 +1,18 @@
+{
+  "id": "02d92e63-8280-4105-989a-c8a5a1207a5f",
+  "runtime": "bash",
+  "purpose": "Re-run dailyBrief and stepQueue tests with dummy key after npm ci",
+  "script_chars": 217,
+  "started_at": "2026-05-09T14:05:15.499Z",
+  "finished_at": "2026-05-09T14:05:18.353Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 2854,
+  "stdout_bytes": 8991,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/02d92e63-8280-4105-989a-c8a5a1207a5f.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/02d92e63-8280-4105-989a-c8a5a1207a5f.stderr"
+}

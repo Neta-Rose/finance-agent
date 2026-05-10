@@ -1,0 +1,13 @@
+Tracked/untracked changed paths relevant to app (excluding .gsd exec noise):
+ M db/application_postgres.sql
+
+S02 task summaries:
+
+S02 verify script exists?
+no
+
+S02 code mentions in changed files:
+frontend/src/pages/Settings.tsx
+frontend/src/store/i18n.ts
+docs/pilot-features/pilot-core.json
+README.md

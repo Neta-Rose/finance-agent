@@ -1,0 +1,18 @@
+{
+  "id": "c6e3d2ae-37b3-46f0-baa1-7b52ebc9b32d",
+  "runtime": "bash",
+  "purpose": "backend build after migrating additional publisher",
+  "script_chars": 139,
+  "started_at": "2026-05-10T11:55:09.100Z",
+  "finished_at": "2026-05-10T11:55:13.765Z",
+  "exit_code": 2,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4665,
+  "stdout_bytes": 690,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/c6e3d2ae-37b3-46f0-baa1-7b52ebc9b32d.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/c6e3d2ae-37b3-46f0-baa1-7b52ebc9b32d.stderr"
+}

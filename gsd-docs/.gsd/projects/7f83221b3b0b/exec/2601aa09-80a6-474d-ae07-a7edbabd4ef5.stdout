@@ -1,0 +1,11 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/root/clawd/frontend/src/pages/Admin.tsx
+  2049:9  warning  The 'features' logical expression could make the dependencies of useEffect Hook (at line 2066) change on every render. To fix this, wrap the initialization of 'features' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  2049:9  warning  The 'features' logical expression could make the dependencies of useMemo Hook (at line 2083) change on every render. To fix this, wrap the initialization of 'features' in its own useMemo() Hook    react-hooks/exhaustive-deps
+
+✖ 2 problems (0 errors, 2 warnings)
+

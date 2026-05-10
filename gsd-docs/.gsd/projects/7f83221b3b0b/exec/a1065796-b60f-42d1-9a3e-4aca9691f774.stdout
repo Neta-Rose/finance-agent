@@ -1,0 +1,66 @@
+Saved chat UI verification passed: Chat uses backend saved-chat APIs, keeps only a last-opened preference, exposes accessible lifecycle controls, and avoids legacy/internal copy.
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/root/clawd/frontend/src/pages/Admin.tsx
+  2049:9  warning  The 'features' logical expression could make the dependencies of useEffect Hook (at line 2066) change on every render. To fix this, wrap the initialization of 'features' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  2049:9  warning  The 'features' logical expression could make the dependencies of useMemo Hook (at line 2083) change on every render. To fix this, wrap the initialization of 'features' in its own useMemo() Hook    react-hooks/exhaustive-deps
+
+/root/clawd/frontend/src/pages/Chat.tsx
+  147:9   warning  The 'conversations' logical expression could make the dependencies of useMemo Hook (at line 150) change on every render. To fix this, wrap the initialization of 'conversations' in its own useMemo() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/exhaustive-deps
+  147:9   warning  The 'conversations' logical expression could make the dependencies of useEffect Hook (at line 191) change on every render. To fix this, wrap the initialization of 'conversations' in its own useMemo() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+  160:47  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `historyQuery.data`, but the source dependencies were [historyQuery.data?.turns]. Inferred less specific property than source.
+
+/root/clawd/frontend/src/pages/Chat.tsx:160:47
+  158 |   });
+  159 |
+> 160 |   const messages = useMemo<ChatViewMessage[]>(() => {
+      |                                               ^^^^^^^
+> 161 |     if (!historyQuery.data?.turns) return [];
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 162 |     return historyQuery.data.turns.map(turnToMessage);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 163 |   }, [historyQuery.data?.turns]);
+      | ^^^^ Could not preserve existing manual memoization
+  164 |
+  165 |   useEffect(() => {
+  166 |     if (!conversationsQuery.data) return;                                                                                                                 react-hooks/preserve-manual-memoization
+  172:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/root/clawd/frontend/src/pages/Chat.tsx:172:7
+  170 |     if (selectedConversationId && !availableIds.has(selectedConversationId)) {
+  171 |       if (rememberedId === selectedConversationId) clearLastOpenedConversationId();
+> 172 |       setSelectedConversationId(undefined);
+      |       ^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  173 |       setStatusMessage("That saved chat is no longer available. Choose another chat or start a new one.");
+  174 |       return;
+  175 |     }  react-hooks/set-state-in-effect
+  199:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/root/clawd/frontend/src/pages/Chat.tsx:199:7
+  197 |   useEffect(() => {
+  198 |     if (historyQuery.error) {
+> 199 |       setStatusMessage(getApiErrorMessage(historyQuery.error, "Could not open that saved chat. Please try again."));
+      |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  200 |     }
+  201 |   }, [historyQuery.error]);
+  202 |                                                                                                                                                react-hooks/set-state-in-effect
+
+✖ 7 problems (3 errors, 4 warnings)
+

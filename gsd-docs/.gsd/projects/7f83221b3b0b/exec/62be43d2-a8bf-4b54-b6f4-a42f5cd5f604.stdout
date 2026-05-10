@@ -1,0 +1,143 @@
+Production reports mentioning S01/deploy:
+/root/codex/production-reports/2026-04-14-search-dailies-gating-and-notification-hardening.md:24:  - backend restart required only if deployed
+/root/codex/production-reports/2026-04-14-search-dailies-gating-and-notification-hardening.md:63:  - backend/frontend deploy required for production rollout
+/root/codex/production-reports/2026-04-14-search-dailies-gating-and-notification-hardening.md:64:  - monitor `Published notification`, deep-dive queue logs, and report-detail request errors after deploy
+/root/codex/production-reports/2026-04-14-search-dailies-gating-and-notification-hardening.md:82:3. Restart backend if deployed
+/root/codex/production-reports/2026-04-21-active-user-eligibility-integrity-hardening.md:1:Status: Deployed to production
+/root/codex/production-reports/2026-04-21-active-user-eligibility-integrity-hardening.md:9:We will harden the system so a user is not treated as production-active for scheduled daily work unless the user has a valid portfolio-backed workspace.
+/root/codex/production-reports/2026-04-21-active-user-eligibility-integrity-hardening.md:27:Broad post-deploy validation found a real production integrity bug:
+/root/codex/production-reports/2026-04-21-active-user-eligibility-integrity-hardening.md:85:5. Current production health remains healthy before deploy:
+/root/codex/production-reports/2026-04-21-active-user-eligibility-integrity-hardening.md:94:3. `GayZbeng` state repaired in production:
+/root/codex/production-reports/2026-04-21-active-user-eligibility-integrity-hardening.md:98:5. Eligibility re-check after deploy:
+/root/codex/production-reports/2026-04-14-contact-admin-cta-and-search-copy-fix.md:13:- Frontend production build will be run.
+/root/codex/production-reports/2026-04-20-stage-3-daily-brief-trustworthiness-rollout.md:5:Status: Deployed to production
+/root/codex/production-reports/2026-04-20-stage-3-daily-brief-trustworthiness-rollout.md:17:- This is a production-grade trust issue in the core loop, not a feature expansion.
+/root/codex/production-reports/2026-04-20-stage-3-daily-brief-trustworthiness-rollout.md:29:- Ran backend production build in `/root/clawd/backend`:
+/root/codex/production-reports/2026-04-20-stage-3-daily-brief-trustworthiness-rollout.md:43:- Recent logs also showed `Gateway restart failed — may restart itself`; that warning does not appear caused by the Stage 3 slice directly, but it should be investigated as a separate production hardening item.
+/root/codex/production-reports/clawd-stage-2-strategy-baseline-integrity-2026-04-19.md:5:Status: Deployed to production
+/root/codex/production-reports/clawd-stage-2-strategy-baseline-integrity-2026-04-19.md:167:Stage 2 is the next correct production step because it fixes the baseline truth layer that daily briefs and deep dives depend on without expanding feature scope.
+/root/codex/production-reports/2026-05-03-notification-batch-dedupe.md:30:2. Run `/root/clawd/deploy.sh`.
+/root/codex/production-reports/2026-05-03-notification-batch-dedupe.md:35:- Backend health check fails after deploy.
+/root/codex/production-reports/2026-05-03-notification-batch-dedupe.md:39:1. Revert the deployed commit.
+/root/codex/production-reports/2026-05-03-notification-batch-dedupe.md:40:2. Run `/root/clawd/deploy.sh`.
+/root/codex/production-reports/2026-05-02-admin-observability-stepqueue-cleanup.md:36:- Existing hung in-process calls will be cleared by backend restart during deploy; the job should then be swept/retried under the new bounded behavior.
+/root/codex/production-reports/2026-05-02-admin-observability-stepqueue-cleanup.md:42:- Live database inspection before deploy showed soofke deep dive `job_20260502_112052_9cbd1b` running since 2026-05-02T11:20:52Z, stuck at `ONDS analyst.risk`, attempt 20.
+/root/codex/production-reports/2026-05-02-admin-observability-stepqueue-cleanup.md:53:2. Run `/root/clawd/deploy.sh`.
+/root/codex/production-reports/2026-05-02-admin-observability-stepqueue-cleanup.md:56:5. Re-check soofke's running deep dive after deploy restart/sweep.
+/root/codex/production-reports/2026-05-02-admin-observability-stepqueue-cleanup.md:59:- Backend health check fails after deploy.
+/root/codex/production-reports/2026-05-02-admin-observability-stepqueue-cleanup.md:65:2. Run `/root/clawd/deploy.sh`.
+/root/codex/production-reports/2026-05-03-daily-brief-queue-truth.md:45:2. Deploy with `./deploy.sh`.
+/root/codex/production-reports/2026-05-03-daily-brief-queue-truth.md:47:4. Inspect the reports page behavior for the latest soofke daily after deploy.
+/root/codex/production-reports/2026-05-03-daily-brief-queue-truth.md:57:1. Revert the deployment commit.
+/root/codex/production-reports/2026-05-03-daily-brief-queue-truth.md:59:3. Redeploy with `./deploy.sh`.
+/root/codex/production-reports/2026-04-14-search-fallback-and-contact-admin.md:53:  - backend restart required after deploy
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr2-step-queue-foundation.md:13:- Two non-production stub handlers: `analyst.fundamentals` and `synthesis`.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr2-step-queue-foundation.md:17:The current full-report path is unstable because an LLM agent owns workflow orchestration. It can hallucinate tools, lose state, and diverge from backend job truth. The redesign moves operational state into Postgres and constrains LLM calls to bounded per-step JSON production.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr2-step-queue-foundation.md:32:- Verify `USE_STEP_QUEUE` is unset/false and `USE_STEP_QUEUE_USERS` is unset for production users.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr2-step-queue-foundation.md:33:- Verify backend health after deploy: `curl -sS http://127.0.0.1:8081/api/health`
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr2-step-queue-foundation.md:43:3. Deploy with existing `./deploy.sh`.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr2-step-queue-foundation.md:45:5. Confirm no production users have step-queue jobs enqueued unless explicitly opted in later.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr2-step-queue-foundation.md:50:- Health endpoint fails after deploy.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr2-step-queue-foundation.md:57:2. Revert the PR 2 code commit and redeploy with `./deploy.sh`.
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:1:Status: Deployed to production
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:27:- mitigation: keep a safe `0` fallback for missing values and verify with a real OpenRouter request before deploy
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:41:  - live check result before deploy:
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:60:4. Deploy through the standard backend deploy flow.
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:61:5. Verify `/api/health` and a fresh observability row after deployment.
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:66:- observability/admin surfaces regress materially after deploy
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:70:2. Rebuild and redeploy the backend.
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:74:- deployed successfully on 2026-04-23
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:75:- `./deploy.sh` completed successfully
+/root/codex/production-reports/2026-04-23-1849-openrouter-reported-cost-rollout.md:76:- post-deploy health check returned:
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr3-real-step-handlers.md:5:Extend the PR 2 step-queue foundation with production-oriented handlers:
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr3-real-step-handlers.md:16:PR 2 created queue infrastructure but did not produce useful analysis. Current production still relies on the unstable agent pipeline. Real handlers are required before any user can safely opt into step-queue full reports.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr3-real-step-handlers.md:31:- Verify `USE_STEP_QUEUE` and `USE_STEP_QUEUE_USERS` remain unset in production unless testing an explicit user.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr3-real-step-handlers.md:43:With flags off, no production user-facing behavior changes. With a test user opted in, the system can execute all seven step kinds without OpenClaw owning orchestration. Cost should improve because deterministic technical/risk steps avoid LLM calls.
+/root/codex/production-reports/2026-05-01-clawd-100-plan-pr3-real-step-handlers.md:63:2. Revert the PR 3 handler code and redeploy.
+/root/codex/production-reports/2026-05-04-global-step-queue-migration.md:12:- Set production config to `USE_STEP_QUEUE=true` instead of a per-user allowlist.
+/root/codex/production-reports/2026-05-06-1325-v2-deploy-bugfix-rollout.md:4:- change: Rebuild and redeploy the current `main` source containing the v2 deploy bug fixes, then apply the required production SQL correction for OpenRouter model IDs.
+/root/codex/production-reports/2026-05-06-1325-v2-deploy-bugfix-rollout.md:9:- frontend: rebuild frontend through the standard deploy script so the restored Reports/Feed navigation is deployed.
+/root/codex/production-reports/2026-05-06-1325-v2-deploy-bugfix-rollout.md:16:- mitigation: Use the existing `./deploy.sh` path and verify `/api/health` immediately after restart.
+/root/codex/production-reports/2026-05-06-1325-v2-deploy-bugfix-rollout.md:20:- mitigation: Run build checks through deploy, inspect logs, and smoke-test health, chat persistence, model IDs, and recent step lifecycle errors.
+/root/codex/production-reports/2026-05-06-1325-v2-deploy-bugfix-rollout.md:34:2. Execute `./deploy.sh` from `/root/clawd`.
+/root/codex/production-reports/2026-05-06-1325-v2-deploy-bugfix-rollout.md:39:- `./deploy.sh` completed successfully at 2026-05-06 13:31 UTC.
+/root/codex/production-reports/2026-05-06-1325-v2-deploy-bugfix-rollout.md:45:- Final git state: local `main` is one commit ahead of `origin/main` with commit `1c1ea9c fix: stabilize v2 deployment hotfix`.
+/root/codex/production-reports/2026-05-06-1325-v2-deploy-bugfix-rollout.md:48:- Backend fails health check after deploy.
+/root/codex/production-reports/2026-04-21-observability-attribution-and-admin-debuggability.md:5:Status: Implemented and validated locally; awaiting deploy approval
+/root/codex/production-reports/2026-04-21-observability-attribution-and-admin-debuggability.md:9:- reason: the current admin page mislabels historical activity as "today", hides dates and error details, has no request pagination, does not log blocked proxy rejections, and stores too many requests with `purpose = null`, which makes production debugging materially unreliable
+/root/codex/production-reports/2026-04-21-observability-attribution-and-admin-debuggability.md:74:- Current production debugging is not trustworthy enough.
+/root/codex/production-reports/2026-04-21-observability-attribution-and-admin-debuggability.md:75:- Specific production symptoms already confirmed:
+/root/codex/production-reports/2026-04-21-observability-attribution-and-admin-debuggability.md:80:- This is not a cosmetic admin improvement. It is a production-operability fix.
+/root/codex/production-reports/2026-04-21-observability-attribution-and-admin-debuggability.md:144:6. If approved for deploy, restart `clawd-backend`.
+/root/codex/production-reports/2026-04-20-deep-dive-stale-state-reconciliation.md:5:Status: Implemented and validated locally; awaiting deploy approval
+/root/codex/production-reports/2026-04-20-deep-dive-stale-state-reconciliation.md:27:- Ran backend production build in `/root/clawd/backend`:
+/root/codex/production-reports/2026-04-20-deep-dive-stale-state-reconciliation.md:30:- Manual deploy verification is still pending:
+/root/codex/production-reports/2026-04-25-2015-stage-4-deep-dive-terminal-truth-convergence.md:18:  - backend build required before any later deployment
+/root/codex/production-reports/2026-04-25-2015-stage-4-deep-dive-terminal-truth-convergence.md:36:- staging/manual checks planned before deployment:
+/root/codex/production-reports/2026-04-25-2015-stage-4-deep-dive-terminal-truth-convergence.md:54:5. Hold deployment for CR and risk assessment.
+/root/codex/production-reports/2026-04-25-2015-stage-4-deep-dive-terminal-truth-convergence.md:64:3. Defer deployment until the reconciliation rules are corrected.
+/root/codex/production-reports/2026-04-14-direct-user-agent-chat-unblock.md:52:- direct chats still fail after deploy
+/root/codex/production-reports/2026-04-23-application-db-naming-and-structured-budget-rollout.md:41:The structured-budget rollout then uses that renamed boundary as the correct foundation for production.
+/root/codex/production-reports/2026-04-23-application-db-naming-and-structured-budget-rollout.md:49:  - deploy structured-budget logic and user/admin balance surfaces
+/root/codex/production-reports/2026-04-23-application-db-naming-and-structured-budget-rollout.md:53:  - restart backend through normal deploy flow
+/root/codex/production-reports/2026-04-23-application-db-naming-and-structured-budget-rollout.md:78:- verify both observability and new structured-budget paths after deploy
+/root/codex/production-reports/2026-04-23-application-db-naming-and-structured-budget-rollout.md:89:Pre-deploy local validation:
+/root/codex/production-reports/2026-04-23-application-db-naming-and-structured-budget-rollout.md:95:Production verification after deploy:
+/root/codex/production-reports/2026-04-23-application-db-naming-and-structured-budget-rollout.md:121:6. Deploy through `./deploy.sh`.
+/root/codex/production-reports/2026-04-23-application-db-naming-and-structured-budget-rollout.md:141:4. Restart or redeploy the prior backend version.
+/root/codex/production-reports/2026-05-03-tracking-step-2-deep-dive-synthesis.md:44:Step 1 deployed:
+/root/codex/production-reports/2026-05-03-tracking-step-2-deep-dive-synthesis.md:210:5. Deploy with `./deploy.sh`.
+/root/codex/production-reports/2026-05-03-tracking-step-2-deep-dive-synthesis.md:225:3. Redeploy with `./deploy.sh`.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:1:# Production Report — S01 Pilot Feature Inventory + Admin Review
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:5:Scope: Local production deployment on `/root/clawd`
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:9:Deploy S01 from `s01-deploy-fix` into the production checkout:
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:18:- Fix unrelated backend test gate failures found during S01 verification:
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:26:S01 is a prerequisite for M001/S02 and later slices. It provides the owner-facing feature inventory and mutable review state needed to review pilot-visible surfaces, error-handling expectations, and channel/naming-sensitive features.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:28:The branch was implemented but not deployed. Its summary artifact was unreliable, so fresh verification was required before production rollout.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:35:- Frontend bundle remains large; Vite warns one chunk is over 500 kB. This is pre-existing/non-blocking for this deployment.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:36:- Deployment is local-only unless separately pushed; `/root/clawd/deploy.sh` pulls `origin/main`, so this rollout uses manual local merge/build/restart rather than the pull-based script.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:56:- Normal pilot user surfaces should not change directly from S01 except through existing admin/operator tooling.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:60:1. Preserve local uncommitted `.gitignore` baseline changes outside the S01 deployment if necessary.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:61:2. Merge `s01-deploy-fix` into local `main` in `/root/clawd` without pushing remote branches.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:69:5. Verify production health:
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:78:- admin page fails to load due to frontend build/deployment issue.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:84:1. In `/root/clawd`, reset local main to the previous production commit recorded before merge.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:88:5. Leave `pilot_feature_reviews` table in place unless it directly causes startup failure; it is additive and safe to keep. If it must be removed, drop it manually only after confirming no production review data is needed.
+/root/codex/production-reports/S01-pilot-feature-inventory-deploy.md:92:- Do not use `/root/clawd/deploy.sh` for this local branch deployment because it starts with `git pull origin main`, and S01 is not on `origin/main` in this session.
+/root/codex/production-reports/2026-05-04-llm-backed-step-queue-enforcement.md:53:- Cost/rate limits become unacceptable during initial production usage.
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:22:Current production behavior allows agent-written strategy artifacts to block bootstrap indefinitely when they are structurally invalid but semantically salvageable. This creates the worst possible operating shape:
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:41:Planned validation before deploy:
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:55:Completed local validation before deploy:
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:80:2. run the full backend test suite and frontend build one more time in the deployment environment
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:91:1. avoided `./deploy.sh` because it performs `git pull origin main` and the worktree contained unrelated local changes that should not be mixed into this rollout
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:100:Rollback if any of the following occur after deployment:
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:116:Post-deploy verification completed:
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:121:- `soofke` stale paused job `job_20260426_070956_1ecca0` was retired as failed with a superseded-after-deploy reason
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:128:Residual live follow-up after deploy:
+/root/codex/production-reports/2026-04-26-full-report-schema-safety-and-terminal-truth.md:130:- the new `soofke` full report is still in progress; only immediate dispatch/runtime health was verified in this deployment window
+/root/codex/production-reports/2026-04-20-deep-dive-no-progress-failure-hardening.md:5:Status: Implemented and validated locally; awaiting deploy approval
+/root/codex/production-reports/2026-04-20-deep-dive-no-progress-failure-hardening.md:29:- Ran backend production build in `/root/clawd/backend`:
+/root/codex/production-reports/2026-05-02-step-queue-admin-visibility.md:39:2. Deploy with `/root/clawd/deploy.sh`.
+/root/codex/production-reports/2026-05-02-step-queue-admin-visibility.md:52:2. Redeploy.
+
+Recent git/deploy clues:
+71a14d6 (HEAD -> main, origin/main) merge: deploy S01 pilot feature inventory
+5654bc8 (s01-deploy-fix) test: fix backend verification for S01 deployment
+edb2e09 test: Documented the pilot feature inventory boundary and tightened cat…
+5baaace feat: Added the admin Pilot Features review tab with typed API calls, s…
+0221d55 fix: Exposed the admin pilot feature inventory GET/PATCH API with valid…
+11f03d7 test: Added Postgres-backed pilot feature review storage with typed ser…
+1212998 test: Added a strict validated pilot feature catalog with substantive W…
+d945ece feat: replace custom schema validation pipeline with @instructor-ai/instructor
+96560ae fix: v5 bugs
+f9f46b4 docs: v5 deploy bugs
+
+Deploy script timestamps/status files:
+2026-04-11 09:39 ./deploy.sh
+2026-04-13 13:21 ./memory/2026-04-13-shared-user-workspace-deploy.md
+2026-04-13 14:01 ./memory/2026-04-13-production-report-policy.md
+2026-05-06 11:18 ./production-reports/how-to-deploy-v2.md
+2026-05-06 13:12 ./open-bugs/v2-deploy-bugs.md
+2026-05-06 13:59 ./open-bugs/v3-deploy-bugs.md
+2026-05-07 07:59 ./open-bugs/v4-deploy-bugs.md
+2026-05-07 11:15 ./open-bugs/v5-deploy-bugs.md

@@ -1,0 +1,9 @@
+
+> clawd-backend@1.0.0 build
+> tsc
+
+src/services/stepQueue/completionEffects.ts(282,33): error TS2379: Argument of type '{ userId: string; kind: "full_report" | "deep_dive"; reasoning: string | undefined; summary: string | undefined; ticker: string | null; batchId: string; actionUrl: string; }' is not assignable to parameter of type 'NotificationPublishRequest' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'summary' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string | null'.
+      Type 'undefined' is not assignable to type 'string | null'.
+EXIT_CODE=2 DURATION_MS=4655

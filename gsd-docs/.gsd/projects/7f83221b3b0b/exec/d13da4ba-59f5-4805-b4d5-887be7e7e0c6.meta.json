@@ -1,0 +1,18 @@
+{
+  "id": "d13da4ba-59f5-4805-b4d5-887be7e7e0c6",
+  "runtime": "bash",
+  "purpose": "M001 S04 T03 saved-chat UI verification rerun after hooks fixes",
+  "script_chars": 106,
+  "started_at": "2026-05-10T12:27:22.317Z",
+  "finished_at": "2026-05-10T12:27:34.317Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 12000,
+  "stdout_bytes": 1189,
+  "stderr_bytes": 360,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/d13da4ba-59f5-4805-b4d5-887be7e7e0c6.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/d13da4ba-59f5-4805-b4d5-887be7e7e0c6.stderr"
+}

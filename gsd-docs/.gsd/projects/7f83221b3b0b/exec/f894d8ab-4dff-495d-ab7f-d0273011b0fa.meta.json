@@ -1,0 +1,18 @@
+{
+  "id": "f894d8ab-4dff-495d-ab7f-d0273011b0fa",
+  "runtime": "bash",
+  "purpose": "backend build after notification publisher migration",
+  "script_chars": 139,
+  "started_at": "2026-05-10T11:54:52.679Z",
+  "finished_at": "2026-05-10T11:54:57.146Z",
+  "exit_code": 2,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4467,
+  "stdout_bytes": 249,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/f894d8ab-4dff-495d-ab7f-d0273011b0fa.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/f894d8ab-4dff-495d-ab7f-d0273011b0fa.stderr"
+}

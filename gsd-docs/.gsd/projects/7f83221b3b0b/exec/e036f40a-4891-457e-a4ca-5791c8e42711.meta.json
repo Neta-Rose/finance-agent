@@ -1,0 +1,18 @@
+{
+  "id": "e036f40a-4891-457e-a4ca-5791c8e42711",
+  "runtime": "bash",
+  "purpose": "final scan for legacy notification title body category call payloads",
+  "script_chars": 1016,
+  "started_at": "2026-05-10T11:56:36.701Z",
+  "finished_at": "2026-05-10T11:56:36.756Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 55,
+  "stdout_bytes": 99,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/e036f40a-4891-457e-a4ca-5791c8e42711.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/e036f40a-4891-457e-a4ca-5791c8e42711.stderr"
+}

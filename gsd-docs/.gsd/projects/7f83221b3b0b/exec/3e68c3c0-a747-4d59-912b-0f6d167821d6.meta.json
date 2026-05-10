@@ -1,0 +1,18 @@
+{
+  "id": "3e68c3c0-a747-4d59-912b-0f6d167821d6",
+  "runtime": "bash",
+  "purpose": "Targeted tests after daily brief/step queue fixes",
+  "script_chars": 199,
+  "started_at": "2026-05-09T14:07:14.109Z",
+  "finished_at": "2026-05-09T14:07:16.664Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 2555,
+  "stdout_bytes": 7300,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/3e68c3c0-a747-4d59-912b-0f6d167821d6.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/3e68c3c0-a747-4d59-912b-0f6d167821d6.stderr"
+}

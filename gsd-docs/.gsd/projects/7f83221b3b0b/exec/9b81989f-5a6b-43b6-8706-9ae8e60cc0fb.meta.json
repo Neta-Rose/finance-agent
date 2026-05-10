@@ -1,0 +1,18 @@
+{
+  "id": "9b81989f-5a6b-43b6-8706-9ae8e60cc0fb",
+  "runtime": "bash",
+  "purpose": "Backend build after telegram delivery hardening",
+  "script_chars": 30,
+  "started_at": "2026-05-10T12:01:08.886Z",
+  "finished_at": "2026-05-10T12:01:13.173Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4287,
+  "stdout_bytes": 36,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/9b81989f-5a6b-43b6-8706-9ae8e60cc0fb.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/9b81989f-5a6b-43b6-8706-9ae8e60cc0fb.stderr"
+}

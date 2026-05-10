@@ -1,0 +1,18 @@
+{
+  "id": "07356957-be3a-455a-ab08-266b2c31984f",
+  "runtime": "bash",
+  "purpose": "Summarize M001 slice/task progress from GSD artifacts",
+  "script_chars": 324,
+  "started_at": "2026-05-10T02:40:50.357Z",
+  "finished_at": "2026-05-10T02:40:50.374Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 17,
+  "stdout_bytes": 1321,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/07356957-be3a-455a-ab08-266b2c31984f.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/07356957-be3a-455a-ab08-266b2c31984f.stderr"
+}

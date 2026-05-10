@@ -1,0 +1,18 @@
+{
+  "id": "49570a2b-97cc-48ec-aee8-7522db70efa0",
+  "runtime": "bash",
+  "purpose": "green attempt saved chat store tests",
+  "script_chars": 83,
+  "started_at": "2026-05-10T12:13:54.503Z",
+  "finished_at": "2026-05-10T12:14:03.130Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 8627,
+  "stdout_bytes": 74043,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/49570a2b-97cc-48ec-aee8-7522db70efa0.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/49570a2b-97cc-48ec-aee8-7522db70efa0.stderr"
+}

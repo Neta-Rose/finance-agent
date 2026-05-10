@@ -1,0 +1,18 @@
+{
+  "id": "080b74b2-429c-4ca7-9988-b960ce79adc0",
+  "runtime": "bash",
+  "purpose": "backend build after exact optional payload fix",
+  "script_chars": 139,
+  "started_at": "2026-05-10T11:55:26.601Z",
+  "finished_at": "2026-05-10T11:55:31.115Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4514,
+  "stdout_bytes": 65,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/080b74b2-429c-4ca7-9988-b960ce79adc0.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/080b74b2-429c-4ca7-9988-b960ce79adc0.stderr"
+}

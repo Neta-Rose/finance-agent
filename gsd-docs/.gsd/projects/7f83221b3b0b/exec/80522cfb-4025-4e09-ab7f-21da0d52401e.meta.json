@@ -1,0 +1,18 @@
+{
+  "id": "80522cfb-4025-4e09-ab7f-21da0d52401e",
+  "runtime": "bash",
+  "purpose": "backend build after notification composer contract",
+  "script_chars": 30,
+  "started_at": "2026-05-10T11:50:08.960Z",
+  "finished_at": "2026-05-10T11:50:13.573Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4613,
+  "stdout_bytes": 36,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/80522cfb-4025-4e09-ab7f-21da0d52401e.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/80522cfb-4025-4e09-ab7f-21da0d52401e.stderr"
+}

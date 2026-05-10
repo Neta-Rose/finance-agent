@@ -1,0 +1,18 @@
+{
+  "id": "a1065796-b60f-42d1-9a3e-4aca9691f774",
+  "runtime": "bash",
+  "purpose": "M001 S04 T03 saved-chat UI verification",
+  "script_chars": 106,
+  "started_at": "2026-05-10T12:25:38.238Z",
+  "finished_at": "2026-05-10T12:25:45.208Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 6970,
+  "stdout_bytes": 7135,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/a1065796-b60f-42d1-9a3e-4aca9691f774.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/a1065796-b60f-42d1-9a3e-4aca9691f774.stderr"
+}

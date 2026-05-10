@@ -1,0 +1,18 @@
+{
+  "id": "9d22fbe3-9852-45ef-9d6a-bea0d7db19ee",
+  "runtime": "bash",
+  "purpose": "verify blocker research artifacts were written",
+  "script_chars": 372,
+  "started_at": "2026-05-10T11:43:55.254Z",
+  "finished_at": "2026-05-10T11:43:55.263Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 9,
+  "stdout_bytes": 56,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/9d22fbe3-9852-45ef-9d6a-bea0d7db19ee.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/9d22fbe3-9852-45ef-9d6a-bea0d7db19ee.stderr"
+}

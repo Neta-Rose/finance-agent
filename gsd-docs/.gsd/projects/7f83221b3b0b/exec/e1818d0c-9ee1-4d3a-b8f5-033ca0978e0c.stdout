@@ -1,0 +1,1309 @@
+
+> clawd-backend@1.0.0 test
+> node scripts/run-tests.mjs src/services/chat/conversationStore.savedChats.test.ts
+
+TAP version 13
+# Subtest: admin pilot features GET /pilot-features composes review state, filters, and paginates
+ok 1 - admin pilot features GET /pilot-features composes review state, filters, and paginates
+  ---
+  duration_ms: 334.88063
+  type: 'test'
+  ...
+# Subtest: admin pilot features PATCH /pilot-features/:featureId/review updates state and subsequent list reads it
+ok 2 - admin pilot features PATCH /pilot-features/:featureId/review updates state and subsequent list reads it
+  ---
+  duration_ms: 9.795681
+  type: 'test'
+  ...
+# Subtest: admin pilot features PATCH /pilot-features/:featureId/review preserves omitted review fields
+ok 3 - admin pilot features PATCH /pilot-features/:featureId/review preserves omitted review fields
+  ---
+  duration_ms: 5.610247
+  type: 'test'
+  ...
+# Subtest: admin pilot features GET /pilot-features rejects invalid filters
+ok 4 - admin pilot features GET /pilot-features rejects invalid filters
+  ---
+  duration_ms: 4.291753
+  type: 'test'
+  ...
+# Subtest: admin pilot features PATCH /pilot-features/:featureId/review rejects invalid status and comment
+ok 5 - admin pilot features PATCH /pilot-features/:featureId/review rejects invalid status and comment
+  ---
+  duration_ms: 6.990262
+  type: 'test'
+  ...
+# 2026-05-10 12:14:44 [WARN] pilot_feature_admin_patch_failed feature_id=not-in-catalog reason=UNKNOWN_FEATURE_ID
+# Subtest: admin pilot features PATCH /pilot-features/:featureId/review returns 404 and does not write unknown feature ids
+ok 6 - admin pilot features PATCH /pilot-features/:featureId/review returns 404 and does not write unknown feature ids
+  ---
+  duration_ms: 6.461064
+  type: 'test'
+  ...
+# 2026-05-10 12:14:44 [WARN] pilot_feature_admin_list_failed feature_id=<list> reason=DATABASE_UNAVAILABLE
+# Subtest: admin pilot features GET /pilot-features returns 503 instead of partial catalog when database is unavailable
+ok 7 - admin pilot features GET /pilot-features returns 503 instead of partial catalog when database is unavailable
+  ---
+  duration_ms: 4.016744
+  type: 'test'
+  ...
+# Subtest: GET /reports/strategy/:ticker returns repaired canonical strategy
+ok 8 - GET /reports/strategy/:ticker returns repaired canonical strategy
+  ---
+  duration_ms: 133.640645
+  type: 'test'
+  ...
+# Subtest: GET /reports/strategy/:ticker returns 422 for unrecoverable strategy
+ok 9 - GET /reports/strategy/:ticker returns 422 for unrecoverable strategy
+  ---
+  duration_ms: 5.664298
+  type: 'test'
+  ...
+# Subtest: extractOpenRouterUsageMetrics reads token counts and cost from usage payload
+ok 10 - extractOpenRouterUsageMetrics reads token counts and cost from usage payload
+  ---
+  duration_ms: 1.100375
+  type: 'test'
+  ...
+# Subtest: extractOpenRouterUsageMetrics accepts string cost and falls back safely
+ok 11 - extractOpenRouterUsageMetrics accepts string cost and falls back safely
+  ---
+  duration_ms: 0.15059
+  type: 'test'
+  ...
+# Subtest: parseStreamingUsageFromText captures final streamed usage cost
+ok 12 - parseStreamingUsageFromText captures final streamed usage cost
+  ---
+  duration_ms: 0.245329
+  type: 'test'
+  ...
+# Subtest: GET /strategies/:ticker accepts dotted exchange suffix tickers
+ok 13 - GET /strategies/:ticker accepts dotted exchange suffix tickers
+  ---
+  duration_ms: 631.653092
+  type: 'test'
+  ...
+# Subtest: GET /strategies classifies owned strategies as portfolio scope
+ok 14 - GET /strategies classifies owned strategies as portfolio scope
+  ---
+  duration_ms: 6.552154
+  type: 'test'
+  ...
+# Subtest: GET /strategies classifies non-held strategy files as tracking scope
+ok 15 - GET /strategies classifies non-held strategy files as tracking scope
+  ---
+  duration_ms: 8.086087
+  type: 'test'
+  ...
+# Subtest: StrategySchema accepts existing strategy shape without tracking fields
+ok 16 - StrategySchema accepts existing strategy shape without tracking fields
+  ---
+  duration_ms: 2.790688
+  type: 'test'
+  ...
+# Subtest: StrategySchema accepts tracked idea fields with bounded scores
+ok 17 - StrategySchema accepts tracked idea fields with bounded scores
+  ---
+  duration_ms: 0.692156
+  type: 'test'
+  ...
+# Subtest: StrategySchema rejects out-of-range tracking scores
+ok 18 - StrategySchema rejects out-of-range tracking scores
+  ---
+  duration_ms: 0.486287
+  type: 'test'
+  ...
+# 2026-05-10 12:14:45 [INFO] supersedeStuckJob: user=u1 jobId=job_x jobUpdated=true deleted=0
+# Subtest: marks paused job as superseded with given reason and timestamp
+ok 19 - marks paused job as superseded with given reason and timestamp
+  ---
+  duration_ms: 77.21818
+  type: 'test'
+  ...
+# 2026-05-10 12:14:45 [INFO] supersedeStuckJob: user=u2 jobId=job_x jobUpdated=true deleted=0
+# Subtest: preserves existing completed_at when present
+ok 20 - preserves existing completed_at when present
+  ---
+  duration_ms: 5.656577
+  type: 'test'
+  ...
+# 2026-05-10 12:14:45 [INFO] supersedeStuckJob: user=u3 jobId=job_x jobUpdated=true deleted=2
+# Subtest: deletes named artifacts when they exist
+ok 21 - deletes named artifacts when they exist
+  ---
+  duration_ms: 7.569199
+  type: 'test'
+  ...
+# 2026-05-10 12:14:45 [INFO] supersedeStuckJob: user=u4 jobId=job_x jobUpdated=true deleted=0
+# Subtest: silently skips artifact paths that don't exist
+ok 22 - silently skips artifact paths that don't exist
+  ---
+  duration_ms: 3.144707
+  type: 'test'
+  ...
+# 2026-05-10 12:14:45 [INFO] supersedeStuckJob: user=u5 jobId=job_x jobUpdated=false deleted=0
+# Subtest: is idempotent: second run on already-superseded job is a no-op success
+ok 23 - is idempotent: second run on already-superseded job is a no-op success
+  ---
+  duration_ms: 3.563356
+  type: 'test'
+  ...
+# Subtest: throws when job file does not exist
+ok 24 - throws when job file does not exist
+  ---
+  duration_ms: 5.059199
+  type: 'test'
+  ...
+# Subtest: runQuickCheckAdvisor returns null when proxy call fails
+ok 25 - runQuickCheckAdvisor returns null when proxy call fails
+  ---
+  duration_ms: 24.8832
+  type: 'test'
+  ...
+# Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/yahoo-finance2/issues/764\#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `new YahooFinance({ suppressNotices: ['yahooSurvey'] })`.
+# Subtest: summarizeBaselineCoverage returns blocking and refresh candidates in portfolio order
+ok 26 - summarizeBaselineCoverage returns blocking and refresh candidates in portfolio order
+  ---
+  duration_ms: 1364.2992
+  type: 'test'
+  ...
+# 2026-05-10 12:14:46 [INFO] State transition: BOOTSTRAPPING → ACTIVE | reason=baseline_coverage_completed
+# Subtest: syncStateToBaselineCoverage advances bootstrapping user once blockers are cleared
+ok 27 - syncStateToBaselineCoverage advances bootstrapping user once blockers are cleared
+  ---
+  duration_ms: 12.126313
+  type: 'test'
+  ...
+# 2026-05-10 12:14:46 [INFO] State transition: BOOTSTRAPPING → ACTIVE | reason=baseline_coverage_completed
+# Subtest: syncStateToBaselineCoverage replaces resolved portfolio blockers
+ok 28 - syncStateToBaselineCoverage replaces resolved portfolio blockers
+  ---
+  duration_ms: 7.345011
+  type: 'test'
+  ...
+# Subtest: createSavedConversation applies the default 7 day TTL when no override is configured
+ok 29 - createSavedConversation applies the default 7 day TTL when no override is configured
+  ---
+  duration_ms: 1.890803
+  type: 'test'
+  ...
+# Subtest: createSavedConversation honors positive TTL overrides and coerces invalid or low values back to seven days
+ok 30 - createSavedConversation honors positive TTL overrides and coerces invalid or low values back to seven days
+  ---
+  duration_ms: 0.558848
+  type: 'test'
+  ...
+# Subtest: listSavedDashboardConversations returns only dashboard conversations scoped to the requested user and excludes archived rows in SQL
+ok 31 - listSavedDashboardConversations returns only dashboard conversations scoped to the requested user and excludes archived rows in SQL
+  ---
+  duration_ms: 0.268419
+  type: 'test'
+  ...
+# Subtest: loadConversationForUser reports active archived expired and missing conversation states without leaking other users
+ok 32 - loadConversationForUser reports active archived expired and missing conversation states without leaking other users
+  ---
+  duration_ms: 0.507399
+  type: 'test'
+  ...
+# Subtest: renameSavedConversation validates titles and updates only a matching active conversation owned by the user
+ok 33 - renameSavedConversation validates titles and updates only a matching active conversation owned by the user
+  ---
+  duration_ms: 0.835386
+  type: 'test'
+  ...
+# Subtest: rename and archive fail closed for missing or wrong-user conversations
+ok 34 - rename and archive fail closed for missing or wrong-user conversations
+  ---
+  duration_ms: 0.318348
+  type: 'test'
+  ...
+# Subtest: archiveSavedConversation performs a soft archive scoped by id and user
+ok 35 - archiveSavedConversation performs a soft archive scoped by id and user
+  ---
+  duration_ms: 0.2494
+  type: 'test'
+  ...
+# Subtest: saved-chat store exposes database-unavailable and malformed-row failures as typed errors
+ok 36 - saved-chat store exposes database-unavailable and malformed-row failures as typed errors
+  ---
+  duration_ms: 0.336518
+  type: 'test'
+  ...
+# Subtest: selectDailyBriefAutoDeepDiveTickers picks the worst score first
+ok 37 - selectDailyBriefAutoDeepDiveTickers picks the worst score first
+  ---
+  duration_ms: 1.330145
+  type: 'test'
+  ...
+# Subtest: selectDailyBriefAutoDeepDiveTickers breaks score ties by larger position size
+ok 38 - selectDailyBriefAutoDeepDiveTickers breaks score ties by larger position size
+  ---
+  duration_ms: 0.134809
+  type: 'test'
+  ...
+# Subtest: selectDailyBriefAutoDeepDiveTickers respects a zero limit
+ok 39 - selectDailyBriefAutoDeepDiveTickers respects a zero limit
+  ---
+  duration_ms: 0.112229
+  type: 'test'
+  ...
+# Subtest: daily brief defaults to the configured coverage limit
+ok 40 - daily brief defaults to the configured coverage limit
+  ---
+  duration_ms: 634.417742
+  type: 'test'
+  ...
+# Subtest: daily brief ignores legacy user plan when resolving coverage limit
+ok 41 - daily brief ignores legacy user plan when resolving coverage limit
+  ---
+  duration_ms: 5.130099
+  type: 'test'
+  ...
+# Subtest: daily brief truth is coverage_incomplete when monitored coverage is provisional
+ok 42 - daily brief truth is coverage_incomplete when monitored coverage is provisional
+  ---
+  duration_ms: 1.221655
+  type: 'test'
+  ...
+# Subtest: daily brief truth is confidence_degraded when coverage is stale but not incomplete
+ok 43 - daily brief truth is confidence_degraded when coverage is stale but not incomplete
+  ---
+  duration_ms: 1.971702
+  type: 'test'
+  ...
+# Subtest: daily brief truth is action_needed when trusted coverage has active escalations
+ok 44 - daily brief truth is action_needed when trusted coverage has active escalations
+  ---
+  duration_ms: 0.937356
+  type: 'test'
+  ...
+# Subtest: daily brief narrative does not claim unqueued escalations have deep dives running
+ok 45 - daily brief narrative does not claim unqueued escalations have deep dives running
+  ---
+  duration_ms: 0.594778
+  type: 'test'
+  ...
+# Subtest: daily brief truth is calm_trusted only when all monitored coverage is valid and no escalations exist
+ok 46 - daily brief truth is calm_trusted only when all monitored coverage is valid and no escalations exist
+  ---
+  duration_ms: 0.576458
+  type: 'test'
+  ...
+# Subtest: tracking daily evaluator uses tracking strategy fields without portfolio ownership penalty
+ok 47 - tracking daily evaluator uses tracking strategy fields without portfolio ownership penalty
+  ---
+  duration_ms: 2.688969
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=pending
+# Subtest: initializeDeepDiveJob ignores stale artifacts from previous runs
+ok 48 - initializeDeepDiveJob ignores stale artifacts from previous runs
+  ---
+  duration_ms: 669.426502
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=pending
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/reports/TSM/fundamentals.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=technical | path=/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/reports/TSM/technical.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=sentiment | path=/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/reports/TSM/sentiment.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=macro | path=/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/reports/TSM/macro.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=risk | path=/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/reports/TSM/risk.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=bull | path=/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/reports/TSM/bull_case.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=bear | path=/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/reports/TSM/bear_case.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateStrategyFile: VALID | path=/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/tickers/TSM/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=completed
+# 2026-05-10 12:14:47 [WARN] Deep dive completed but baseline state sync failed for tester-complete/TSM: Error: ENOENT: no such file or directory, open '/tmp/deep-dive-service-v4ZrML/users/tester-complete/data/portfolio.json'
+# 2026-05-10 12:14:47 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"tester-complete","notificationId":"ntf_1778415287069_web_f2c01f","semanticKind":"deep_dive","category":"report","channel":"web","batchId":"batchjobtestdeepdivedeepdive","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:47 [INFO] {"event":"notification_publication","decision":"published","userId":"tester-complete","semanticKind":"deep_dive","category":"report","batchId":"batchjobtestdeepdivedeepdive","channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: reconcileDeepDiveJob completes when all fresh artifacts exist
+ok 49 - reconcileDeepDiveJob completes when all fresh artifacts exist
+  ---
+  duration_ms: 26.047756
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=pending
+# Subtest: reconcileDeepDiveJob keeps undispatched pending deep dives pending
+ok 50 - reconcileDeepDiveJob keeps undispatched pending deep dives pending
+  ---
+  duration_ms: 31.928802
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=pending
+# Subtest: reconcileDeepDiveJob does not trust running status without started_at
+ok 51 - reconcileDeepDiveJob does not trust running status without started_at
+  ---
+  duration_ms: 22.098741
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=pending
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=failed
+# Subtest: markDeepDiveJobFailed clears pending state and marks deep dive state failed
+ok 52 - markDeepDiveJobFailed clears pending state and marks deep dive state failed
+  ---
+  duration_ms: 10.148839
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=pending
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=cancelled
+# Subtest: markDeepDiveJobCancelled records a terminal cancelled state
+ok 53 - markDeepDiveJobCancelled records a terminal cancelled state
+  ---
+  duration_ms: 17.72837
+  type: 'test'
+  ...
+# Subtest: detectDeepDiveExecutionFailureSignal ignores session text without an authoritative rejection record
+ok 54 - detectDeepDiveExecutionFailureSignal ignores session text without an authoritative rejection record
+  ---
+  duration_ms: 2.828818
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=pending
+# Subtest: reconcileFailedDeepDiveJob repairs stale running deep dive state for a failed job
+ok 55 - reconcileFailedDeepDiveJob repairs stale running deep dive state for a failed job
+  ---
+  duration_ms: 6.380024
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] validateStrategyFile: VALID | path=/tmp/deep-dive-service-v4ZrML/users/tester-completed-repair/data/tickers/TSM/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:47 [INFO] validateStrategyFile: VALID | path=/tmp/deep-dive-service-v4ZrML/users/tester-completed-repair/data/tickers/TSM/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:47 [WARN] Deep dive terminal repair baseline sync failed for tester-completed-repair/TSM: Error: ENOENT: no such file or directory, open '/tmp/deep-dive-service-v4ZrML/users/tester-completed-repair/data/portfolio.json'
+# 2026-05-10 12:14:47 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"tester-completed-repair","notificationId":"ntf_1778415287174_web_ae75b0","semanticKind":"deep_dive","category":"report","channel":"web","batchId":"batchjobtestdeepdivedeepdive","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:47 [INFO] {"event":"notification_publication","decision":"published","userId":"tester-completed-repair","semanticKind":"deep_dive","category":"report","batchId":"batchjobtestdeepdivedeepdive","channels":["web"],"deliveryOutcome":"web:delivered"}
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=completed
+# Subtest: reconcileDeepDiveJob repairs stale running deep dive state for a completed job with refreshed strategy
+ok 56 - reconcileDeepDiveJob repairs stale running deep dive state for a completed job with refreshed strategy
+  ---
+  duration_ms: 8.642666
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_deep_dive status=pending
+# Subtest: reconcileDeepDiveJob does not infer completion from terminal job status without refreshed strategy evidence
+ok 57 - reconcileDeepDiveJob does not infer completion from terminal job status without refreshed strategy evidence
+  ---
+  duration_ms: 16.939532
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"feed-user","notificationId":"ntf_1778415287451_web_83ab4f","semanticKind":"market_news","category":"market_news","channel":"web","batchId":null,"error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:47 [INFO] {"event":"notification_publication","decision":"published","userId":"feed-user","semanticKind":"market_news","category":"market_news","batchId":null,"channels":["web"],"deliveryOutcome":"web:delivered"}
+# 2026-05-10 12:14:47 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"feed-user","notificationId":"ntf_1778415287465_web_36d0ae","semanticKind":"market_news","category":"market_news","channel":"web","batchId":null,"error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:47 [INFO] {"event":"notification_publication","decision":"published","userId":"feed-user","semanticKind":"market_news","category":"market_news","batchId":null,"channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: appendFeedEvent stores newest market news events first
+ok 58 - appendFeedEvent stores newest market news events first
+  ---
+  duration_ms: 537.873979
+  type: 'test'
+  ...
+# Subtest: buildReportFeedItems marks negative quick checks with red tone
+ok 59 - buildReportFeedItems marks negative quick checks with red tone
+  ---
+  duration_ms: 0.924636
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-progress/data/tickers/TSM/strategy.json | errors=1
+# 2026-05-10 12:14:47 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-progress/data/tickers/NVDA/strategy.json | errors=1
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_full_report status=pending
+# Subtest: initializeFullReportJob queues work and records bootstrap progress
+ok 60 - initializeFullReportJob queues work and records bootstrap progress
+  ---
+  duration_ms: 724.498041
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/tickers/TSM/strategy.json | errors=1
+# 2026-05-10 12:14:47 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/tickers/NVDA/strategy.json | errors=1
+# 2026-05-10 12:14:47 [INFO] Job updated: job_test_full_report status=pending
+# 2026-05-10 12:14:47 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/tickers/TSM/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:47 [WARN] strategy_dual_write_failed user=full-report-complete ticker=TSM error=writeStrategy requires the application database
+# 2026-05-10 12:14:47 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/tickers/NVDA/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:47 [WARN] strategy_dual_write_failed user=full-report-complete ticker=NVDA error=writeStrategy requires the application database
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/TSM/fundamentals.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/NVDA/fundamentals.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=technical | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/TSM/technical.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=technical | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/NVDA/technical.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=sentiment | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/TSM/sentiment.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=sentiment | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/NVDA/sentiment.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=macro | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/TSM/macro.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=macro | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/NVDA/macro.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=risk | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/TSM/risk.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateReportFile: VALID | analyst=risk | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/reports/NVDA/risk.json | errors=0
+# 2026-05-10 12:14:47 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/tickers/TSM/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:47 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-complete/data/tickers/NVDA/strategy.json | repaired=no | warnings=0
+# Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/yahoo-finance2/issues/764\#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `new YahooFinance({ suppressNotices: ['yahooSurvey'] })`.
+# 2026-05-10 12:14:48 [INFO] State transition: BOOTSTRAPPING → ACTIVE | reason=baseline_coverage_completed
+# 2026-05-10 12:14:48 [INFO] Job updated: job_test_full_report status=completed
+# 2026-05-10 12:14:48 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"full-report-complete","notificationId":"ntf_1778415288945_web_f5e70b","semanticKind":"full_report","category":"report","channel":"web","batchId":"batchjobtestfullreportfullreport","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:48 [INFO] {"event":"notification_publication","decision":"published","userId":"full-report-complete","semanticKind":"full_report","category":"report","batchId":"batchjobtestfullreportfullreport","channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: reconcileFullReportJob completes bootstrap and updates index
+ok 61 - reconcileFullReportJob completes bootstrap and updates index
+  ---
+  duration_ms: 1064.45684
+  type: 'test'
+  ...
+# 2026-05-10 12:14:48 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-active/data/tickers/TSM/strategy.json | errors=1
+# 2026-05-10 12:14:48 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-active/data/tickers/NVDA/strategy.json | errors=1
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/full-report-service-o6MGAa/users/full-report-active/data/reports/TSM/fundamentals.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/full-report-service-o6MGAa/users/full-report-active/data/reports/NVDA/fundamentals.json | errors=0
+# Subtest: reconcileFullReportJob does not rewrite bootstrap progress for active users
+ok 62 - reconcileFullReportJob does not rewrite bootstrap progress for active users
+  ---
+  duration_ms: 8.689185
+  type: 'test'
+  ...
+# 2026-05-10 12:14:48 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/tickers/TSM/strategy.json | errors=1
+# 2026-05-10 12:14:48 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/tickers/NVDA/strategy.json | errors=1
+# 2026-05-10 12:14:48 [INFO] Job updated: job_test_full_report status=pending
+# 2026-05-10 12:14:48 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/tickers/TSM/strategy.json | repaired=yes | warnings=3
+# 2026-05-10 12:14:48 [WARN] strategy_dual_write_failed user=full-report-repairable ticker=TSM error=writeStrategy requires the application database
+# 2026-05-10 12:14:48 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/tickers/NVDA/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:48 [WARN] strategy_dual_write_failed user=full-report-repairable ticker=NVDA error=writeStrategy requires the application database
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/TSM/fundamentals.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/NVDA/fundamentals.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=technical | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/TSM/technical.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=technical | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/NVDA/technical.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=sentiment | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/TSM/sentiment.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=sentiment | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/NVDA/sentiment.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=macro | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/TSM/macro.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=macro | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/NVDA/macro.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=risk | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/TSM/risk.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=risk | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/reports/NVDA/risk.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/tickers/TSM/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:48 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-repairable/data/tickers/NVDA/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:48 [INFO] State transition: BOOTSTRAPPING → ACTIVE | reason=baseline_coverage_completed
+# 2026-05-10 12:14:48 [INFO] Job updated: job_test_full_report status=completed
+# 2026-05-10 12:14:48 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"full-report-repairable","notificationId":"ntf_1778415288983_web_ee074b","semanticKind":"full_report","category":"report","channel":"web","batchId":"batchjobtestfullreportfullreport","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:48 [INFO] {"event":"notification_publication","decision":"published","userId":"full-report-repairable","semanticKind":"full_report","category":"report","batchId":"batchjobtestfullreportfullreport","channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: reconcileFullReportJob repairs malformed full-report strategy output and completes
+ok 63 - reconcileFullReportJob repairs malformed full-report strategy output and completes
+  ---
+  duration_ms: 28.487756
+  type: 'test'
+  ...
+# 2026-05-10 12:14:48 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/tickers/TSM/strategy.json | errors=1
+# 2026-05-10 12:14:48 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/tickers/NVDA/strategy.json | errors=1
+# 2026-05-10 12:14:48 [INFO] Job updated: job_test_full_report status=pending
+# 2026-05-10 12:14:48 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/tickers/TSM/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:48 [WARN] strategy_dual_write_failed user=full-report-partial ticker=TSM error=writeStrategy requires the application database
+# 2026-05-10 12:14:48 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/tickers/NVDA/strategy.json | errors=1
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/TSM/fundamentals.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=fundamentals | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/NVDA/fundamentals.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=technical | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/TSM/technical.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=technical | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/NVDA/technical.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=sentiment | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/TSM/sentiment.json | errors=0
+# 2026-05-10 12:14:48 [INFO] validateReportFile: VALID | analyst=sentiment | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/NVDA/sentiment.json | errors=0
+# 2026-05-10 12:14:49 [INFO] validateReportFile: VALID | analyst=macro | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/TSM/macro.json | errors=0
+# 2026-05-10 12:14:49 [INFO] validateReportFile: VALID | analyst=macro | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/NVDA/macro.json | errors=0
+# 2026-05-10 12:14:49 [INFO] validateReportFile: VALID | analyst=risk | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/TSM/risk.json | errors=0
+# 2026-05-10 12:14:49 [INFO] validateReportFile: VALID | analyst=risk | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/reports/NVDA/risk.json | errors=0
+# 2026-05-10 12:14:49 [INFO] validateStrategyFile: VALID | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/tickers/TSM/strategy.json | repaired=no | warnings=0
+# 2026-05-10 12:14:49 [WARN] validateStrategyFile: INVALID | path=/tmp/full-report-service-o6MGAa/users/full-report-partial/data/tickers/NVDA/strategy.json | errors=1
+# 2026-05-10 12:14:49 [INFO] Job updated: job_test_full_report status=completed
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"full-report-partial","notificationId":"ntf_1778415289012_web_117fe4","semanticKind":"full_report","category":"report","channel":"web","batchId":"batchjobtestfullreportfullreport","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"full-report-partial","semanticKind":"full_report","category":"report","batchId":"batchjobtestfullreportfullreport","channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: reconcileFullReportJob isolates unrecoverable ticker failure and completes partial batch
+ok 64 - reconcileFullReportJob isolates unrecoverable ticker failure and completes partial batch
+  ---
+  duration_ms: 31.096715
+  type: 'test'
+  ...
+# Subtest: reconcileFailedFullReportJob marks stale state failed and removes legacy progress
+ok 65 - reconcileFailedFullReportJob marks stale state failed and removes legacy progress
+  ---
+  duration_ms: 5.330239
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [INFO] Repaired active-user state for full-report-repair-active: cleared stale bootstrap-only fields
+# Subtest: repairActiveUserState clears stale bootstrap progress for active users
+ok 66 - repairActiveUserState clears stale bootstrap progress for active users
+  ---
+  duration_ms: 5.717897
+  type: 'test'
+  ...
+# Subtest: getActiveUserEligibility rejects active users with missing portfolio
+ok 67 - getActiveUserEligibility rejects active users with missing portfolio
+  ---
+  duration_ms: 4.040034
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [INFO] Repaired active-user state for full-report-repair-impossible-active: downgraded ACTIVE user to INCOMPLETE because portfolio missing
+# Subtest: repairActiveUserState downgrades impossible active users to incomplete
+ok 68 - repairActiveUserState downgrades impossible active users to incomplete
+  ---
+  duration_ms: 4.582572
+  type: 'test'
+  ...
+# Subtest: requiresBudgetAdmission only applies to agent-managed long-running jobs
+ok 69 - requiresBudgetAdmission only applies to agent-managed long-running jobs
+  ---
+  duration_ms: 0.744147
+  type: 'test'
+  ...
+# Subtest: isBudgetAdmittedJob requires both eligible action and admission timestamp
+ok 70 - isBudgetAdmittedJob requires both eligible action and admission timestamp
+  ---
+  duration_ms: 0.125659
+  type: 'test'
+  ...
+# Subtest: returns 0 when user has no jobs
+ok 71 - returns 0 when user has no jobs
+  ---
+  duration_ms: 60.637736
+  type: 'test'
+  ...
+# Subtest: returns 0 when full_report_state.json does not exist
+ok 72 - returns 0 when full_report_state.json does not exist
+  ---
+  duration_ms: 3.178847
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Reconciled full_report_state.json for user-divergent: running -> paused (jobId=job_20260426_144855_1abcd8)
+# Subtest: rewrites state.json from running to paused when matching paused job exists
+ok 73 - rewrites state.json from running to paused when matching paused job exists
+  ---
+  duration_ms: 5.584308
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Reconciled full_report_state.json for user-idempotent: running -> paused (jobId=job_idem)
+# Subtest: is idempotent: second call repairs nothing
+ok 74 - is idempotent: second call repairs nothing
+  ---
+  duration_ms: 3.399327
+  type: 'test'
+  ...
+# Subtest: does not touch state.json belonging to a different jobId
+ok 75 - does not touch state.json belonging to a different jobId
+  ---
+  duration_ms: 2.53
+  type: 'test'
+  ...
+# 2026-05-10 12:14:47 [INFO] Reconciled full_report_state.json for user-paused: running -> paused (jobId=job_paused)
+# 2026-05-10 12:14:47 [INFO] Reconciled full_report_state.json for user-failed: running -> failed (jobId=job_failed)
+# 2026-05-10 12:14:47 [INFO] Reconciled full_report_state.json for user-cancelled: running -> cancelled (jobId=job_cancelled)
+# 2026-05-10 12:14:47 [INFO] Reconciled full_report_state.json for user-superseded: running -> superseded (jobId=job_superseded)
+# Subtest: repairs state.json regardless of whether status is paused, failed, cancelled, or superseded
+ok 76 - repairs state.json regardless of whether status is paused, failed, cancelled, or superseded
+  ---
+  duration_ms: 14.99158
+  type: 'test'
+  ...
+# Subtest: telegram-command triggers respect job rate limits
+ok 77 - telegram-command triggers respect job rate limits
+  ---
+  duration_ms: 19.612442
+  type: 'test'
+  ...
+# Subtest: dashboard action returns existing duplicate running deep dive
+ok 78 - dashboard action returns existing duplicate running deep dive
+  ---
+  duration_ms: 12.756529
+  type: 'test'
+  ...
+# Subtest: dashboard action returns existing duplicate paused deep dive
+ok 79 - dashboard action returns existing duplicate paused deep dive
+  ---
+  duration_ms: 5.690467
+  type: 'test'
+  ...
+# Subtest: deep dive jobs require the application database-backed step queue
+ok 80 - deep dive jobs require the application database-backed step queue
+  ---
+  duration_ms: 5.096241
+  type: 'test'
+  ...
+# Subtest: full report requires the application database-backed step queue
+ok 81 - full report requires the application database-backed step queue
+  ---
+  duration_ms: 7.743229
+  type: 'test'
+  ...
+# Subtest: resolveProxyMetadata prefers explicit proxy headers
+ok 82 - resolveProxyMetadata prefers explicit proxy headers
+  ---
+  duration_ms: 1.296095
+  type: 'test'
+  ...
+# Subtest: resolveProxyMetadata keeps explicit job ids when provided
+ok 83 - resolveProxyMetadata keeps explicit job ids when provided
+  ---
+  duration_ms: 0.133109
+  type: 'test'
+  ...
+# Subtest: resolveProxyMetadata falls back to active job metadata
+ok 84 - resolveProxyMetadata falls back to active job metadata
+  ---
+  duration_ms: 0.10691
+  type: 'test'
+  ...
+# Subtest: resolveProxyMetadata classifies unattributed no-job traffic as unknown agent session
+ok 85 - resolveProxyMetadata classifies unattributed no-job traffic as unknown agent session
+  ---
+  duration_ms: 0.190439
+  type: 'test'
+  ...
+# Subtest: resolveProxyMetadata keeps explicit direct chat separate from unknown sessions
+ok 86 - resolveProxyMetadata keeps explicit direct chat separate from unknown sessions
+  ---
+  duration_ms: 0.15816
+  type: 'test'
+  ...
+# Subtest: resolveProxyMetadata classifies structured OpenClaw conversation metadata as direct chat
+ok 87 - resolveProxyMetadata classifies structured OpenClaw conversation metadata as direct chat
+  ---
+  duration_ms: 0.12419
+  type: 'test'
+  ...
+# Subtest: resolveProxyMetadata still blocks plain no-job unattributed traffic without conversation metadata
+ok 88 - resolveProxyMetadata still blocks plain no-job unattributed traffic without conversation metadata
+  ---
+  duration_ms: 0.137749
+  type: 'test'
+  ...
+# Subtest: shouldAllowProxyRequest allows explicit direct chat and structured jobs, but blocks unknown sessions without triggers
+ok 89 - shouldAllowProxyRequest allows explicit direct chat and structured jobs, but blocks unknown sessions without triggers
+  ---
+  duration_ms: 0.125159
+  type: 'test'
+  ...
+# Subtest: toUpstreamModel strips the synthetic per-user proxy prefix
+ok 90 - toUpstreamModel strips the synthetic per-user proxy prefix
+  ---
+  duration_ms: 0.289019
+  type: 'test'
+  ...
+# 2026-05-10 12:14:48 [INFO] Job updated: job_test_new_ideas_basic status=running
+# Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/yahoo-finance2/issues/764\#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `new YahooFinance({ suppressNotices: ['yahooSurvey'] })`.
+# 2026-05-10 12:14:49 [INFO] Job updated: job_test_new_ideas_basic status=completed
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"new-ideas-basic","notificationId":"ntf_1778415289653_web_99647f","semanticKind":"new_ideas","category":"report","channel":"web","batchId":"batchjobtestnewideasbasicnewideas","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"new-ideas-basic","semanticKind":"new_ideas","category":"report","batchId":"batchjobtestnewideasbasicnewideas","channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: runNewIdeasJob creates deterministic gap-based idea batch
+ok 91 - runNewIdeasJob creates deterministic gap-based idea batch
+  ---
+  duration_ms: 1481.961881
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [INFO] Job updated: job_test_new_ideas_owned status=running
+# 2026-05-10 12:14:49 [INFO] Job updated: job_test_new_ideas_owned status=completed
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"new-ideas-owned","notificationId":"ntf_1778415289744_web_ec3011","semanticKind":"new_ideas","category":"report","channel":"web","batchId":"batchjobtestnewideasownednewideas","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"new-ideas-owned","semanticKind":"new_ideas","category":"report","batchId":"batchjobtestnewideasownednewideas","channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: runNewIdeasJob excludes already-owned category proxies
+ok 92 - runNewIdeasJob excludes already-owned category proxies
+  ---
+  duration_ms: 88.351476
+  type: 'test'
+  ...
+# Subtest: notification composer maps owned semantic kinds to persisted categories
+ok 93 - notification composer maps owned semantic kinds to persisted categories
+  ---
+  duration_ms: 1.294984
+  type: 'test'
+  ...
+# Subtest: daily brief renders clear web and telegram messages with action cue
+ok 94 - daily brief renders clear web and telegram messages with action cue
+  ---
+  duration_ms: 0.392258
+  type: 'test'
+  ...
+# Subtest: report variants use useful fallback copy without requiring optional fields
+ok 95 - report variants use useful fallback copy without requiring optional fields
+  ---
+  duration_ms: 0.362569
+  type: 'test'
+  ...
+# Subtest: market news normalizes empty headline and preserves valid ticker
+ok 96 - market news normalizes empty headline and preserves valid ticker
+  ---
+  duration_ms: 0.201749
+  type: 'test'
+  ...
+# Subtest: renderer clips overlong reasoning and does not leak raw full analysis
+not ok 97 - renderer clips overlong reasoning and does not leak raw full analysis
+  ---
+  duration_ms: 1.679253
+  type: 'test'
+  location: '/root/clawd/backend/src/services/notificationComposer.test.ts:1:2992'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input was expected to not match the regular expression /why why why why why why why why why why why why why why why why why why why why/. Input:
+    
+    'Internal reasoning: why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why…'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: 'Internal reasoning: why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why…'
+  operator: 'doesNotMatch'
+  stack: |-
+    TestContext.<anonymous> (/root/clawd/backend/src/services/notificationComposer.test.ts:112:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: markdown-like untrusted input is rendered as plain safe telegram text
+ok 98 - markdown-like untrusted input is rendered as plain safe telegram text
+  ---
+  duration_ms: 0.261769
+  type: 'test'
+  ...
+# Subtest: telegram rendering stays below the max message boundary
+ok 99 - telegram rendering stays below the max message boundary
+  ---
+  duration_ms: 0.206669
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"notify-user","notificationId":"ntf_1778415289116_web_b279a6","semanticKind":"daily_brief","category":"daily_brief","channel":"web","batchId":"batch1","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"notify-user","semanticKind":"daily_brief","category":"daily_brief","batchId":"batch1","channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: publishNotification composes daily brief web records and markNotificationsRead marks them read
+not ok 100 - publishNotification composes daily brief web records and markNotificationsRead marks them read
+  ---
+  duration_ms: 366.500403
+  type: 'test'
+  location: '/root/clawd/backend/src/services/notificationService.test.ts:1:1127'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'Needs deeper review: AAPL, MSFT.\n\nOpen: /reports?batch=batch1'
+    - 'Needs deeper review: AAPL, MSFT.\n\nOpen: /reports?batch=batch_1'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: |-
+    Needs deeper review: AAPL, MSFT.
+    
+    Open: /reports?batch=batch_1
+  actual: |-
+    Needs deeper review: AAPL, MSFT.
+    
+    Open: /reports?batch=batch1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/root/clawd/backend/src/services/notificationService.test.ts:62:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"report-news-user","notificationId":"ntf_1778415289127_web_a4b4c4","semanticKind":"full_report","category":"report","channel":"web","batchId":"batchfullreport","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"report-news-user","semanticKind":"full_report","category":"report","batchId":"batchfullreport","channels":["web"],"deliveryOutcome":"web:delivered"}
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"report-news-user","notificationId":"ntf_1778415289133_web_8d70d5","semanticKind":"market_news","category":"market_news","channel":"web","batchId":null,"error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"report-news-user","semanticKind":"market_news","category":"market_news","batchId":null,"channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: publishNotification composes report and market news records with backward-compatible fields
+ok 101 - publishNotification composes report and market news records with backward-compatible fields
+  ---
+  duration_ms: 11.524895
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"dedupe-user","notificationId":"ntf_1778415289139_web_bd73c1","semanticKind":"deep_dive","category":"report","channel":"web","batchId":"batchduplicatedeepdive","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"dedupe-user","semanticKind":"deep_dive","category":"report","batchId":"batchduplicatedeepdive","channels":["web"],"deliveryOutcome":"web:delivered"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"duplicate_batch","userId":"dedupe-user","semanticKind":"deep_dive","category":"report","batchId":"batchduplicatedeepdive","channels":["web"]}
+# Subtest: publishNotification is idempotent for report batch ids
+not ok 102 - publishNotification is idempotent for report batch ids
+  ---
+  duration_ms: 11.435464
+  type: 'test'
+  location: '/root/clawd/backend/src/services/notificationService.test.ts:1:3739'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'batchduplicatedeepdive'
+    - 'batch_duplicate_deep_dive'
+            ^
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'batch_duplicate_deep_dive'
+  actual: 'batchduplicatedeepdive'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/root/clawd/backend/src/services/notificationService.test.ts:141:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"category_disabled","userId":"disabled-report-user","semanticKind":"quick_check","category":"report","batchId":"batchdisabledreport","channels":[]}
+# Subtest: publishNotification respects category preference filtering
+ok 103 - publishNotification respects category preference filtering
+  ---
+  duration_ms: 5.07643
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"bounded-reasoning-user","notificationId":"ntf_1778415289154_web_29ab00","semanticKind":"deep_dive","category":"report","channel":"web","batchId":"batchlongreasoning","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"bounded-reasoning-user","semanticKind":"deep_dive","category":"report","batchId":"batchlongreasoning","channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: publishNotification bounds deep-dive reasoning instead of storing raw unbounded strategy text
+ok 104 - publishNotification bounds deep-dive reasoning instead of storing raw unbounded strategy text
+  ---
+  duration_ms: 3.798304
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"missing-optional-user","notificationId":"ntf_1778415289158_web_ccc77c","semanticKind":"new_ideas","category":"report","channel":"web","batchId":null,"error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"missing-optional-user","semanticKind":"new_ideas","category":"report","batchId":null,"channels":["web"],"deliveryOutcome":"web:delivered"}
+# Subtest: publishNotification handles missing optional ticker and batch fields
+ok 105 - publishNotification handles missing optional ticker and batch fields
+  ---
+  duration_ms: 2.980078
+  type: 'test'
+  ...
+# Subtest: getNotificationPreferences falls back to web when external channels are not connected
+ok 106 - getNotificationPreferences falls back to web when external channels are not connected
+  ---
+  duration_ms: 3.497926
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"telegram-missing-token-user","notificationId":"ntf_1778415289164_telegram_01be9b","semanticKind":"daily_brief","category":"daily_brief","channel":"telegram","batchId":"batchmissingtelegramtarget","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"telegram-missing-token-user","semanticKind":"daily_brief","category":"daily_brief","batchId":"batchmissingtelegramtarget","channels":["telegram"],"deliveryOutcome":"telegram:failed:0"}
+# Subtest: publishNotification records telegram failure when target is missing bot token
+ok 107 - publishNotification records telegram failure when target is missing bot token
+  ---
+  duration_ms: 4.504321
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"telegram-http-failure-user","notificationId":"ntf_1778415289169_telegram_342081","semanticKind":"market_news","category":"market_news","channel":"telegram","batchId":"batchtelegramhttpfailure","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"telegram-http-failure-user","semanticKind":"market_news","category":"market_news","batchId":"batchtelegramhttpfailure","channels":["telegram"],"deliveryOutcome":"telegram:failed:1"}
+# Subtest: publishNotification records redacted telegram non-2xx failures
+ok 108 - publishNotification records redacted telegram non-2xx failures
+  ---
+  duration_ms: 26.919303
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [WARN] {"event":"notification_publication","decision":"dual_write_failed","userId":"whatsapp-user","notificationId":"ntf_1778415289197_whatsapp_89e9bb","semanticKind":"deep_dive","category":"report","channel":"whatsapp","batchId":"batch2","error":"insertNotification requires the application database"}
+# 2026-05-10 12:14:49 [INFO] {"event":"notification_publication","decision":"published","userId":"whatsapp-user","semanticKind":"deep_dive","category":"report","batchId":"batch2","channels":["whatsapp"],"deliveryOutcome":"whatsapp:delivered"}
+# Subtest: publishNotification delivers to whatsapp when whatsapp is connected and enabled
+ok 109 - publishNotification delivers to whatsapp when whatsapp is connected and enabled
+  ---
+  duration_ms: 7.60505
+  type: 'test'
+  ...
+# Subtest: pilot feature catalog loads valid entries and sorts by surface, title, and id
+ok 110 - pilot feature catalog loads valid entries and sorts by surface, title, and id
+  ---
+  duration_ms: 14.299422
+  type: 'test'
+  ...
+# Subtest: default pilot feature catalog includes substantive Web, Telegram, and admin coverage
+ok 111 - default pilot feature catalog includes substantive Web, Telegram, and admin coverage
+  ---
+  duration_ms: 2.036633
+  type: 'test'
+  ...
+# Subtest: pilot feature catalog rejects duplicate feature ids across files
+ok 112 - pilot feature catalog rejects duplicate feature ids across files
+  ---
+  duration_ms: 2.732909
+  type: 'test'
+  ...
+# Subtest: pilot feature catalog rejects schema violations with file path and reason
+ok 113 - pilot feature catalog rejects schema violations with file path and reason
+  ---
+  duration_ms: 2.130381
+  type: 'test'
+  ...
+# Subtest: pilot feature catalog rejects malformed JSON with file path and parse reason
+ok 114 - pilot feature catalog rejects malformed JSON with file path and parse reason
+  ---
+  duration_ms: 1.370945
+  type: 'test'
+  ...
+# Subtest: pilot feature catalog rejects unsafe evidence paths
+ok 115 - pilot feature catalog rejects unsafe evidence paths
+  ---
+  duration_ms: 2.41523
+  type: 'test'
+  ...
+# 2026-05-10 12:14:49 [WARN] pilot_feature_review_catalog_failed reason=catalog load failed
+# Subtest: pilot feature review service composes catalog entries with default and persisted review state
+ok 116 - pilot feature review service composes catalog entries with default and persisted review state
+  ---
+  duration_ms: 2.033382
+  type: 'test'
+  ...
+# Subtest: pilot feature review service upserts a known feature review
+ok 117 - pilot feature review service upserts a known feature review
+  ---
+  duration_ms: 0.623567
+  type: 'test'
+  ...
+# Subtest: pilot feature review service rejects invalid status and oversized comments before writing
+ok 118 - pilot feature review service rejects invalid status and oversized comments before writing
+  ---
+  duration_ms: 1.077087
+  type: 'test'
+  ...
+# Subtest: pilot feature review service refuses unknown catalog ids before writing
+ok 119 - pilot feature review service refuses unknown catalog ids before writing
+  ---
+  duration_ms: 0.207429
+  type: 'test'
+  ...
+# Subtest: pilot feature review service exposes unavailable database and catalog load failures as typed errors
+ok 120 - pilot feature review service exposes unavailable database and catalog load failures as typed errors
+  ---
+  duration_ms: 2.068452
+  type: 'test'
+  ...
+# Subtest: usdToPoints preserves fractional request costs
+ok 121 - usdToPoints preserves fractional request costs
+  ---
+  duration_ms: 0.613588
+  type: 'test'
+  ...
+# Subtest: buildPointsBalanceSnapshot computes bounded remaining points
+ok 122 - buildPointsBalanceSnapshot computes bounded remaining points
+  ---
+  duration_ms: 0.373699
+  type: 'test'
+  ...
+# Subtest: buildPointsBalanceSnapshot marks exhausted budgets without going negative
+ok 123 - buildPointsBalanceSnapshot marks exhausted budgets without going negative
+  ---
+  duration_ms: 0.119649
+  type: 'test'
+  ...
+# Subtest: performQuickCheck degrades invalid strategy baseline without throwing
+ok 124 - performQuickCheck degrades invalid strategy baseline without throwing
+  ---
+  duration_ms: 666.584003
+  type: 'test'
+  ...
+# Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/yahoo-finance2/issues/764\#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `new YahooFinance({ suppressNotices: ['yahooSurvey'] })`.
+# Subtest: performQuickCheck does not flag missing deep-dive timestamp for validated full-report baseline
+ok 125 - performQuickCheck does not flag missing deep-dive timestamp for validated full-report baseline
+  ---
+  duration_ms: 876.776332
+  type: 'test'
+  ...
+# Subtest: step queue is globally enabled unless explicitly disabled
+ok 126 - step queue is globally enabled unless explicitly disabled
+  ---
+  duration_ms: 4.195324
+  type: 'test'
+  ...
+# Subtest: terminal job status is completed only when no ticker failed
+ok 127 - terminal job status is completed only when no ticker failed
+  ---
+  duration_ms: 0.194229
+  type: 'test'
+  ...
+# Subtest: full_report expansion mixes light pass and full deep dive per ticker
+ok 128 - full_report expansion mixes light pass and full deep dive per ticker
+  ---
+  duration_ms: 21.866032
+  type: 'test'
+  ...
+# Subtest: deep_dive expansion always creates seven steps for the requested ticker
+ok 129 - deep_dive expansion always creates seven steps for the requested ticker
+  ---
+  duration_ms: 2.734999
+  type: 'test'
+  ...
+# Subtest: escalation tickers force full deep dive during full_report expansion
+ok 130 - escalation tickers force full deep dive during full_report expansion
+  ---
+  duration_ms: 4.243102
+  type: 'test'
+  ...
+# Subtest: handler registry exposes all nine step handlers
+ok 131 - handler registry exposes all nine step handlers
+  ---
+  duration_ms: 0.152319
+  type: 'test'
+  ...
+# Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/yahoo-finance2/issues/764\#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `new YahooFinance({ suppressNotices: ['yahooSurvey'] })`.
+# Subtest: technical handler validates and persists LLM artifact
+ok 132 - technical handler validates and persists LLM artifact
+  ---
+  duration_ms: 1125.204407
+  type: 'test'
+  ...
+# Subtest: sentiment handler validates and persists LLM artifact
+ok 133 - sentiment handler validates and persists LLM artifact
+  ---
+  duration_ms: 15.495178
+  type: 'test'
+  ...
+# Subtest: macro handler validates and persists LLM artifact
+ok 134 - macro handler validates and persists LLM artifact
+  ---
+  duration_ms: 6.349014
+  type: 'test'
+  ...
+# Subtest: risk handler validates and persists LLM artifact
+ok 135 - risk handler validates and persists LLM artifact
+  ---
+  duration_ms: 10.297849
+  type: 'test'
+  ...
+# Subtest: fundamentals normalizer recovers missing ticker from step inputs
+ok 136 - fundamentals normalizer recovers missing ticker from step inputs
+  ---
+  duration_ms: 2.009102
+  type: 'test'
+  ...
+# Subtest: debate handler validates and persists LLM artifact
+ok 137 - debate handler validates and persists LLM artifact
+  ---
+  duration_ms: 6.887923
+  type: 'test'
+  ...
+# 2026-05-10 12:14:51 [WARN] strategy_dual_write_failed user=queue-user ticker=AAPL error=writeStrategy requires the application database
+# Subtest: synthesis handler validates and persists LLM strategy
+ok 138 - synthesis handler validates and persists LLM strategy
+  ---
+  duration_ms: 9.193434
+  type: 'test'
+  ...
+# Subtest: synthesis handler writes tracking fields for non-held deep dive ideas
+ok 139 - synthesis handler writes tracking fields for non-held deep dive ideas
+  ---
+  duration_ms: 2.819098
+  type: 'test'
+  ...
+# Subtest: daily_brief expansion creates quick_check steps for held tickers
+ok 140 - daily_brief expansion creates quick_check steps for held tickers
+  ---
+  duration_ms: 6.392454
+  type: 'test'
+  ...
+# Subtest: quick_check expansion creates a single quick_check.evaluate step
+ok 141 - quick_check expansion creates a single quick_check.evaluate step
+  ---
+  duration_ms: 2.056882
+  type: 'test'
+  ...
+# Subtest: full_report expansion does not include quick_check or tracking steps
+ok 142 - full_report expansion does not include quick_check or tracking steps
+  ---
+  duration_ms: 2.207371
+  type: 'test'
+  ...
+# Subtest: quick_check.evaluate handler produces a valid artifact without LLM
+ok 143 - quick_check.evaluate handler produces a valid artifact without LLM
+  ---
+  duration_ms: 6.523394
+  type: 'test'
+  ...
+# Subtest: quick_check.evaluate signals stale strategy (no deep dive ever)
+ok 144 - quick_check.evaluate signals stale strategy (no deep dive ever)
+  ---
+  duration_ms: 4.116953
+  type: 'test'
+  ...
+# 2026-05-10 12:14:51 [INFO] quick_check.evaluate: skipping escalation because application database is not configured user=handler-quick-check-expired ticker=AAPL
+# Subtest: quick_check.evaluate signals expired catalyst
+ok 145 - quick_check.evaluate signals expired catalyst
+  ---
+  duration_ms: 6.106456
+  type: 'test'
+  ...
+# 2026-05-10 12:14:51 [INFO] tracking.evaluate: skipping escalation because application database is not configured user=handler-tracking-evaluate ticker=GOOGL
+# Subtest: tracking.evaluate handler produces a valid artifact without LLM
+ok 146 - tracking.evaluate handler produces a valid artifact without LLM
+  ---
+  duration_ms: 9.77466
+  type: 'test'
+  ...
+# Subtest: tracking.evaluate never escalates muted assets
+ok 147 - tracking.evaluate never escalates muted assets
+  ---
+  duration_ms: 5.01627
+  type: 'test'
+  ...
+# 2026-05-10 12:14:51 [INFO] quick_check.evaluate: skipping escalation because application database is not configured user=handler-quick-check-missing-strategy ticker=NVDA
+# Subtest: quick_check.evaluate normalizer recovers missing strategy gracefully
+ok 148 - quick_check.evaluate normalizer recovers missing strategy gracefully
+  ---
+  duration_ms: 3.695315
+  type: 'test'
+  ...
+# Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/yahoo-finance2/issues/764\#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `new YahooFinance({ suppressNotices: ['yahooSurvey'] })`.
+# Subtest: assessStrategyBaselineForTicker classifies bootstrap placeholder as provisional
+ok 149 - assessStrategyBaselineForTicker classifies bootstrap placeholder as provisional
+  ---
+  duration_ms: 1042.574877
+  type: 'test'
+  ...
+# Subtest: assessStrategyBaselineForTicker treats healthy legacy strategy as valid
+ok 150 - assessStrategyBaselineForTicker treats healthy legacy strategy as valid
+  ---
+  duration_ms: 109.145215
+  type: 'test'
+  ...
+# Subtest: assessStrategyBaselineForTicker marks old validated strategy as stale
+ok 151 - assessStrategyBaselineForTicker marks old validated strategy as stale
+  ---
+  duration_ms: 114.90833
+  type: 'test'
+  ...
+# Subtest: assessStrategyBaselineForTicker trusts validated full-report baseline without deep-dive timestamp
+ok 152 - assessStrategyBaselineForTicker trusts validated full-report baseline without deep-dive timestamp
+  ---
+  duration_ms: 57.78097
+  type: 'test'
+  ...
+# Subtest: assessStrategyBaselineForTicker trusts completed queue baseline even if old metadata said provisional
+ok 153 - assessStrategyBaselineForTicker trusts completed queue baseline even if old metadata said provisional
+  ---
+  duration_ms: 10.16202
+  type: 'test'
+  ...
+# Subtest: assessStrategyBaselineForTicker marks malformed strategy as invalid
+ok 154 - assessStrategyBaselineForTicker marks malformed strategy as invalid
+  ---
+  duration_ms: 5.162299
+  type: 'test'
+  ...
+# Subtest: loadStrategyFile repairs malformed but salvageable strategy output
+ok 155 - loadStrategyFile repairs malformed but salvageable strategy output
+  ---
+  duration_ms: 43.393636
+  type: 'test'
+  ...
+# Subtest: loadStrategyFile rejects unrecoverable strategy when ticker cannot be normalized
+ok 156 - loadStrategyFile rejects unrecoverable strategy when ticker cannot be normalized
+  ---
+  duration_ms: 1.943243
+  type: 'test'
+  ...
+# Subtest: splitTelegramText removes control characters and preserves Markdown as plain text
+ok 157 - splitTelegramText removes control characters and preserves Markdown as plain text
+  ---
+  duration_ms: 0.717377
+  type: 'test'
+  ...
+# Subtest: splitTelegramText chunks long text at safe boundaries without exceeding the Telegram limit
+ok 158 - splitTelegramText chunks long text at safe boundaries without exceeding the Telegram limit
+  ---
+  duration_ms: 0.353358
+  type: 'test'
+  ...
+# Subtest: splitTelegramText handles empty and boundary-length text
+ok 159 - splitTelegramText handles empty and boundary-length text
+  ---
+  duration_ms: 0.595648
+  type: 'test'
+  ...
+# Subtest: sendTelegramMessage sends plain text chunks with previews disabled
+ok 160 - sendTelegramMessage sends plain text chunks with previews disabled
+  ---
+  duration_ms: 19.770091
+  type: 'test'
+  ...
+# Subtest: sendTelegramMessage records redacted non-2xx Telegram responses without throwing
+ok 161 - sendTelegramMessage records redacted non-2xx Telegram responses without throwing
+  ---
+  duration_ms: 1.734052
+  type: 'test'
+  ...
+# Subtest: sendTelegramMessage records redacted network errors and stops after the failed chunk
+ok 162 - sendTelegramMessage records redacted network errors and stops after the failed chunk
+  ---
+  duration_ms: 0.505898
+  type: 'test'
+  ...
+# Subtest: redactTelegramError handles non-string bodies and token-bearing URLs
+ok 163 - redactTelegramError handles non-string bodies and token-bearing URLs
+  ---
+  duration_ms: 0.213979
+  type: 'test'
+  ...
+# 2026-05-10 12:14:51 [INFO] Created workspace for user: workspace-save-portfolio
+# Subtest: saveUserPortfolio stores a valid portfolio and opens pending guidance without starting bootstrap
+ok 164 - saveUserPortfolio stores a valid portfolio and opens pending guidance without starting bootstrap
+  ---
+  duration_ms: 14.549291
+  type: 'test'
+  ...
+# 2026-05-10 12:14:51 [INFO] Created workspace for user: workspace-bootstrap
+# 2026-05-10 12:14:51 [INFO] Initialized portfolio for user workspace-bootstrap: 2 unique tickers
+# 2026-05-10 12:14:51 [INFO] State transition: INCOMPLETE → BOOTSTRAPPING | reason=bootstrap_started
+# Subtest: startUserBootstrap deduplicates holdings by ticker and preserves skip status
+ok 165 - startUserBootstrap deduplicates holdings by ticker and preserves skip status
+  ---
+  duration_ms: 8.311086
+  type: 'test'
+  ...
+# 2026-05-10 12:14:51 [INFO] Created workspace for user: workspace-reconcile
+# Subtest: reconcileWorkspaceIntegrity preserves non-portfolio ticker data and pending deep dives when strategy/report data exists
+ok 166 - reconcileWorkspaceIntegrity preserves non-portfolio ticker data and pending deep dives when strategy/report data exists
+  ---
+  duration_ms: 13.584935
+  type: 'test'
+  ...
+# 2026-05-10 12:14:52 [INFO] Created workspace for user: workspace-reconcile-exploratory-restore
+# Subtest: reconcileWorkspaceIntegrity recreates exploratory ticker workspace from existing non-portfolio reports
+ok 167 - reconcileWorkspaceIntegrity recreates exploratory ticker workspace from existing non-portfolio reports
+  ---
+  duration_ms: 14.126653
+  type: 'test'
+  ...
+# 2026-05-10 12:14:52 [INFO] Created workspace for user: workspace-reconcile-orphaned-pending
+# 2026-05-10 12:14:52 [INFO] Reconciled workspace integrity for workspace-reconcile-orphaned-pending: archivedTickers=none archivedReports=none removedPendingDeepDives=AAPL
+# Subtest: reconcileWorkspaceIntegrity removes pending deep dives only when no portfolio or stored ticker data exists
+ok 168 - reconcileWorkspaceIntegrity removes pending deep dives only when no portfolio or stored ticker data exists
+  ---
+  duration_ms: 14.614773
+  type: 'test'
+  ...
+# Subtest: shared user workspace manifest points to real files
+ok 169 - shared user workspace manifest points to real files
+  ---
+  duration_ms: 2.892219
+  type: 'test'
+  ...
+# Subtest: createSavedConversation applies the default 7 day TTL when no override is configured
+ok 170 - createSavedConversation applies the default 7 day TTL when no override is configured
+  ---
+  duration_ms: 2.071472
+  type: 'test'
+  ...
+# Subtest: createSavedConversation honors positive TTL overrides and coerces invalid or low values back to seven days
+ok 171 - createSavedConversation honors positive TTL overrides and coerces invalid or low values back to seven days
+  ---
+  duration_ms: 0.543807
+  type: 'test'
+  ...
+# Subtest: listSavedDashboardConversations returns only dashboard conversations scoped to the requested user and excludes archived rows in SQL
+ok 172 - listSavedDashboardConversations returns only dashboard conversations scoped to the requested user and excludes archived rows in SQL
+  ---
+  duration_ms: 0.388619
+  type: 'test'
+  ...
+# Subtest: loadConversationForUser reports active archived expired and missing conversation states without leaking other users
+ok 173 - loadConversationForUser reports active archived expired and missing conversation states without leaking other users
+  ---
+  duration_ms: 0.502057
+  type: 'test'
+  ...
+# Subtest: renameSavedConversation validates titles and updates only a matching active conversation owned by the user
+ok 174 - renameSavedConversation validates titles and updates only a matching active conversation owned by the user
+  ---
+  duration_ms: 0.924127
+  type: 'test'
+  ...
+# Subtest: rename and archive fail closed for missing or wrong-user conversations
+ok 175 - rename and archive fail closed for missing or wrong-user conversations
+  ---
+  duration_ms: 0.496198
+  type: 'test'
+  ...
+# Subtest: archiveSavedConversation performs a soft archive scoped by id and user
+ok 176 - archiveSavedConversation performs a soft archive scoped by id and user
+  ---
+  duration_ms: 0.23065
+  type: 'test'
+  ...
+# Subtest: saved-chat store exposes database-unavailable and malformed-row failures as typed errors
+ok 177 - saved-chat store exposes database-unavailable and malformed-row failures as typed errors
+  ---
+  duration_ms: 0.388818
+  type: 'test'
+  ...
+1..177
+# tests 177
+# suites 0
+# pass 174
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8539.734617

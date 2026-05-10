@@ -1,0 +1,472 @@
+backend src tree relevant:
+backend/src/app.ts
+backend/src/db/applicationDataSource.ts
+backend/src/db/entities/AdminAuditLogEntity.ts
+backend/src/db/entities/ChannelBindingEntity.ts
+backend/src/db/entities/ConversationEntity.ts
+backend/src/db/entities/ConversationTurnEntity.ts
+backend/src/db/entities/CorporateActionEntity.ts
+backend/src/db/entities/EncryptedSecretEntity.ts
+backend/src/db/entities/EscalationHistoryEntity.ts
+backend/src/db/entities/FeatureFlagEntity.ts
+backend/src/db/entities/JobEntity.ts
+backend/src/db/entities/MigrationArchiveEntity.ts
+backend/src/db/entities/ModelTierAssignmentEntity.ts
+backend/src/db/entities/NotificationEntity.ts
+backend/src/db/entities/ObservabilityRequestEntity.ts
+backend/src/db/entities/OutputFilterEventEntity.ts
+backend/src/db/entities/PortfolioRiskSnapshotEntity.ts
+backend/src/db/entities/PositionTransactionEntity.ts
+backend/src/db/entities/ReportBatchEntity.ts
+backend/src/db/entities/ReportIndexEntity.ts
+backend/src/db/entities/StepLifecycleEventEntity.ts
+backend/src/db/entities/StepWorkItemEntity.ts
+backend/src/db/entities/StrategyEntity.ts
+backend/src/db/entities/TickerSnoozeEntity.ts
+backend/src/db/entities/TickerWorkItemEntity.ts
+backend/src/db/entities/ToolCallEntity.ts
+backend/src/db/entities/TrackedAssetEntity.ts
+backend/src/db/entities/UserEntity.ts
+backend/src/db/entities/UserPointsBudgetEntity.ts
+backend/src/db/entities/VerdictActionEntity.ts
+backend/src/middleware/auth.ts
+backend/src/middleware/rateLimit.ts
+backend/src/middleware/userIsolation.ts
+backend/src/routes/admin.ts
+backend/src/routes/analystConfig.ts
+backend/src/routes/auth.ts
+backend/src/routes/channels.ts
+backend/src/routes/chat.ts
+backend/src/routes/conditions.ts
+backend/src/routes/control.ts
+backend/src/routes/fullReportRoutes.test.ts
+backend/src/routes/jobs.ts
+backend/src/routes/llmProxy.test.ts
+backend/src/routes/llmProxy.ts
+backend/src/routes/notifications.ts
+backend/src/routes/onboarding.ts
+backend/src/routes/portfolio.ts
+backend/src/routes/reports.ts
+backend/src/routes/search.ts
+backend/src/routes/strategiesRoutes.test.ts
+backend/src/routes/strategies.ts
+backend/src/routes/support.ts
+backend/src/routes/telegram.ts
+backend/src/routes/verdictActions.ts
+backend/src/routes/verdicts.ts
+backend/src/routes/whatsapp.ts
+backend/src/schemas/analysts.ts
+backend/src/schemas/channels.ts
+backend/src/schemas/control.ts
+backend/src/schemas/index.ts
+backend/src/schemas/job.ts
+backend/src/schemas/notifications.ts
+backend/src/schemas/onboarding.ts
+backend/src/schemas/portfolio.ts
+backend/src/schemas/profile.ts
+backend/src/schemas/strategy.test.ts
+backend/src/schemas/strategy.ts
+backend/src/schemas/support.ts
+backend/src/scripts/cleanupOpenClawWorkspaces.ts
+backend/src/scripts/migrateUserStateToPostgres.ts
+backend/src/scripts/migrateUserToStepQueue.ts
+backend/src/scripts/rebuildIndex.ts
+backend/src/scripts/replayOpeningLots.ts
+backend/src/scripts/supersedeStuckJob.test.ts
+backend/src/scripts/supersedeStuckJob.ts
+backend/src/scripts/verifyMigrationParity.ts
+backend/src/server.ts
+backend/src/services/adminDefaultsService.ts
+backend/src/services/advisorLlmService.test.ts
+backend/src/services/advisorLlmService.ts
+backend/src/services/analystConfigService.ts
+backend/src/services/baselineCoverageService.test.ts
+backend/src/services/baselineCoverageService.ts
+backend/src/services/budgetStore.ts
+backend/src/services/channelBindingStore.ts
+backend/src/services/channelService.ts
+backend/src/services/chat/agentChat.ts
+backend/src/services/chat/confirmationStore.ts
+backend/src/services/chat/conversationStore.ts
+backend/src/services/chat/outputFilter.ts
+backend/src/services/chat/personaPrompt.ts
+backend/src/services/conditionEngine.ts
+backend/src/services/controlService.ts
+backend/src/services/corporateActionsStore.ts
+backend/src/services/dailyBriefService.selection.test.ts
+backend/src/services/dailyBriefService.test.ts
+backend/src/services/dailyBriefService.ts
+backend/src/services/dailySchedulerService.ts
+backend/src/services/dataSources/cache.ts
+backend/src/services/dataSources/fundamentalsSource.ts
+backend/src/services/dataSources/macroSource.ts
+backend/src/services/dataSources/marketDataSource.ts
+backend/src/services/dataSources/sentimentSource.ts
+backend/src/services/dbUtils.ts
+backend/src/services/deepDiveService.test.ts
+backend/src/services/deepDiveService.ts
+backend/src/services/escalationHistoryStore.ts
+backend/src/services/eventStorePostgres.ts
+backend/src/services/eventStore.ts
+backend/src/services/exaService.ts
+backend/src/services/explorationService.ts
+backend/src/services/featureFlagService.ts
+backend/src/services/feedService.test.ts
+backend/src/services/feedService.ts
+backend/src/services/fullReportService.test.ts
+backend/src/services/fullReportService.ts
+backend/src/services/jobAdmissionService.test.ts
+backend/src/services/jobAdmissionService.ts
+backend/src/services/jobCompletionService.ts
+backend/src/services/jobService.ts
+backend/src/services/jobStateReconciler.test.ts
+backend/src/services/jobStateReconciler.ts
+backend/src/services/jobTriggerService.test.ts
+backend/src/services/jobTriggerService.ts
+backend/src/services/llmProxy.test.ts
+backend/src/services/llmProxy.ts
+backend/src/services/logger.ts
+backend/src/services/migrationArchiveStore.ts
+backend/src/services/newIdeasService.test.ts
+backend/src/services/newIdeasService.ts
+backend/src/services/notificationService.test.ts
+backend/src/services/notificationService.ts
+backend/src/services/notificationStore.ts
+backend/src/services/observabilityRetentionService.ts
+backend/src/services/paths.ts
+backend/src/services/pointsBudgetService.test.ts
+backend/src/services/pointsBudgetService.ts
+backend/src/services/portfolioRiskService.ts
+backend/src/services/portfolioRiskStore.ts
+backend/src/services/positionRuleEngine.ts
+backend/src/services/priceService.ts
+backend/src/services/profileService.ts
+backend/src/services/quickCheckService.test.ts
+backend/src/services/quickCheckService.ts
+backend/src/services/reportIndexStore.ts
+backend/src/services/sanitizerService.ts
+backend/src/services/scheduler/watchdog.ts
+backend/src/services/searchService.ts
+backend/src/services/security/adminAuditStore.ts
+backend/src/services/security/encryptedSecretsStore.ts
+backend/src/services/security/startupGuards.ts
+backend/src/services/snoozeStore.ts
+backend/src/services/stateService.ts
+backend/src/services/stepQueue/admission.ts
+backend/src/services/stepQueue/artifactIO.ts
+backend/src/services/stepQueue/completionEffects.ts
+backend/src/services/stepQueue/executor.ts
+backend/src/services/stepQueue/expansion.ts
+backend/src/services/stepQueue/featureFlag.ts
+backend/src/services/stepQueue/handlers.ts
+backend/src/services/stepQueue/handlerUtils.ts
+backend/src/services/stepQueue/instructorClient.ts
+backend/src/services/stepQueue/modelTier.ts
+backend/src/services/stepQueue.test.ts
+backend/src/services/stepQueue/types.ts
+backend/src/services/strategyBaselineService.test.ts
+backend/src/services/strategyBaselineService.ts
+backend/src/services/strategyExportService.ts
+backend/src/services/strategyFileService.test.ts
+backend/src/services/strategyFileService.ts
+backend/src/services/strategyStore.ts
+backend/src/services/supportService.ts
+backend/src/services/telegramSecurityService.ts
+backend/src/services/trackedAssetService.ts
+backend/src/services/transactionStore.ts
+backend/src/services/validationService.ts
+backend/src/services/verdictActionsStore.ts
+backend/src/services/watchdogService.ts
+backend/src/services/workspaceService.test.ts
+backend/src/services/workspaceService.ts
+backend/src/services/workspaceTemplate.test.ts
+backend/src/types/index.ts
+
+frontend src admin/api relevant:
+frontend/src/api/admin.ts
+frontend/src/api/analystConfig.ts
+frontend/src/api/auth.ts
+frontend/src/api/balance.ts
+frontend/src/api/channels.ts
+frontend/src/api/chat.ts
+frontend/src/api/client.ts
+frontend/src/api/conditions.ts
+frontend/src/api/control.ts
+frontend/src/api/jobs.ts
+frontend/src/api/notifications.ts
+frontend/src/api/onboarding.ts
+frontend/src/api/portfolioRisk.ts
+frontend/src/api/portfolio.ts
+frontend/src/api/search.ts
+frontend/src/api/strategies.ts
+frontend/src/api/support.ts
+frontend/src/api/verdictActions.ts
+frontend/src/components/AnalystPipelineConfig.tsx
+frontend/src/components/ChannelConnectCode.tsx
+frontend/src/components/ControlBanner.tsx
+frontend/src/components/design/ActionBadge.tsx
+frontend/src/components/design/AlertBanner.tsx
+frontend/src/components/design/HeroStatCard.tsx
+frontend/src/components/design/ScoreChip.tsx
+frontend/src/components/design/StatCell.tsx
+frontend/src/components/jobs/JobCard.tsx
+frontend/src/components/jobs/SupersededJobBanner.tsx
+frontend/src/components/portfolio/AddPositionModal.tsx
+frontend/src/components/portfolio/PortfolioRiskCard.tsx
+frontend/src/components/portfolio/PositionDetailModal.tsx
+frontend/src/components/portfolio/PositionRow.tsx
+frontend/src/components/portfolio/StrategyModal.tsx
+frontend/src/components/portfolio/SummaryStrip.tsx
+frontend/src/components/support/ContactAdminButton.tsx
+frontend/src/components/today/AttentionBlock.tsx
+frontend/src/components/today/AttentionCard.tsx
+frontend/src/components/today/HealthHero.tsx
+frontend/src/components/today/SetupBanner.tsx
+frontend/src/components/ui/Badge.tsx
+frontend/src/components/ui/BottomNav.tsx
+frontend/src/components/ui/Card.tsx
+frontend/src/components/ui/EmptyState.tsx
+frontend/src/components/ui/ErrorState.tsx
+frontend/src/components/ui/PointsBadge.tsx
+frontend/src/components/ui/Spinner.tsx
+frontend/src/components/ui/TickerSearch.tsx
+frontend/src/components/ui/Toast.tsx
+frontend/src/components/ui/TopBar.tsx
+frontend/src/pages/Admin.tsx
+frontend/src/pages/Alerts.tsx
+frontend/src/pages/Chat.tsx
+frontend/src/pages/Controls.tsx
+frontend/src/pages/Login.tsx
+frontend/src/pages/Onboarding.tsx
+frontend/src/pages/Portfolio.tsx
+frontend/src/pages/Reports.tsx
+frontend/src/pages/Settings.tsx
+frontend/src/pages/Strategies.tsx
+frontend/src/pages/SuspensionPage.tsx
+frontend/src/store/authStore.ts
+frontend/src/store/i18n.ts
+frontend/src/store/preferencesStore.ts
+frontend/src/store/toastStore.ts
+frontend/src/types/api.ts
+
+admin route refs:
+backend/src/db/applicationDataSource.ts:22:import { AdminAuditLogEntitySchema } from "./entities/AdminAuditLogEntity.js";
+backend/src/db/applicationDataSource.ts:78:      AdminAuditLogEntitySchema,
+backend/src/db/entities/AdminAuditLogEntity.ts:3:export type AdminAuditResultStatus = "success" | "error" | "rejected";
+backend/src/db/entities/AdminAuditLogEntity.ts:5:export interface AdminAuditLogEntity {
+backend/src/db/entities/AdminAuditLogEntity.ts:7:  actorAdminId: string;
+backend/src/db/entities/AdminAuditLogEntity.ts:11:  resultStatus: AdminAuditResultStatus;
+backend/src/db/entities/AdminAuditLogEntity.ts:17:export const AdminAuditLogEntitySchema = new EntitySchema<AdminAuditLogEntity>({
+backend/src/db/entities/AdminAuditLogEntity.ts:18:  name: "AdminAuditLog",
+backend/src/db/entities/AdminAuditLogEntity.ts:19:  tableName: "admin_audit_log",
+backend/src/db/entities/AdminAuditLogEntity.ts:22:    actorAdminId: { name: "actor_admin_id", type: "varchar", length: 64 },
+frontend/src/App.tsx:17:import { Admin } from "./pages/Admin";
+frontend/src/App.tsx:217: <Route path="/admin" element={<Admin />} />
+backend/src/services/eventStore.ts:95:// Singleton imported by proxy router and admin routes
+backend/src/services/llmProxy.ts:14:export const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
+backend/src/app.ts:25:import adminRoutes from "./routes/admin.js";
+backend/src/app.ts:32:import whatsappRoutes from "./routes/whatsapp.js";
+backend/src/app.ts:38:  app.set("trust proxy", process.env["TRUST_PROXY"] ?? 1);
+backend/src/app.ts:40:  app.use(helmet({
+backend/src/app.ts:44:  app.use(cors());
+backend/src/app.ts:45:  app.use(express.json({ limit: "2mb" }));
+backend/src/app.ts:48:  app.get("/api/health", (_req: Request, res: Response) => {
+backend/src/app.ts:52:  // Rate limiter on all API routes except /api/admin (which uses X-Admin-Key auth)
+backend/src/app.ts:53:  app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+backend/src/app.ts:54:    if (req.path.startsWith("/admin")) return next();
+backend/src/app.ts:60:  app.use("/api/auth", authRoutes);
+backend/src/app.ts:62:  // Admin routes — have their own X-Admin-Key auth, no JWT needed
+backend/src/app.ts:63:  app.use("/api/admin", adminRoutes);
+backend/src/app.ts:71:  app.use("/api/onboard", onboardingRoutes);
+backend/src/app.ts:72:  app.use("/api", telegramRoutes); // POST /api/telegram/webhook — public webhook path
+backend/src/app.ts:73:  app.use("/api", whatsappRoutes); // GET/POST /api/whatsapp/webhook — public webhook path
+backend/src/app.ts:76:  app.use("/api", authMiddleware, userIsolationMiddleware);
+backend/src/app.ts:79:  app.use("/api/me", controlRoutes); // GET /api/me/control
+backend/src/app.ts:80:  app.use("/api", portfolioRoutes); // GET /api/portfolio
+backend/src/app.ts:81:  app.use("/api", verdictsRoutes); // GET /api/verdicts
+backend/src/app.ts:82:  app.use("/api", jobsRoutes); // POST /api/jobs/trigger, GET /api/jobs
+backend/src/app.ts:83:  app.use("/api", reportsRoutes); // GET /api/reports/*
+backend/src/app.ts:84:  app.use("/api", notificationsRoutes); // GET/POST /api/notifications*
+backend/src/app.ts:85:  app.use("/api", supportRoutes); // POST /api/support/messages
+backend/src/app.ts:86:  app.use("/api", conditionRoutes); // GET /api/conditions/*
+backend/src/app.ts:87:  app.use("/api", strategyRoutes); // GET /api/strategies/*
+backend/src/app.ts:88:  app.use("/api", searchRoutes); // GET /api/search/ticker — no user workspace needed
+backend/src/app.ts:89:  app.use("/api", chatRoutes); // POST /api/chat/messages, GET /api/chat/conversations/:id
+backend/src/app.ts:90:  app.use("/api", channelRoutes); // POST /api/channels/binding-codes
+backend/src/app.ts:91:  app.use("/api", verdictActionsRoutes); // POST /api/verdict-actions, POST /api/snoozes
+backend/src/app.ts:92:  app.use("/api", analystConfigRoutes); // GET/PATCH /api/analyst-config
+backend/src/app.ts:96:  app.use(express.static(frontendDist));
+backend/src/app.ts:97:  app.get("/{*path}", (_req: Request, res: Response) => {
+backend/src/app.ts:103:  app.use(
+backend/src/server.ts:2:import { createApp } from "./app.js";
+backend/src/server.ts:76:  const server = app.listen(PORT, () => {
+backend/src/services/telegramSecurityService.ts:2:  /\badmin(?:istrative)?\b/i,
+frontend/src/pages/Onboarding.tsx:80:  adminKey: string;
+frontend/src/pages/Onboarding.tsx:100:  adminKey: "",
+frontend/src/pages/Onboarding.tsx:176:    if (!state.adminKey.trim()) e.adminKey = t("onboardFieldRequired", language);
+frontend/src/pages/Onboarding.tsx:197:          <label className={labelCls}>{t("onboardAdminKey", language)}</label>
+frontend/src/pages/Onboarding.tsx:198:          <input type="text" value={state.adminKey} onChange={(e) => update("adminKey", e.target.value)} placeholder={t("onboardAdminKey", language)} className={inputCls} />
+frontend/src/pages/Onboarding.tsx:199:          <FieldError message={errors.adminKey} />
+frontend/src/pages/Onboarding.tsx:1031:        await submitOnboardInit(initPayload, state.adminKey);
+frontend/src/components/ui/TickerSearch.tsx:5:import { ContactAdminButton } from "../support/ContactAdminButton";
+frontend/src/components/ui/TickerSearch.tsx:206:              <ContactAdminButton
+frontend/src/pages/Settings.tsx:299:  const whatsappConnected = connectivity?.whatsapp.connected ?? false;
+frontend/src/pages/Settings.tsx:612:                    {whatsappConnected && connectivity?.whatsapp.target
+frontend/src/pages/Settings.tsx:613:                      ? `${t("connectedTo", lang)} ${connectivity.whatsapp.target}`
+frontend/src/components/ui/ErrorState.tsx:1:import { ContactAdminButton } from "../support/ContactAdminButton";
+frontend/src/components/ui/ErrorState.tsx:6: contactAdminSource?: string;
+frontend/src/components/ui/ErrorState.tsx:9:export function ErrorState({ message, onRetry, contactAdminSource }: Props) {
+frontend/src/components/ui/ErrorState.tsx:22: {contactAdminSource && (
+frontend/src/components/ui/ErrorState.tsx:23: <ContactAdminButton
+frontend/src/components/ui/ErrorState.tsx:24: source={contactAdminSource}
+frontend/src/components/ControlBanner.tsx:16:  blocked:   { text: "Your account has been restricted. Contact the administrator.",   type: "warning" },
+frontend/src/components/ControlBanner.tsx:104:            This message is pinned by the administrator.
+frontend/src/components/ui/TopBar.tsx:6:import { ContactAdminButton } from "../support/ContactAdminButton";
+frontend/src/components/ui/TopBar.tsx:16: showContactAdmin?: boolean;
+frontend/src/components/ui/TopBar.tsx:17: contactAdminSource?: string;
+frontend/src/components/ui/TopBar.tsx:37: showContactAdmin = true,
+frontend/src/components/ui/TopBar.tsx:38: contactAdminSource = "topbar",
+frontend/src/components/ui/TopBar.tsx:79: {showContactAdmin && <ContactAdminButton source={contactAdminSource} />}
+frontend/src/components/support/ContactAdminButton.tsx:9:interface ContactAdminButtonProps {
+frontend/src/components/support/ContactAdminButton.tsx:17:export function ContactAdminButton({
+frontend/src/components/support/ContactAdminButton.tsx:23:}: ContactAdminButtonProps) {
+frontend/src/components/support/ContactAdminButton.tsx:32:  const computedLabel = label ?? t("contactAdmin", language);
+frontend/src/components/support/ContactAdminButton.tsx:52:      showToast(t("contactAdminSent", language), "success");
+frontend/src/components/support/ContactAdminButton.tsx:55:      showToast(t("contactAdminFailed", language), "error");
+frontend/src/components/support/ContactAdminButton.tsx:83:                <h2 className="text-sm font-bold text-[var(--color-fg-default)]">{t("contactAdminTitle", language)}</h2>
+frontend/src/components/support/ContactAdminButton.tsx:84:                <p className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">{t("contactAdminSubtitle", language)}</p>
+frontend/src/components/support/ContactAdminButton.tsx:98:                  {t("contactAdminSubject", language)}
+frontend/src/components/support/ContactAdminButton.tsx:104:                  placeholder={t("contactAdminSubjectPlaceholder", language)}
+frontend/src/components/support/ContactAdminButton.tsx:111:                  {t("contactAdminMessage", language)}
+frontend/src/components/support/ContactAdminButton.tsx:118:                  placeholder={t("contactAdminMessagePlaceholder", language)}
+frontend/src/components/support/ContactAdminButton.tsx:122:                  {t("contactAdminContext", language)}: {page}
+backend/src/services/adminDefaultsService.ts:6:export interface AdminDefaults {
+backend/src/services/adminDefaultsService.ts:11:export interface AdminDefaultsPatch {
+backend/src/services/adminDefaultsService.ts:16:const DEFAULTS: AdminDefaults = {
+backend/src/services/adminDefaultsService.ts:27:function normalizeDefaults(input: AdminDefaultsPatch): AdminDefaults {
+backend/src/services/adminDefaultsService.ts:36:async function ensureAdminDefaultsTable(): Promise<void> {
+backend/src/services/adminDefaultsService.ts:39:    `CREATE TABLE IF NOT EXISTS admin_defaults (
+backend/src/services/adminDefaultsService.ts:48:export async function getAdminDefaults(): Promise<AdminDefaults> {
+backend/src/services/adminDefaultsService.ts:50:  await ensureAdminDefaultsTable();
+backend/src/services/adminDefaultsService.ts:53:    `SELECT key, value FROM admin_defaults WHERE key IN ('modelTier', 'pointsBudget')`
+backend/src/services/adminDefaultsService.ts:56:  const stored: Partial<AdminDefaults> = {};
+backend/src/services/adminDefaultsService.ts:64:export async function updateAdminDefaults(
+backend/src/services/adminDefaultsService.ts:65:  patch: AdminDefaultsPatch,
+backend/src/services/adminDefaultsService.ts:66:  updatedBy = "admin"
+backend/src/services/adminDefaultsService.ts:67:): Promise<AdminDefaults> {
+backend/src/services/adminDefaultsService.ts:71:  const current = await getAdminDefaults();
+backend/src/services/adminDefaultsService.ts:82:  await ensureAdminDefaultsTable();
+backend/src/services/adminDefaultsService.ts:85:    `INSERT INTO admin_defaults (key, value, updated_at, updated_by)
+backend/src/services/stepQueue/instructorClient.ts:60:    baseURL: "https://openrouter.ai/api/v1",
+backend/src/services/stepQueue/types.ts:31:export type JobSource = "dashboard_action" | "auto_brief" | "admin" | "backend_job" | "telegram_command" | "whatsapp_command";
+frontend/src/api/onboarding.ts:65:  adminKey: string
+frontend/src/api/onboarding.ts:69:      headers: { "X-Admin-Key": adminKey },
+backend/src/services/security/adminAuditStore.ts:2:import type { AdminAuditResultStatus } from "../../db/entities/AdminAuditLogEntity.js";
+backend/src/services/security/adminAuditStore.ts:4:export type { AdminAuditResultStatus } from "../../db/entities/AdminAuditLogEntity.js";
+backend/src/services/security/adminAuditStore.ts:7: * Admin-audit store — `admin_audit_log` (design §4.13, O9).
+backend/src/services/security/adminAuditStore.ts:9: * One row per `/api/admin/*` request, written by the global middleware
+backend/src/services/security/adminAuditStore.ts:14:export interface AdminAuditRecord {
+backend/src/services/security/adminAuditStore.ts:16:  actorAdminId: string;
+backend/src/services/security/adminAuditStore.ts:20:  resultStatus: AdminAuditResultStatus;
+backend/src/services/security/adminAuditStore.ts:26:export interface WriteAdminAuditInput {
+backend/src/services/security/adminAuditStore.ts:27:  actorAdminId: string;
+backend/src/services/security/adminAuditStore.ts:31:  resultStatus: AdminAuditResultStatus;
+backend/src/services/security/adminAuditStore.ts:38:  actor_admin_id: string;
+backend/src/services/security/adminAuditStore.ts:42:  result_status: AdminAuditResultStatus;
+backend/src/services/security/adminAuditStore.ts:48:const SELECT_COLUMNS = `id, actor_admin_id, action_type, target_user_id,
+backend/src/services/security/adminAuditStore.ts:52:function fromRow(row: Row): AdminAuditRecord {
+backend/src/services/security/adminAuditStore.ts:55:    actorAdminId: row.actor_admin_id,
+backend/src/services/security/adminAuditStore.ts:66:export async function writeAdminAudit(input: WriteAdminAuditInput): Promise<AdminAuditRecord> {
+backend/src/services/security/adminAuditStore.ts:68:    throw new Error("writeAdminAudit requires the application database");
+backend/src/services/security/adminAuditStore.ts:72:    `INSERT INTO admin_audit_log
+backend/src/services/security/adminAuditStore.ts:73:       (actor_admin_id, action_type, target_user_id, args_json,
+backend/src/services/security/adminAuditStore.ts:78:      input.actorAdminId,
+backend/src/services/security/adminAuditStore.ts:90:export interface ListAdminAuditQuery {
+backend/src/services/security/adminAuditStore.ts:91:  actorAdminId?: string;
+backend/src/services/security/adminAuditStore.ts:101:export async function listAdminAudit(query: ListAdminAuditQuery = {}): Promise<AdminAuditRecord[]> {
+backend/src/services/security/adminAuditStore.ts:106:  if (query.actorAdminId) {
+backend/src/services/security/adminAuditStore.ts:107:    params.push(query.actorAdminId);
+backend/src/services/security/adminAuditStore.ts:108:    wheres.push(`actor_admin_id = $${params.length}`);
+backend/src/services/security/adminAuditStore.ts:129:    `SELECT ${SELECT_COLUMNS} FROM admin_audit_log ${where}
+backend/src/services/security/encryptedSecretsStore.ts:182: * admin observability. Decrypted plaintext is intentionally NOT returned —
+backend/src/services/dailyBriefService.ts:464:  // N3: removed the fake `pro` plan check. Coverage limit is now admin-configurable
+frontend/src/pages/SuspensionPage.tsx:31:      {/* Admin message */}
+frontend/src/pages/SuspensionPage.tsx:38:          : "Your account has been suspended. Please contact the administrator for more information."}
+backend/src/services/deepDiveService.test.ts:486:    "Cancelled by admin"
+backend/src/services/deepDiveService.test.ts:490:  assert.match(cancelled.error ?? "", /cancelled by admin/i);
+backend/src/services/deepDiveService.test.ts:502:  assert.match(state.failureReason ?? "", /cancelled by admin/i);
+backend/src/services/logger.ts:29:      filename: path.join(logDir, "app.log"),
+backend/src/services/portfolioRiskStore.ts:13: * pruning is owned by the retention loop in Phase 9 (admin retention).
+backend/src/services/chat/llmProviders/openRouterProvider.ts:10:const OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions";
+backend/src/services/searchService.ts:251:      error: "Search is temporarily unavailable. Please try again or contact admin.",
+frontend/src/pages/Admin.tsx:4:  adminFetchUsers,
+frontend/src/pages/Admin.tsx:5:  adminCreateUser,
+frontend/src/pages/Admin.tsx:6:  adminDeleteUser,
+frontend/src/pages/Admin.tsx:7:  adminAddTelegram,
+frontend/src/pages/Admin.tsx:8:  adminGetStatus,
+frontend/src/pages/Admin.tsx:9:  adminGetUserObservability,
+frontend/src/pages/Admin.tsx:10:  adminSetUserControl,
+frontend/src/pages/Admin.tsx:11:  adminClearUserControl,
+frontend/src/pages/Admin.tsx:12:  adminForceLogout,
+frontend/src/pages/Admin.tsx:13:  adminGetSystem,
+frontend/src/pages/Admin.tsx:14:  adminPatchSystem,
+frontend/src/pages/Admin.tsx:15:  adminListStepQueueJobs,
+frontend/src/pages/Admin.tsx:16:  adminGetStepQueueJob,
+frontend/src/pages/Admin.tsx:17:  adminGetStepQueueCost,
+frontend/src/pages/Admin.tsx:18:  adminGetStepQueueModels,
+frontend/src/pages/Admin.tsx:19:  adminUpdateStepQueueModel,
+frontend/src/pages/Admin.tsx:20:  adminGetObservabilityRange,
+frontend/src/pages/Admin.tsx:21:  adminListSupportMessages,
+frontend/src/pages/Admin.tsx:22:  adminUpdateSupportMessageStatus,
+frontend/src/pages/Admin.tsx:23:  adminUpdatePointsBudget,
+frontend/src/pages/Admin.tsx:24:  adminUpdateUserModelTier,
+frontend/src/pages/Admin.tsx:25:  adminGetDefaults,
+frontend/src/pages/Admin.tsx:26:  adminUpdateDefaults,
+frontend/src/pages/Admin.tsx:30:  type AdminDefaults,
+frontend/src/pages/Admin.tsx:31:  type AdminStatus,
+frontend/src/pages/Admin.tsx:41:} from "../api/admin";
+frontend/src/pages/Admin.tsx:47:function AdminLogin({ onLogin }: { onLogin: () => void }) {
+frontend/src/pages/Admin.tsx:55:    sessionStorage.setItem("admin_key", key.trim());
+frontend/src/pages/Admin.tsx:57:      await adminGetStatus();
+frontend/src/pages/Admin.tsx:60:      sessionStorage.removeItem("admin_key");
+frontend/src/pages/Admin.tsx:61:      setError(t("adminLoginError", language));
+frontend/src/pages/Admin.tsx:70:          <h1 className="text-xl font-bold text-[var(--color-fg-default)]">{t("adminTitle", language)}</h1>
+frontend/src/pages/Admin.tsx:71:          <p className="text-sm text-[var(--color-fg-muted)] mt-1">{t("adminLoginSub", language)}</p>
+frontend/src/pages/Admin.tsx:78:            placeholder={t("adminKeyPlaceholder", language)}
+frontend/src/pages/Admin.tsx:83:            {t("adminSignIn", language)}
+frontend/src/pages/Admin.tsx:188:    if (!form.userId.trim() || !form.password) { setError(t("adminUserCreationError", language)); return; }
+frontend/src/pages/Admin.tsx:192:      await adminCreateUser({
+frontend/src/pages/Admin.tsx:215:      setError(err instanceof Error ? err.message : t("adminUserCreationFailed", language));
+frontend/src/pages/Admin.tsx:229:          <h2 className="text-sm font-bold">{t("adminAddUser", language)}</h2>
+frontend/src/pages/Admin.tsx:237:              <label className={labelCls}>{t("adminUserIdLabel", language)} *</label>
+frontend/src/pages/Admin.tsx:241:              <label className={labelCls}>{t("adminPasswordLabel", language)} *</label>
+frontend/src/pages/Admin.tsx:245:              <label className={labelCls}>{t("adminDisplayNameLabel", language)}</label>
+frontend/src/pages/Admin.tsx:251:            <p className="text-xs font-bold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminTelegramSection", language)}</p>
+frontend/src/pages/Admin.tsx:265:            <p className="text-xs font-bold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminScheduleSection", language)}</p>
+frontend/src/pages/Admin.tsx:268:                <label className={labelCls}>{t("adminDailyTime", language)}</label>
+frontend/src/pages/Admin.tsx:273:                <label className={labelCls}>{t("adminWeeklyDay", language)}</label>
+frontend/src/pages/Admin.tsx:280:                <label className={labelCls}>{t("adminWeeklyTime", language)}</label>
+frontend/src/pages/Admin.tsx:301:              {loading ? t("adminCreating", language) : t("adminCreateUser", language)}
+frontend/src/pages/Admin.tsx:334:    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">{t("adminStatusOk", language)}</span>;
+frontend/src/pages/Admin.tsx:348:      {t("adminStatusError", language)}
+frontend/src/pages/Admin.tsx:386:    queryKey: ["admin-step-queue-jobs"],
+frontend/src/pages/Admin.tsx:387:    queryFn: () => adminListStepQueueJobs(20),
+frontend/src/pages/Admin.tsx:391:    queryKey: ["admin-step-queue-job", selectedJobId],
+frontend/src/pages/Admin.tsx:392:    queryFn: () => adminGetStepQueueJob(selectedJobId ?? ""),
+frontend/src/pages/Admin.tsx:585:  status: AdminStatus | null;
+frontend/src/pages/Admin.tsx:632:    queryKey: ["admin-observability-range", range.from, range.to],
+frontend/src/pages/Admin.tsx:633:    queryFn: () => adminGetObservabilityRange(range.from, range.to),
+frontend/src/pages/Admin.tsx:637:    queryKey: ["admin-step-queue-cost", range.from, range.to],
+frontend/src/pages/Admin.tsx:638:    queryFn: () => adminGetStepQueueCost({ from: range.from, to: range.to }),
+frontend/src/pages/Admin.tsx:642:    queryKey: ["admin-support-preview"],
+frontend/src/pages/Admin.tsx:643:    queryFn: () => adminListSupportMessages(50),
+frontend/src/pages/Admin.tsx:649:    if (firstError) onError(firstError instanceof Error ? firstError.message : "Failed to load admin overview");
+frontend/src/pages/Admin.tsx:794:    queryKey: ["admin-support-messages"],
+frontend/src/pages/Admin.tsx:795:    queryFn: () => adminListSupportMessages(200),
+frontend/src/pages/Admin.tsx:809:      await adminUpdateSupportMessageStatus(message.id, status);
+frontend/src/pages/Admin.tsx:810:      await queryClient.invalidateQueries({ queryKey: ["admin-support-messages"] });
+frontend/src/pages/Admin.tsx:811:      await queryClient.invalidateQueries({ queryKey: ["admin-support-preview"] });
+frontend/src/pages/Admin.tsx:825:            Contact-admin messages from users. Open {open.length}, closed {closed.length}.
+frontend/src/pages/Admin.tsx:893:    queryKey: ["admin-step-queue-models"],
+frontend/src/pages/Admin.tsx:894:    queryFn: adminGetStepQueueModels,
+frontend/src/pages/Admin.tsx:922:      await adminUpdateStepQueueModel(tier, stepKind, {

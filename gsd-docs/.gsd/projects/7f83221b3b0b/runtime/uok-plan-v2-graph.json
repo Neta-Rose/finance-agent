@@ -1,0 +1,356 @@
+{
+  "compiledAt": "2026-05-10T12:30:39.824Z",
+  "milestoneId": "M001",
+  "pipeline": {
+    "clarifyRoundLimit": 3,
+    "researchSynthesized": true,
+    "draftContextIncluded": false,
+    "finalizedContextIncluded": true,
+    "sourcePhase": "summarizing"
+  },
+  "nodes": [
+    {
+      "id": "execute-task:M001:S01:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [
+        "docs/pilot-features/pilot-core.json",
+        "backend/src/schemas/pilotFeature.ts",
+        "backend/src/schemas/index.ts",
+        "backend/src/services/pilotFeatureCatalogService.ts",
+        "backend/src/services/pilotFeatureCatalogService.test.ts",
+        ".gitignore"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S01.T01",
+        "title": "Added a strict validated pilot feature catalog with substantive Web, Telegram, and admin coverage.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S01:T02",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S01:T01"
+      ],
+      "writes": [
+        "db/application_postgres.sql",
+        "backend/src/db/entities/PilotFeatureReviewEntity.ts",
+        "backend/src/db/applicationDataSource.ts",
+        "backend/src/services/pilotFeatureReviewService.ts",
+        "backend/src/services/pilotFeatureReviewService.test.ts",
+        "backend/scripts/run-tests.mjs",
+        "backend/package.json"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S01.T02",
+        "title": "Added Postgres-backed pilot feature review storage with typed service errors and targeted tests.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S01:T03",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S01:T02"
+      ],
+      "writes": [
+        "backend/src/routes/admin.ts",
+        "backend/src/routes/adminPilotFeatures.test.ts"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S01.T03",
+        "title": "Exposed the admin pilot feature inventory GET/PATCH API with validation, review composition, safe failure mapping, and route tests.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S01:T04",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S01:T03"
+      ],
+      "writes": [
+        "frontend/src/api/admin.ts",
+        "frontend/src/pages/Admin.tsx"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S01.T04",
+        "title": "Added the admin Pilot Features review tab with typed API calls, searchable catalog cards, editable review state, and visible loading/save/error states.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S01:T05",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S01:T04"
+      ],
+      "writes": [
+        "docs/pilot-features/README.md",
+        ".gitignore",
+        "backend/src/services/pilotFeatureCatalogService.test.ts",
+        "backend/src/services/pilotFeatureReviewService.test.ts",
+        "backend/src/routes/adminPilotFeatures.test.ts"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S01.T05",
+        "title": "Documented the pilot feature inventory boundary and tightened catalog/API/review contract tests.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S01",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S01:T05"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S01",
+        "title": "S01",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S02:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [
+        "frontend/src/pages/Settings.tsx",
+        "scripts/verify-pilot-surface.mjs",
+        "frontend/src/components/ui/TickerSearch.tsx",
+        "frontend/src/pages/Admin.tsx",
+        "frontend/src/pages/Controls.tsx",
+        "frontend/src/pages/Onboarding.tsx",
+        "frontend/src/pages/Portfolio.tsx",
+        "frontend/src/components/portfolio/AddPositionModal.tsx",
+        "/root/codex/production-reports/20260510T031206Z-s02-pilot-surface-gating.md"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S02.T01",
+        "title": "Hidden WhatsApp setup/selection from pilot Settings and verified the frontend gate/build for T01.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S02:T02",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S02:T01"
+      ],
+      "writes": [
+        "frontend/src/store/i18n.ts",
+        "README.md",
+        "scripts/verify-pilot-surface.mjs"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S02.T02",
+        "title": "Neutralized pilot-facing product copy and made the naming/channel copy invariant executable.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S02:T03",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S02:T02"
+      ],
+      "writes": [
+        "docs/pilot-features/pilot-core.json",
+        "scripts/verify-pilot-surface.mjs"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S02.T03",
+        "title": "Marked WhatsApp hidden/deferred in the pilot feature catalog and passed the full S02 verification contract.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S02",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S02:T03"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S02",
+        "title": "S02",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S03:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [
+        "backend/src/services/notificationComposer.ts",
+        "backend/src/services/notificationComposer.test.ts",
+        "../codex/production-reports/M001-S03-T01-notification-composer.md"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S03.T01",
+        "title": "Added a typed semantic notification composer with bounded Web and plain-text Telegram render contracts.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S03:T02",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S03:T01"
+      ],
+      "writes": [
+        "/root/codex/production-reports/20260510T000000Z-s03-notification-composition-telegram-delivery.md",
+        "backend/src/services/notificationService.ts",
+        "backend/src/services/notificationService.test.ts",
+        "backend/src/services/dailyBriefService.ts",
+        "backend/src/services/deepDiveService.ts",
+        "backend/src/services/fullReportService.ts",
+        "backend/src/services/quickCheckService.ts",
+        "backend/src/services/newIdeasService.ts",
+        "backend/src/services/feedService.ts",
+        "backend/src/services/stepQueue/completionEffects.ts"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S03.T02",
+        "title": "Wired backend notification publishers through the semantic composer while preserving Web outbox compatibility and redacted publication diagnostics.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S03:T03",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S03:T02"
+      ],
+      "writes": [
+        "backend/src/services/telegramDelivery.ts",
+        "backend/src/services/telegramDelivery.test.ts",
+        "backend/src/services/notificationService.ts",
+        "backend/src/services/notificationService.test.ts",
+        "backend/src/services/channelService.ts",
+        "backend/src/routes/telegram.ts",
+        "../codex/production-reports/M001-S03-T03-telegram-delivery.md"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S03.T03",
+        "title": "Hardened Telegram delivery with shared safe chunking, plain-text transport, and persisted redacted failure state.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S03:T04",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S03:T03"
+      ],
+      "writes": [
+        "../codex/production-reports/20260510T000000Z-s03-notification-composition-telegram-delivery.md"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S03.T04",
+        "title": "Recorded final S03 notification verification evidence and confirmed frontend Web notification compatibility without code changes.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S03",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S03:T04"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S03",
+        "title": "S03",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T01",
+      "kind": "unit",
+      "dependsOn": [],
+      "writes": [
+        "db/application_postgres.sql",
+        "backend/src/db/entities/ConversationEntity.ts",
+        "backend/src/services/featureFlagService.ts",
+        "backend/src/services/chat/conversationStore.ts",
+        "backend/src/services/chat/conversationStore.savedChats.test.ts",
+        "../codex/production-reports/M001-S04-T01-saved-chat-metadata-store.md"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T01",
+        "title": "Added Postgres-backed saved-chat metadata, TTL defaults, lifecycle store contracts, and service tests.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T02",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S04:T01"
+      ],
+      "writes": [
+        "backend/src/routes/chat.ts",
+        "backend/src/services/chat/agentChat.ts",
+        "backend/src/services/chat/conversationStore.ts",
+        "backend/src/services/chat/conversationStore.savedChats.test.ts",
+        "backend/src/routes/chat.savedChats.test.ts",
+        "frontend/src/api/chat.ts",
+        "backend/scripts/run-tests.mjs",
+        "../codex/production-reports/M001-S04-T02-saved-chat-api.md"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T02",
+        "title": "Exposed authenticated saved-chat lifecycle APIs and guarded dashboard chat continuation by owner, archive, and expiry state.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "execute-task:M001:S04:T03",
+      "kind": "unit",
+      "dependsOn": [
+        "execute-task:M001:S04:T02"
+      ],
+      "writes": [
+        "frontend/src/pages/Chat.tsx",
+        "scripts/verify-saved-chat-ui.mjs",
+        "../codex/production-reports/M001-S04-T03-saved-chat-ui.md"
+      ],
+      "metadata": {
+        "unitType": "execute-task",
+        "unitId": "M001.S04.T03",
+        "title": "Wired the Chat page to backend saved conversations with accessible create, reopen, rename, archive, and send controls.",
+        "status": "complete"
+      }
+    },
+    {
+      "id": "complete-slice:M001:S04",
+      "kind": "verification",
+      "dependsOn": [
+        "execute-task:M001:S04:T03"
+      ],
+      "metadata": {
+        "unitType": "complete-slice",
+        "unitId": "M001.S04",
+        "title": "S04",
+        "status": "pending"
+      }
+    }
+  ]
+}

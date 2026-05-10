@@ -1,0 +1,18 @@
+{
+  "id": "bce9814c-d4ac-4e03-a5ad-91f905523e2e",
+  "runtime": "bash",
+  "purpose": "T04 backend TypeScript build",
+  "script_chars": 30,
+  "started_at": "2026-05-10T12:03:14.990Z",
+  "finished_at": "2026-05-10T12:03:19.631Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4641,
+  "stdout_bytes": 36,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/bce9814c-d4ac-4e03-a5ad-91f905523e2e.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/bce9814c-d4ac-4e03-a5ad-91f905523e2e.stderr"
+}

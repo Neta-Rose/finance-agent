@@ -1,0 +1,223 @@
+
+> clawd-backend@1.0.0 test
+> node scripts/run-tests.mjs --test-name-pattern notification composer|notification service|telegram delivery
+
+TAP version 13
+1..0
+# Subtest: /root/clawd/backend/src/routes/adminPilotFeatures.test.ts
+ok 1 - /root/clawd/backend/src/routes/adminPilotFeatures.test.ts
+  ---
+  duration_ms: 861.673251
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/fullReportRoutes.test.ts
+ok 2 - /root/clawd/backend/src/routes/fullReportRoutes.test.ts
+  ---
+  duration_ms: 233.244237
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/llmProxy.test.ts
+ok 3 - /root/clawd/backend/src/routes/llmProxy.test.ts
+  ---
+  duration_ms: 994.788879
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/strategiesRoutes.test.ts
+ok 4 - /root/clawd/backend/src/routes/strategiesRoutes.test.ts
+  ---
+  duration_ms: 198.187087
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/schemas/strategy.test.ts
+ok 5 - /root/clawd/backend/src/schemas/strategy.test.ts
+  ---
+  duration_ms: 248.374585
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/scripts/supersedeStuckJob.test.ts
+ok 6 - /root/clawd/backend/src/scripts/supersedeStuckJob.test.ts
+  ---
+  duration_ms: 200.646097
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/advisorLlmService.test.ts
+ok 7 - /root/clawd/backend/src/services/advisorLlmService.test.ts
+  ---
+  duration_ms: 312.817498
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/baselineCoverageService.test.ts
+ok 8 - /root/clawd/backend/src/services/baselineCoverageService.test.ts
+  ---
+  duration_ms: 194.403022
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/dailyBriefService.selection.test.ts
+ok 9 - /root/clawd/backend/src/services/dailyBriefService.selection.test.ts
+  ---
+  duration_ms: 895.430507
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/dailyBriefService.test.ts
+ok 10 - /root/clawd/backend/src/services/dailyBriefService.test.ts
+  ---
+  duration_ms: 225.535248
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/deepDiveService.test.ts
+ok 11 - /root/clawd/backend/src/services/deepDiveService.test.ts
+  ---
+  duration_ms: 259.397932
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/feedService.test.ts
+ok 12 - /root/clawd/backend/src/services/feedService.test.ts
+  ---
+  duration_ms: 208.094558
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/fullReportService.test.ts
+ok 13 - /root/clawd/backend/src/services/fullReportService.test.ts
+  ---
+  duration_ms: 222.311991
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobAdmissionService.test.ts
+ok 14 - /root/clawd/backend/src/services/jobAdmissionService.test.ts
+  ---
+  duration_ms: 218.354716
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobStateReconciler.test.ts
+ok 15 - /root/clawd/backend/src/services/jobStateReconciler.test.ts
+  ---
+  duration_ms: 228.018397
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobTriggerService.test.ts
+ok 16 - /root/clawd/backend/src/services/jobTriggerService.test.ts
+  ---
+  duration_ms: 976.191774
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/llmProxy.test.ts
+ok 17 - /root/clawd/backend/src/services/llmProxy.test.ts
+  ---
+  duration_ms: 301.230364
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/newIdeasService.test.ts
+ok 18 - /root/clawd/backend/src/services/newIdeasService.test.ts
+  ---
+  duration_ms: 211.716873
+  type: 'test'
+  ...
+# Subtest: notification composer maps owned semantic kinds to persisted categories
+ok 19 - notification composer maps owned semantic kinds to persisted categories
+  ---
+  duration_ms: 1.093017
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/notificationService.test.ts
+ok 20 - /root/clawd/backend/src/services/notificationService.test.ts
+  ---
+  duration_ms: 249.136632
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pilotFeatureCatalogService.test.ts
+ok 21 - /root/clawd/backend/src/services/pilotFeatureCatalogService.test.ts
+  ---
+  duration_ms: 243.609365
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pilotFeatureReviewService.test.ts
+ok 22 - /root/clawd/backend/src/services/pilotFeatureReviewService.test.ts
+  ---
+  duration_ms: 679.061903
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pointsBudgetService.test.ts
+ok 23 - /root/clawd/backend/src/services/pointsBudgetService.test.ts
+  ---
+  duration_ms: 706.417972
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/quickCheckService.test.ts
+ok 24 - /root/clawd/backend/src/services/quickCheckService.test.ts
+  ---
+  duration_ms: 236.810403
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/stepQueue.test.ts
+ok 25 - /root/clawd/backend/src/services/stepQueue.test.ts
+  ---
+  duration_ms: 1124.51451
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/strategyBaselineService.test.ts
+ok 26 - /root/clawd/backend/src/services/strategyBaselineService.test.ts
+  ---
+  duration_ms: 235.948036
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/strategyFileService.test.ts
+ok 27 - /root/clawd/backend/src/services/strategyFileService.test.ts
+  ---
+  duration_ms: 273.187247
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/telegramDelivery.test.ts
+ok 28 - /root/clawd/backend/src/services/telegramDelivery.test.ts
+  ---
+  duration_ms: 232.914148
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/workspaceService.test.ts
+ok 29 - /root/clawd/backend/src/services/workspaceService.test.ts
+  ---
+  duration_ms: 412.686808
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/workspaceTemplate.test.ts
+ok 30 - /root/clawd/backend/src/services/workspaceTemplate.test.ts
+  ---
+  duration_ms: 227.033252
+  type: 'test'
+  ...
+1..30
+# tests 30
+# suites 0
+# pass 30
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4081.060828

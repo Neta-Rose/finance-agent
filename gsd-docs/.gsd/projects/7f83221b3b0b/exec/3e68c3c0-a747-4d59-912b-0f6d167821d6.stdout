@@ -1,0 +1,201 @@
+TAP version 13
+# Subtest: daily brief defaults to the configured coverage limit
+ok 1 - daily brief defaults to the configured coverage limit
+  ---
+  duration_ms: 441.39594
+  type: 'test'
+  ...
+# Subtest: daily brief ignores legacy user plan when resolving coverage limit
+ok 2 - daily brief ignores legacy user plan when resolving coverage limit
+  ---
+  duration_ms: 7.547251
+  type: 'test'
+  ...
+# Subtest: daily brief truth is coverage_incomplete when monitored coverage is provisional
+ok 3 - daily brief truth is coverage_incomplete when monitored coverage is provisional
+  ---
+  duration_ms: 1.366004
+  type: 'test'
+  ...
+# Subtest: daily brief truth is confidence_degraded when coverage is stale but not incomplete
+ok 4 - daily brief truth is confidence_degraded when coverage is stale but not incomplete
+  ---
+  duration_ms: 0.738658
+  type: 'test'
+  ...
+# Subtest: daily brief truth is action_needed when trusted coverage has active escalations
+ok 5 - daily brief truth is action_needed when trusted coverage has active escalations
+  ---
+  duration_ms: 0.998327
+  type: 'test'
+  ...
+# Subtest: daily brief narrative does not claim unqueued escalations have deep dives running
+ok 6 - daily brief narrative does not claim unqueued escalations have deep dives running
+  ---
+  duration_ms: 0.821237
+  type: 'test'
+  ...
+# Subtest: daily brief truth is calm_trusted only when all monitored coverage is valid and no escalations exist
+ok 7 - daily brief truth is calm_trusted only when all monitored coverage is valid and no escalations exist
+  ---
+  duration_ms: 0.679518
+  type: 'test'
+  ...
+# Subtest: tracking daily evaluator uses tracking strategy fields without portfolio ownership penalty
+ok 8 - tracking daily evaluator uses tracking strategy fields without portfolio ownership penalty
+  ---
+  duration_ms: 0.776617
+  type: 'test'
+  ...
+# Subtest: step queue is globally enabled unless explicitly disabled
+ok 9 - step queue is globally enabled unless explicitly disabled
+  ---
+  duration_ms: 4.122394
+  type: 'test'
+  ...
+# Subtest: terminal job status is completed only when no ticker failed
+ok 10 - terminal job status is completed only when no ticker failed
+  ---
+  duration_ms: 0.173609
+  type: 'test'
+  ...
+# Subtest: full_report expansion mixes light pass and full deep dive per ticker
+ok 11 - full_report expansion mixes light pass and full deep dive per ticker
+  ---
+  duration_ms: 10.634778
+  type: 'test'
+  ...
+# Subtest: deep_dive expansion always creates seven steps for the requested ticker
+ok 12 - deep_dive expansion always creates seven steps for the requested ticker
+  ---
+  duration_ms: 2.436161
+  type: 'test'
+  ...
+# Subtest: escalation tickers force full deep dive during full_report expansion
+ok 13 - escalation tickers force full deep dive during full_report expansion
+  ---
+  duration_ms: 3.929245
+  type: 'test'
+  ...
+# Subtest: handler registry exposes all nine step handlers
+ok 14 - handler registry exposes all nine step handlers
+  ---
+  duration_ms: 0.138709
+  type: 'test'
+  ...
+# Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/yahoo-finance2/issues/764\#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `new YahooFinance({ suppressNotices: ['yahooSurvey'] })`.
+# Subtest: technical handler validates and persists LLM artifact
+ok 15 - technical handler validates and persists LLM artifact
+  ---
+  duration_ms: 1466.266678
+  type: 'test'
+  ...
+# Subtest: sentiment handler validates and persists LLM artifact
+ok 16 - sentiment handler validates and persists LLM artifact
+  ---
+  duration_ms: 24.734953
+  type: 'test'
+  ...
+# Subtest: macro handler validates and persists LLM artifact
+ok 17 - macro handler validates and persists LLM artifact
+  ---
+  duration_ms: 18.520317
+  type: 'test'
+  ...
+# Subtest: risk handler validates and persists LLM artifact
+ok 18 - risk handler validates and persists LLM artifact
+  ---
+  duration_ms: 20.080461
+  type: 'test'
+  ...
+# Subtest: fundamentals normalizer recovers missing ticker from step inputs
+ok 19 - fundamentals normalizer recovers missing ticker from step inputs
+  ---
+  duration_ms: 3.416156
+  type: 'test'
+  ...
+# Subtest: debate handler validates and persists LLM artifact
+ok 20 - debate handler validates and persists LLM artifact
+  ---
+  duration_ms: 13.758096
+  type: 'test'
+  ...
+# 2026-05-09 14:07:16 [WARN] strategy_dual_write_failed user=queue-user ticker=AAPL error=writeStrategy requires the application database
+# Subtest: synthesis handler validates and persists LLM strategy
+ok 21 - synthesis handler validates and persists LLM strategy
+  ---
+  duration_ms: 16.991633
+  type: 'test'
+  ...
+# Subtest: synthesis handler writes tracking fields for non-held deep dive ideas
+ok 22 - synthesis handler writes tracking fields for non-held deep dive ideas
+  ---
+  duration_ms: 6.760894
+  type: 'test'
+  ...
+# Subtest: daily_brief expansion creates quick_check steps for held tickers
+ok 23 - daily_brief expansion creates quick_check steps for held tickers
+  ---
+  duration_ms: 5.288089
+  type: 'test'
+  ...
+# Subtest: quick_check expansion creates a single quick_check.evaluate step
+ok 24 - quick_check expansion creates a single quick_check.evaluate step
+  ---
+  duration_ms: 2.39914
+  type: 'test'
+  ...
+# Subtest: full_report expansion does not include quick_check or tracking steps
+ok 25 - full_report expansion does not include quick_check or tracking steps
+  ---
+  duration_ms: 2.930599
+  type: 'test'
+  ...
+# Subtest: quick_check.evaluate handler produces a valid artifact without LLM
+ok 26 - quick_check.evaluate handler produces a valid artifact without LLM
+  ---
+  duration_ms: 7.5221
+  type: 'test'
+  ...
+# Subtest: quick_check.evaluate signals stale strategy (no deep dive ever)
+ok 27 - quick_check.evaluate signals stale strategy (no deep dive ever)
+  ---
+  duration_ms: 6.934863
+  type: 'test'
+  ...
+# 2026-05-09 14:07:16 [INFO] quick_check.evaluate: skipping escalation because application database is not configured user=handler-quick-check-expired ticker=AAPL
+# Subtest: quick_check.evaluate signals expired catalyst
+ok 28 - quick_check.evaluate signals expired catalyst
+  ---
+  duration_ms: 7.617651
+  type: 'test'
+  ...
+# 2026-05-09 14:07:16 [INFO] tracking.evaluate: skipping escalation because application database is not configured user=handler-tracking-evaluate ticker=GOOGL
+# Subtest: tracking.evaluate handler produces a valid artifact without LLM
+ok 29 - tracking.evaluate handler produces a valid artifact without LLM
+  ---
+  duration_ms: 7.904199
+  type: 'test'
+  ...
+# Subtest: tracking.evaluate never escalates muted assets
+ok 30 - tracking.evaluate never escalates muted assets
+  ---
+  duration_ms: 7.919379
+  type: 'test'
+  ...
+# 2026-05-09 14:07:16 [INFO] quick_check.evaluate: skipping escalation because application database is not configured user=handler-quick-check-missing-strategy ticker=NVDA
+# Subtest: quick_check.evaluate normalizer recovers missing strategy gracefully
+ok 31 - quick_check.evaluate normalizer recovers missing strategy gracefully
+  ---
+  duration_ms: 5.589238
+  type: 'test'
+  ...
+1..31
+# tests 31
+# suites 0
+# pass 31
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2481.357384

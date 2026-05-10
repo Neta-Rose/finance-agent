@@ -1,0 +1,284 @@
+WhatsApp references in planned S02 files:
+frontend/src/store/i18n.ts:18:  | "telegram" | "whatsapp" | "webChannel" | "notifications"
+frontend/src/store/i18n.ts:21:  | "telegramGuideStep1" | "telegramGuideStep2" | "telegramGuideStep3"
+frontend/src/store/i18n.ts:30:  | "botToken" | "chatId" | "telegramConnected" | "whatsappConnected" | "channelDisconnected"
+frontend/src/store/i18n.ts:31:  | "errorConnectTelegram" | "errorConnectWhatsApp" | "errorBothFields"
+frontend/src/store/i18n.ts:95:  | "onboardTelegramStep1" | "onboardTelegramStep2" | "onboardTelegramStep3"
+frontend/src/store/i18n.ts:99:  | "onboardTelegramConnected" | "onboardTelegramFailed"
+frontend/src/store/i18n.ts:114:  | "onboardReviewAccount" | "onboardReviewSchedule" | "onboardReviewTelegram"
+frontend/src/store/i18n.ts:115:  | "onboardReviewPortfolio" | "onboardTelegramYes" | "onboardTelegramNo"
+frontend/src/store/i18n.ts:121:  | "adminTelegramSection" | "adminScheduleSection" | "adminRateLimitsSection"
+frontend/src/store/i18n.ts:133:  | "adminEditTelegram" | "adminAddTelegram" | "adminSaveTelegram"
+frontend/src/store/i18n.ts:136:  | "adminTelegramYes" | "adminTelegramNo"
+frontend/src/store/i18n.ts:145:  | "setupBannerTitle" | "setupBannerBodyChannelAgnostic" | "setupBannerBodyTelegram"
+frontend/src/store/i18n.ts:214:    telegram: "Telegram",
+frontend/src/store/i18n.ts:215:    whatsapp: "WhatsApp",
+frontend/src/store/i18n.ts:226:    telegramGuideStep1: 'Send "/newbot" to exactly @BotFather in Telegram, follow the prompts, and copy the token it gives you.',
+frontend/src/store/i18n.ts:227:    telegramGuideStep2: "Find your new bot by username and send it any message — this activates the chat.",
+frontend/src/store/i18n.ts:228:    telegramGuideStep3: 'Open @userinfobot in Telegram, send any message, and copy the numeric ID it shows.',
+frontend/src/store/i18n.ts:229:    whatsAppGuideStep1: "In Meta for Developers, create a WhatsApp app and open WhatsApp > API Setup.",
+frontend/src/store/i18n.ts:231:    whatsAppGuideStep3: "Enter your WhatsApp recipient phone in international format, for example +14155550123.",
+frontend/src/store/i18n.ts:263:    telegramConnected: "Telegram connected!",
+frontend/src/store/i18n.ts:264:    whatsappConnected: "WhatsApp connected!",
+frontend/src/store/i18n.ts:265:    channelDisconnected: "Channel disconnected",
+frontend/src/store/i18n.ts:266:    errorConnectTelegram: "Failed to connect Telegram",
+frontend/src/store/i18n.ts:267:    errorConnectWhatsApp: "Failed to connect WhatsApp",
+frontend/src/store/i18n.ts:274:    primaryChannel: "Primary channel",
+frontend/src/store/i18n.ts:455:    onboardStep3Title: "🤖 Connect Telegram (Optional)",
+frontend/src/store/i18n.ts:456:    onboardStep3Sub: "Get portfolio alerts and interact with your agent via Telegram.",
+frontend/src/store/i18n.ts:457:    onboardTelegramStep1: "1. Open Telegram → find @BotFather",
+frontend/src/store/i18n.ts:458:    onboardTelegramStep2: "2. Send /newbot → follow instructions",
+frontend/src/store/i18n.ts:459:    onboardTelegramStep3: "3. Paste your bot token below",
+frontend/src/store/i18n.ts:461:    onboardChatIdHint: "Get from @userinfobot on Telegram",
+frontend/src/store/i18n.ts:467:    onboardTelegramConnected: "Telegram connected!",
+frontend/src/store/i18n.ts:468:    onboardTelegramFailed: "Failed to connect Telegram. Check your token and chat ID.",
+frontend/src/store/i18n.ts:509:    onboardReviewTelegram: "Telegram",
+frontend/src/store/i18n.ts:511:    onboardTelegramYes: "✓ Connected",
+frontend/src/store/i18n.ts:512:    onboardTelegramNo: "Not connected",
+frontend/src/store/i18n.ts:528:    adminTelegramSection: "Telegram (optional)",
+frontend/src/store/i18n.ts:569:    adminEditTelegram: "Edit Telegram",
+frontend/src/store/i18n.ts:570:    adminAddTelegram: "Add Telegram",
+frontend/src/store/i18n.ts:571:    adminSaveTelegram: "Save Telegram",
+frontend/src/store/i18n.ts:576:    adminTelegramYes: "Telegram: ✅ connected",
+frontend/src/store/i18n.ts:577:    adminTelegramNo: "Telegram: ✗ not connected",
+frontend/src/store/i18n.ts:599:    setupBannerBodyTelegram: "We'll notify you on Telegram when ready.",
+frontend/src/store/i18n.ts:674:    telegram: "טלגרם",
+frontend/src/store/i18n.ts:675:    whatsapp: "וואטסאפ",
+frontend/src/store/i18n.ts:686:    telegramGuideStep1: 'שלחו "/newbot" ל־@BotFather בטלגרם, עקבו אחרי ההוראות, והעתיקו את הטוקן שקיבלתם.',
+frontend/src/store/i18n.ts:687:    telegramGuideStep2: "חפשו את הבוט לפי שם המשתמש ושלחו לו הודעה כלשהי — זה מפעיל את הצ'אט.",
+frontend/src/store/i18n.ts:688:    telegramGuideStep3: "פתחו את @userinfobot, שלחו הודעה כלשהי, והעתיקו את המזהה המספרי שמוצג.",
+frontend/src/store/i18n.ts:689:    whatsAppGuideStep1: "ב־Meta for Developers צרו אפליקציית WhatsApp ופתחו WhatsApp > API Setup.",
+frontend/src/store/i18n.ts:723:    telegramConnected: "טלגרם חובר בהצלחה!",
+frontend/src/store/i18n.ts:724:    whatsappConnected: "וואטסאפ חובר בהצלחה!",
+frontend/src/store/i18n.ts:725:    channelDisconnected: "החיבור נותק",
+frontend/src/store/i18n.ts:726:    errorConnectTelegram: "חיבור הטלגרם נכשל",
+frontend/src/store/i18n.ts:727:    errorConnectWhatsApp: "חיבור הוואטסאפ נכשל",
+frontend/src/store/i18n.ts:917:    onboardTelegramStep1: "1. פתח טלגרם → חפש @BotFather",
+frontend/src/store/i18n.ts:918:    onboardTelegramStep2: "2. שלח /newbot → עקוב אחר ההוראות",
+frontend/src/store/i18n.ts:919:    onboardTelegramStep3: "3. הדבק את טוקן הבוט למטה",
+frontend/src/store/i18n.ts:927:    onboardTelegramConnected: "טלגרם חובר בהצלחה!",
+frontend/src/store/i18n.ts:928:    onboardTelegramFailed: "חיבור הטלגרם נכשל. בדוק את הטוקן ומזהה השיחה.",
+frontend/src/store/i18n.ts:969:    onboardReviewTelegram: "טלגרם",
+frontend/src/store/i18n.ts:971:    onboardTelegramYes: "✓ מחובר",
+frontend/src/store/i18n.ts:972:    onboardTelegramNo: "לא מחובר",
+frontend/src/store/i18n.ts:988:    adminTelegramSection: "טלגרם (אופציונלי)",
+frontend/src/store/i18n.ts:1029:    adminEditTelegram: "ערוך טלגרם",
+frontend/src/store/i18n.ts:1030:    adminAddTelegram: "הוסף טלגרם",
+frontend/src/store/i18n.ts:1031:    adminSaveTelegram: "שמור טלגרם",
+frontend/src/store/i18n.ts:1036:    adminTelegramYes: "טלגרם: ✅ מחובר",
+frontend/src/store/i18n.ts:1037:    adminTelegramNo: "טלגרם: ✗ לא מחובר",
+frontend/src/store/i18n.ts:1059:    setupBannerBodyTelegram: "נעדכן אותך בטלגרם כשהפעולה תסתיים.",
+frontend/src/pages/Settings.tsx:9:  connectTelegram,
+frontend/src/pages/Settings.tsx:10:  connectWhatsApp,
+frontend/src/pages/Settings.tsx:11:  disconnectTelegram,
+frontend/src/pages/Settings.tsx:12:  disconnectWhatsApp,
+frontend/src/pages/Settings.tsx:85:  // Telegram form
+frontend/src/pages/Settings.tsx:86:  const [showTelegramForm, setShowTelegramForm] = useState(false);
+frontend/src/pages/Settings.tsx:88:  const [telegramChatId, setTelegramChatId] = useState("");
+frontend/src/pages/Settings.tsx:89:  const [telegramError, setTelegramError] = useState("");
+frontend/src/pages/Settings.tsx:90:  const [telegramLoading, setTelegramLoading] = useState(false);
+frontend/src/pages/Settings.tsx:91:  const [showWhatsAppForm, setShowWhatsAppForm] = useState(false);
+frontend/src/pages/Settings.tsx:92:  const [whatsAppAccessToken, setWhatsAppAccessToken] = useState("");
+frontend/src/pages/Settings.tsx:93:  const [whatsAppPhoneNumberId, setWhatsAppPhoneNumberId] = useState("");
+frontend/src/pages/Settings.tsx:94:  const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState("");
+frontend/src/pages/Settings.tsx:95:  const [whatsAppError, setWhatsAppError] = useState("");
+frontend/src/pages/Settings.tsx:96:  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
+frontend/src/pages/Settings.tsx:98:    primaryChannel: onboardStatus?.notifications?.primaryChannel ?? "telegram",
+frontend/src/pages/Settings.tsx:100:      telegram: true,
+frontend/src/pages/Settings.tsx:102:      whatsapp: false,
+frontend/src/pages/Settings.tsx:161:  const handleConnectTelegram = async () => {
+frontend/src/pages/Settings.tsx:162:    setTelegramError("");
+frontend/src/pages/Settings.tsx:163:    if (!botToken.trim() || !telegramChatId.trim()) {
+frontend/src/pages/Settings.tsx:164:      setTelegramError(t("errorBothFields", lang));
+frontend/src/pages/Settings.tsx:168:      setTelegramError(t("errorInvalidBotToken", lang));
+frontend/src/pages/Settings.tsx:171:    if (!/^\d+$/.test(telegramChatId)) {
+frontend/src/pages/Settings.tsx:172:      setTelegramError(t("errorInvalidChatId", lang));
+frontend/src/pages/Settings.tsx:175:    setTelegramLoading(true);
+frontend/src/pages/Settings.tsx:177:      await connectTelegram({ botToken, telegramChatId });
+frontend/src/pages/Settings.tsx:179:      showToast(t("telegramConnected", lang), "success");
+frontend/src/pages/Settings.tsx:180:      setShowTelegramForm(false);
+frontend/src/pages/Settings.tsx:182:      setTelegramChatId("");
+frontend/src/pages/Settings.tsx:184:      setTelegramError(t("errorConnectTelegram", lang));
+frontend/src/pages/Settings.tsx:186:      setTelegramLoading(false);
+frontend/src/pages/Settings.tsx:190:  const handleDisconnectTelegram = async () => {
+frontend/src/pages/Settings.tsx:191:    setTelegramError("");
+frontend/src/pages/Settings.tsx:192:    setTelegramLoading(true);
+frontend/src/pages/Settings.tsx:194:      await disconnectTelegram();
+frontend/src/pages/Settings.tsx:196:      showToast(t("channelDisconnected", lang), "success");
+frontend/src/pages/Settings.tsx:197:      setShowTelegramForm(false);
+frontend/src/pages/Settings.tsx:199:      setTelegramChatId("");
+frontend/src/pages/Settings.tsx:201:      setTelegramError(t("errorConnectTelegram", lang));
+frontend/src/pages/Settings.tsx:202:      showToast(t("errorConnectTelegram", lang), "error");
+frontend/src/pages/Settings.tsx:204:      setTelegramLoading(false);
+frontend/src/pages/Settings.tsx:208:  const handleConnectWhatsApp = async () => {
+frontend/src/pages/Settings.tsx:209:    setWhatsAppError("");
+frontend/src/pages/Settings.tsx:211:      setWhatsAppError(t("errorBothFields", lang));
+frontend/src/pages/Settings.tsx:215:      setWhatsAppError(t("errorInvalidAccessToken", lang));
+frontend/src/pages/Settings.tsx:219:      setWhatsAppError(t("errorInvalidPhoneNumberId", lang));
+frontend/src/pages/Settings.tsx:223:      setWhatsAppError(t("errorInvalidRecipientPhone", lang));
+frontend/src/pages/Settings.tsx:227:    setWhatsAppLoading(true);
+frontend/src/pages/Settings.tsx:229:      await connectWhatsApp({
+frontend/src/pages/Settings.tsx:235:      showToast(t("whatsappConnected", lang), "success");
+frontend/src/pages/Settings.tsx:236:      setShowWhatsAppForm(false);
+frontend/src/pages/Settings.tsx:237:      setWhatsAppAccessToken("");
+frontend/src/pages/Settings.tsx:238:      setWhatsAppPhoneNumberId("");
+frontend/src/pages/Settings.tsx:239:      setWhatsAppRecipientPhone("");
+frontend/src/pages/Settings.tsx:241:      setWhatsAppError(t("errorConnectWhatsApp", lang));
+frontend/src/pages/Settings.tsx:242:      showToast(t("errorConnectWhatsApp", lang), "error");
+frontend/src/pages/Settings.tsx:244:      setWhatsAppLoading(false);
+frontend/src/pages/Settings.tsx:248:  const handleDisconnectWhatsApp = async () => {
+frontend/src/pages/Settings.tsx:249:    setWhatsAppError("");
+frontend/src/pages/Settings.tsx:250:    setWhatsAppLoading(true);
+frontend/src/pages/Settings.tsx:252:      await disconnectWhatsApp();
+frontend/src/pages/Settings.tsx:254:      showToast(t("channelDisconnected", lang), "success");
+frontend/src/pages/Settings.tsx:255:      setShowWhatsAppForm(false);
+frontend/src/pages/Settings.tsx:256:      setWhatsAppAccessToken("");
+frontend/src/pages/Settings.tsx:257:      setWhatsAppPhoneNumberId("");
+frontend/src/pages/Settings.tsx:258:      setWhatsAppRecipientPhone("");
+frontend/src/pages/Settings.tsx:260:      setWhatsAppError(t("errorConnectWhatsApp", lang));
+frontend/src/pages/Settings.tsx:261:      showToast(t("errorConnectWhatsApp", lang), "error");
+frontend/src/pages/Settings.tsx:263:      setWhatsAppLoading(false);
+frontend/src/pages/Settings.tsx:298:  const telegramConnected = connectivity?.telegram.connected ?? onboardStatus?.telegramConnected ?? false;
+frontend/src/pages/Settings.tsx:299:  const whatsappConnected = connectivity?.whatsapp.connected ?? false;
+frontend/src/pages/Settings.tsx:524:        {/* Telegram */}
+frontend/src/pages/Settings.tsx:527:            <Bot size={15} /> {t("telegram", lang).toUpperCase()}
+frontend/src/pages/Settings.tsx:529:          {!showTelegramForm ? (
+frontend/src/pages/Settings.tsx:534:                    {telegramConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
+frontend/src/pages/Settings.tsx:537:                    {telegramConnected && connectivity?.telegram.target
+frontend/src/pages/Settings.tsx:538:                      ? `${t("connectedTo", lang)} ${connectivity.telegram.target}`
+frontend/src/pages/Settings.tsx:539:                      : t("telegramGuideStep1", lang)}
+frontend/src/pages/Settings.tsx:544:                    if (telegramConnected) {
+frontend/src/pages/Settings.tsx:545:                      void handleDisconnectTelegram();
+frontend/src/pages/Settings.tsx:548:                    setShowTelegramForm(true);
+frontend/src/pages/Settings.tsx:550:                  disabled={telegramLoading}
+frontend/src/pages/Settings.tsx:553:                  {telegramLoading ? "..." : telegramConnected ? t("disconnect", lang) : t("connect", lang)}
+frontend/src/pages/Settings.tsx:559:                  <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
+frontend/src/pages/Settings.tsx:560:                  <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
+frontend/src/pages/Settings.tsx:561:                  <li className={guideItemCls}>3. {t("telegramGuideStep3", lang)}</li>
+frontend/src/pages/Settings.tsx:568:                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("telegram", lang)}</p>
+frontend/src/pages/Settings.tsx:569:                <button onClick={() => setShowTelegramForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
+frontend/src/pages/Settings.tsx:579:                <input type="text" value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
+frontend/src/pages/Settings.tsx:584:                  <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
+frontend/src/pages/Settings.tsx:585:                  <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
+frontend/src/pages/Settings.tsx:586:                  <li className={guideItemCls}>3. {t("telegramGuideStep3", lang)}</li>
+frontend/src/pages/Settings.tsx:589:              {telegramError && <p className="text-[10px] text-[var(--color-accent-red)]">{telegramError}</p>}
+frontend/src/pages/Settings.tsx:591:                <button onClick={() => setShowTelegramForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+frontend/src/pages/Settings.tsx:592:                <button onClick={handleConnectTelegram} disabled={telegramLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
+frontend/src/pages/Settings.tsx:593:                  {telegramLoading ? "..." : t("connect", lang)}
+frontend/src/pages/Settings.tsx:602:            <MessageCircle size={15} /> {t("whatsapp", lang).toUpperCase()}
+frontend/src/pages/Settings.tsx:604:          {!showWhatsAppForm ? (
+frontend/src/pages/Settings.tsx:609:                    {whatsappConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
+frontend/src/pages/Settings.tsx:612:                    {whatsappConnected && connectivity?.whatsapp.target
+frontend/src/pages/Settings.tsx:613:                      ? `${t("connectedTo", lang)} ${connectivity.whatsapp.target}`
+frontend/src/pages/Settings.tsx:619:                    if (whatsappConnected) {
+frontend/src/pages/Settings.tsx:620:                      void handleDisconnectWhatsApp();
+frontend/src/pages/Settings.tsx:623:                    setShowWhatsAppForm(true);
+frontend/src/pages/Settings.tsx:628:                  {whatsAppLoading ? "..." : whatsappConnected ? t("disconnect", lang) : t("connect", lang)}
+frontend/src/pages/Settings.tsx:643:                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("whatsapp", lang)}</p>
+frontend/src/pages/Settings.tsx:644:                <button onClick={() => setShowWhatsAppForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
+frontend/src/pages/Settings.tsx:650:                <input type="password" value={whatsAppAccessToken} onChange={(e) => setWhatsAppAccessToken(e.target.value)} className={inputCls} />
+frontend/src/pages/Settings.tsx:654:                <input type="text" value={whatsAppPhoneNumberId} onChange={(e) => setWhatsAppPhoneNumberId(e.target.value.replace(/\D/g, ""))} className={inputCls} />
+frontend/src/pages/Settings.tsx:658:                <input type="text" value={whatsAppRecipientPhone} onChange={(e) => setWhatsAppRecipientPhone(e.target.value)} placeholder="+14155550123" className={inputCls} />
+frontend/src/pages/Settings.tsx:670:                <button onClick={() => setShowWhatsAppForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+frontend/src/pages/Settings.tsx:671:                <button onClick={handleConnectWhatsApp} disabled={whatsAppLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
+frontend/src/pages/Settings.tsx:697:                  {telegramConnected && <option value="telegram">{t("telegram", lang)}</option>}
+frontend/src/pages/Settings.tsx:698:                  {whatsappConnected && <option value="whatsapp">{t("whatsapp", lang)}</option>}
+frontend/src/pages/Settings.tsx:709:                ["telegram", t("telegram", lang), telegramConnected],
+frontend/src/pages/Settings.tsx:711:                ["whatsapp", t("whatsapp", lang), whatsappConnected],
+frontend/src/pages/Settings.tsx:712:              ] as const).map(([channel, label, available]) => (
+frontend/src/pages/Settings.tsx:713:                <label key={channel} className="flex items-center justify-between text-sm text-[var(--color-fg-default)]">
+frontend/src/pages/Settings.tsx:717:                    checked={notifications.enabledChannels[channel]}
+frontend/src/pages/Settings.tsx:724:                          [channel]: e.target.checked,
+docs/pilot-features/pilot-core.json:7:      "shortSummary": "Guides a pilot user through account setup, schedule, Telegram connection, portfolio entry, and then shows the portfolio health overview.",
+docs/pilot-features/pilot-core.json:8:      "detailedExplanation": "The onboarding flow collects user credentials or password change input, daily/weekly schedule preferences, optional Telegram bot details, portfolio accounts and positions, and optional position guidance before routing the user into the main portfolio screen. The portfolio screen shows a concise health headline, holdings, account grouping, active analysis jobs, attention cards, and quick-check controls derived from current portfolio and verdict data.",
+docs/pilot-features/pilot-core.json:20:        "Client-side validation blocks missing account, password, ticker, share, average-price, and Telegram input before submission.",
+docs/pilot-features/pilot-core.json:88:      "shortSummary": "Surfaces report, daily brief, market news, and web notification activity in the app and lets users tune notification channels.",
+docs/pilot-features/pilot-core.json:89:      "detailedExplanation": "The Alerts page fetches the report feed with alert-focused filters and expandable cards. The app shell polls unread web notifications and turns them into toasts, then marks them read. Settings exposes primary channel, channel enablement, and category preferences for daily briefs, report runs, and market news.",
+docs/pilot-features/pilot-core.json:93:        "User opens Settings and saves notification channel/category preferences."
+docs/pilot-features/pilot-core.json:97:        "Unavailable external channels are disabled or omitted from channel choices.",
+docs/pilot-features/pilot-core.json:103:        "Notification API list and mark-read routes clamp limits and filter channel values to supported channels."
+docs/pilot-features/pilot-core.json:114:      "id": "telegram.daily-brief-chat",
+docs/pilot-features/pilot-core.json:115:      "surface": "telegram",
+
+Settings symbols outline-ish:
+1:import { useEffect, useState } from "react";
+47:export function Settings() {
+63:  const [editingDisplayName, setEditingDisplayName] = useState(false);
+64:  const [displayNameInput, setDisplayNameInput] = useState("");
+65:  const [displayNameLoading, setDisplayNameLoading] = useState(false);
+68:  const [showPasswordForm, setShowPasswordForm] = useState(false);
+69:  const [currentPassword, setCurrentPassword] = useState("");
+70:  const [newPassword, setNewPassword] = useState("");
+71:  const [confirmPassword, setConfirmPassword] = useState("");
+72:  const [passwordError, setPasswordError] = useState("");
+73:  const [passwordLoading, setPasswordLoading] = useState(false);
+76:  const [showScheduleForm, setShowScheduleForm] = useState(false);
+77:  const [schedule, setSchedule] = useState({
+83:  const [scheduleLoading, setScheduleLoading] = useState(false);
+86:  const [showTelegramForm, setShowTelegramForm] = useState(false);
+87:  const [botToken, setBotToken] = useState("");
+88:  const [telegramChatId, setTelegramChatId] = useState("");
+89:  const [telegramError, setTelegramError] = useState("");
+90:  const [telegramLoading, setTelegramLoading] = useState(false);
+91:  const [showWhatsAppForm, setShowWhatsAppForm] = useState(false);
+92:  const [whatsAppAccessToken, setWhatsAppAccessToken] = useState("");
+93:  const [whatsAppPhoneNumberId, setWhatsAppPhoneNumberId] = useState("");
+94:  const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState("");
+95:  const [whatsAppError, setWhatsAppError] = useState("");
+96:  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
+97:  const [notifications, setNotifications] = useState<NotificationPreferences>({
+98:    primaryChannel: onboardStatus?.notifications?.primaryChannel ?? "telegram",
+99:    enabledChannels: onboardStatus?.notifications?.enabledChannels ?? {
+100:      telegram: true,
+102:      whatsapp: false,
+104:    categories: onboardStatus?.notifications?.categories ?? {
+110:  const [notificationsLoading, setNotificationsLoading] = useState(false);
+163:    if (!botToken.trim() || !telegramChatId.trim()) {
+171:    if (!/^\d+$/.test(telegramChatId)) {
+177:      await connectTelegram({ botToken, telegramChatId });
+179:      showToast(t("telegramConnected", lang), "success");
+235:      showToast(t("whatsappConnected", lang), "success");
+270:      await apiClient.patch("/onboard/notifications", notifications);
+272:      showToast(t("notificationsUpdated", lang), "success");
+298:  const telegramConnected = connectivity?.telegram.connected ?? onboardStatus?.telegramConnected ?? false;
+299:  const whatsappConnected = connectivity?.whatsapp.connected ?? false;
+302:    if (!onboardStatus?.notifications) return;
+303:    setNotifications(onboardStatus.notifications);
+304:  }, [onboardStatus?.notifications]);
+527:            <Bot size={15} /> {t("telegram", lang).toUpperCase()}
+534:                    {telegramConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
+537:                    {telegramConnected && connectivity?.telegram.target
+538:                      ? `${t("connectedTo", lang)} ${connectivity.telegram.target}`
+539:                      : t("telegramGuideStep1", lang)}
+544:                    if (telegramConnected) {
+550:                  disabled={telegramLoading}
+553:                  {telegramLoading ? "..." : telegramConnected ? t("disconnect", lang) : t("connect", lang)}
+559:                  <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
+560:                  <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
+561:                  <li className={guideItemCls}>3. {t("telegramGuideStep3", lang)}</li>
+568:                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("telegram", lang)}</p>
+579:                <input type="text" value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
+584:                  <li className={guideItemCls}>1. {t("telegramGuideStep1", lang)}</li>
+585:                  <li className={guideItemCls}>2. {t("telegramGuideStep2", lang)}</li>
+586:                  <li className={guideItemCls}>3. {t("telegramGuideStep3", lang)}</li>
+589:              {telegramError && <p className="text-[10px] text-[var(--color-accent-red)]">{telegramError}</p>}
+592:                <button onClick={handleConnectTelegram} disabled={telegramLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
+593:                  {telegramLoading ? "..." : t("connect", lang)}
+602:            <MessageCircle size={15} /> {t("whatsapp", lang).toUpperCase()}
+609:                    {whatsappConnected ? `✓ ${t("statusConnected", lang)}` : `✗ ${t("statusNotConnected", lang)}`}
+612:                    {whatsappConnected && connectivity?.whatsapp.target
+613:                      ? `${t("connectedTo", lang)} ${connectivity.whatsapp.target}`
+619:                    if (whatsappConnected) {
+628:                  {whatsAppLoading ? "..." : whatsappConnected ? t("disconnect", lang) : t("connect", lang)}
+643:                <p className="text-sm font-bold text-[var(--color-fg-default)]">{t("whatsapp", lang)}</p>
+681:            <Bell size={15} /> {t("notifications", lang).toUpperCase()}
+688:                  value={notifications.primaryChannel}
+697:                  {telegramConnected && <option value="telegram">{t("telegram", lang)}</option>}
+698:                  {whatsappConnected && <option value="whatsapp">{t("whatsapp", lang)}</option>}
+707:              <p className="text-xs font-medium text-[var(--color-fg-muted)]">{t("notificationChannels", lang)}</p>
+709:                ["telegram", t("telegram", lang), telegramConnected],
+711:                ["whatsapp", t("whatsapp", lang), whatsappConnected],
+717:                    checked={notifications.enabledChannels[channel]}
+744:                    checked={notifications.categories[key]}
+761:              disabled={notificationsLoading}
+764:              {notificationsLoading ? t("saving", lang) : t("save", lang)}

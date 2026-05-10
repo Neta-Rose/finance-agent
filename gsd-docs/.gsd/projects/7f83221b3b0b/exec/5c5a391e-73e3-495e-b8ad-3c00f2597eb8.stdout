@@ -1,0 +1,241 @@
+backend/src/scripts/verifyMigrationParity.ts:191:  const db = await listNotifications(userId, { limit: 5000 });
+backend/src/services/newIdeasService.ts:583:  await publishNotification({
+backend/src/services/feedService.ts:273:    await publishNotification({
+backend/src/services/chat/tools/registry.ts:89:    listNotifications(userId: string, options?: { unreadOnly?: boolean; limit?: number }): Promise<NotificationRecord[]>;
+backend/src/services/chat/tools/readTools.ts:345:          const notifications = await toolCtx.notificationStore.listNotifications(toolCtx.userId, {
+backend/src/services/quickCheckService.ts:200:  await publishNotification({
+backend/src/routes/notifications.ts:32:    const items = await listNotifications(ws.userId, {
+backend/src/routes/telegram.ts:24:function splitMessage(text: string, maxLen: number): string[] {
+backend/src/routes/telegram.ts:35:async function deliverTelegramReply(
+backend/src/routes/telegram.ts:40:  const chunks = splitMessage(text, TELEGRAM_MAX_MESSAGE_LENGTH);
+backend/src/routes/telegram.ts:123:          await deliverTelegramReply(botToken, chatId, result.message);
+backend/src/routes/telegram.ts:167:      await deliverTelegramReply(botToken, chatId, result.replyText);
+backend/src/services/fullReportService.ts:443:  await publishNotification({
+backend/src/services/notificationService.ts:123:export interface NotificationPublishRequest {
+backend/src/services/notificationService.ts:132:function categoryEnabled(preferences: NotificationPreferences, category: NotificationPublishRequest["category"]): boolean {
+backend/src/services/notificationService.ts:196:async function deliverTelegram(record: NotificationEnvelope): Promise<{ delivered: boolean; error: string | null }> {
+backend/src/services/notificationService.ts:295:export async function publishNotification(
+backend/src/services/notificationService.ts:296:  request: NotificationPublishRequest
+backend/src/services/notificationService.ts:356:      const result = await deliverTelegram(record);
+backend/src/services/notificationService.ts:405:export async function listNotifications(
+backend/src/services/dailyBriefService.ts:608:  await publishNotification({
+backend/src/services/notificationService.test.ts:35:  const created = await publishNotification({
+backend/src/services/notificationService.test.ts:47:  const unread = await listNotifications(userId, { channel: "web", unreadOnly: true, limit: 10 });
+backend/src/services/notificationService.test.ts:54:  const after = await listNotifications(userId, { channel: "web", unreadOnly: true, limit: 10 });
+backend/src/services/notificationService.test.ts:78:  const first = await publishNotification({
+backend/src/services/notificationService.test.ts:86:  const second = await publishNotification({
+backend/src/services/notificationService.test.ts:99:  const items = await listNotifications(userId, { channel: "web", limit: 10 });
+backend/src/services/notificationService.test.ts:169:    const created = await publishNotification({
+backend/src/services/notificationService.test.ts:187:    const items = await listNotifications(userId, { channel: "whatsapp", limit: 10 });
+backend/src/services/deepDiveService.ts:200:  await publishNotification({
+backend/src/services/stepQueue/completionEffects.ts:282:      await publishNotification({
+backend/src/services/notificationStore.ts:157:export async function listNotifications(
+
+existing notification tests
+backend/src/routes/adminPilotFeatures.test.ts:107:      feature("telegram.alerts", "telegram", "ready", "Telegram alerts"),
+backend/src/services/pilotFeatureReviewService.test.ts:30:    detailedExplanation: "Sends pilot daily brief summaries through the Telegram channel.",
+backend/src/services/pilotFeatureReviewService.test.ts:32:    edgeCases: ["Telegram chat is not linked"],
+backend/src/services/feedService.test.ts:14:    kind: "market_news",
+backend/src/services/feedService.test.ts:23:    kind: "market_news",
+backend/src/services/feedService.test.ts:39:  assert.equal(stored[0]?.kind, "market_news");
+backend/src/services/pilotFeatureCatalogService.test.ts:70:test("default pilot feature catalog includes substantive Web, Telegram, and admin coverage", async () => {
+backend/src/services/stepQueue.test.ts:599:test("daily_brief expansion creates quick_check steps for held tickers", async () => {
+backend/src/services/stepQueue.test.ts:604:  const expanded = await expandStepQueueJob(ws, { action: "daily_brief" });
+backend/src/services/stepQueue.test.ts:607:  assert.equal(expanded.action, "daily_brief");
+backend/src/services/notificationService.test.ts:7:const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), "notification-service-"));
+backend/src/services/notificationService.test.ts:15:test("publishNotification writes web outbox entries and markNotificationsRead marks them read", async () => {
+backend/src/services/notificationService.test.ts:16:  const { publishNotification, listNotifications, markNotificationsRead } = await import("./notificationService.js");
+backend/src/services/notificationService.test.ts:20:    notifications: {
+backend/src/services/notificationService.test.ts:35:  const created = await publishNotification({
+backend/src/services/notificationService.test.ts:37:    category: "daily_brief",
+backend/src/services/notificationService.test.ts:58:test("publishNotification is idempotent for report batch ids", async () => {
+backend/src/services/notificationService.test.ts:59:  const { publishNotification, listNotifications } = await import("./notificationService.js");
+backend/src/services/notificationService.test.ts:63:    notifications: {
+backend/src/services/notificationService.test.ts:78:  const first = await publishNotification({
+backend/src/services/notificationService.test.ts:86:  const second = await publishNotification({
+backend/src/services/notificationService.test.ts:105:  const { getNotificationPreferences } = await import("./notificationService.js");
+backend/src/services/notificationService.test.ts:109:    notifications: {
+backend/src/services/notificationService.test.ts:131:test("publishNotification delivers to whatsapp when whatsapp is connected and enabled", async () => {
+backend/src/services/notificationService.test.ts:143:    const { publishNotification, listNotifications } = await import("./notificationService.js");
+backend/src/services/notificationService.test.ts:147:      notifications: {
+backend/src/services/notificationService.test.ts:169:    const created = await publishNotification({
+backend/src/services/jobAdmissionService.test.ts:12:  assert.equal(requiresBudgetAdmission({ action: "daily_brief" }), false);
+frontend/src/App.tsx:22:import { fetchNotifications, markNotificationsRead } from "./api/notifications";
+frontend/src/App.tsx:61:  const { data: notifications } = useQuery({
+frontend/src/App.tsx:62:    queryKey: ["web-notifications"],
+frontend/src/App.tsx:70:    if (!notifications?.items.length) return;
+frontend/src/App.tsx:71:    const unseen = notifications.items.filter((item) => !seenNotificationIds.current.has(item.id));
+frontend/src/App.tsx:82:      showToast(message, item.category === "daily_brief" ? "info" : "warning");
+frontend/src/App.tsx:85:  }, [notifications?.items, showToast]);
+frontend/src/components/today/SetupBanner.tsx:25:    ? t("setupBannerBodyTelegram", language)
+frontend/src/components/ChannelConnectCode.tsx:9: * Shows a 6-char code the user sends to their Telegram or WhatsApp bot
+frontend/src/components/ChannelConnectCode.tsx:52:          Generate a one-time code and send it to your Telegram or WhatsApp bot.
+frontend/src/api/onboarding.ts:10:export async function connectTelegram(payload: {
+frontend/src/api/onboarding.ts:17:export async function disconnectTelegram(): Promise<{
+frontend/src/pages/Onboarding.tsx:332:// ---- Step 3: Telegram (shared) ----
+frontend/src/pages/Onboarding.tsx:359:      showToast(t("onboardTelegramConnected", language), "success");
+frontend/src/pages/Onboarding.tsx:362:      setError(t("onboardTelegramFailed", language));
+frontend/src/pages/Onboarding.tsx:378:          <p>{t("onboardTelegramStep1", language)}</p>
+frontend/src/pages/Onboarding.tsx:379:          <p>{t("onboardTelegramStep2", language)}</p>
+frontend/src/pages/Onboarding.tsx:380:          <p>{t("onboardTelegramStep3", language)}</p>
+frontend/src/pages/Onboarding.tsx:656:              <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewTelegram", language)}</p>
+frontend/src/pages/Onboarding.tsx:657:              <p className="text-sm text-[var(--color-fg-default)]">{t("onboardTelegramYes", language)}</p>
+frontend/src/api/notifications.ts:6:  category: "daily_brief" | "report" | "market_news";
+frontend/src/api/notifications.ts:34:  return (await apiClient.get<NotificationsResponse>(`/notifications${suffix ? `?${suffix}` : ""}`)).data;
+frontend/src/api/notifications.ts:38:  return (await apiClient.post<{ updated: number }>("/notifications/read", { ids })).data;
+frontend/src/pages/Controls.tsx:154:            action="daily_brief"
+frontend/src/pages/Alerts.tsx:17:  | "daily_brief"
+frontend/src/pages/Alerts.tsx:26:  { id: "daily_brief", label: "Daily" },
+frontend/src/pages/Alerts.tsx:41:  if (item.kind === "market_news") return <Newspaper size={14} />;
+frontend/src/pages/Alerts.tsx:48:  if (item.kind === "market_news") return "Market News";
+frontend/src/pages/Alerts.tsx:159:                      {item.kind !== "market_news" && (
+frontend/src/pages/Alerts.tsx:184:                    {item.kind === "market_news" ? (
+frontend/src/pages/Settings.tsx:9:  connectTelegram,
+frontend/src/pages/Settings.tsx:10:  disconnectTelegram,
+frontend/src/pages/Settings.tsx:107:  // Telegram form
+frontend/src/pages/Settings.tsx:108:  const [showTelegramForm, setShowTelegramForm] = useState(false);
+frontend/src/pages/Settings.tsx:110:  const [telegramChatId, setTelegramChatId] = useState("");
+frontend/src/pages/Settings.tsx:111:  const [telegramError, setTelegramError] = useState("");
+frontend/src/pages/Settings.tsx:112:  const [telegramLoading, setTelegramLoading] = useState(false);
+frontend/src/pages/Settings.tsx:113:  const [notifications, setNotifications] = useState<NotificationPreferences>(() =>
+frontend/src/pages/Settings.tsx:114:    sanitizePilotNotifications(onboardStatus?.notifications)
+frontend/src/pages/Settings.tsx:116:  const [notificationsLoading, setNotificationsLoading] = useState(false);
+frontend/src/pages/Settings.tsx:167:  const handleConnectTelegram = async () => {
+frontend/src/pages/Settings.tsx:168:    setTelegramError("");
+frontend/src/pages/Settings.tsx:170:      setTelegramError(t("errorBothFields", lang));
+frontend/src/pages/Settings.tsx:174:      setTelegramError(t("errorInvalidBotToken", lang));
+frontend/src/pages/Settings.tsx:178:      setTelegramError(t("errorInvalidChatId", lang));
+frontend/src/pages/Settings.tsx:181:    setTelegramLoading(true);
+frontend/src/pages/Settings.tsx:183:      await connectTelegram({ botToken, telegramChatId });
+frontend/src/pages/Settings.tsx:186:      setShowTelegramForm(false);
+frontend/src/pages/Settings.tsx:188:      setTelegramChatId("");
+frontend/src/pages/Settings.tsx:190:      setTelegramError(t("errorConnectTelegram", lang));
+frontend/src/pages/Settings.tsx:192:      setTelegramLoading(false);
+frontend/src/pages/Settings.tsx:196:  const handleDisconnectTelegram = async () => {
+frontend/src/pages/Settings.tsx:197:    setTelegramError("");
+frontend/src/pages/Settings.tsx:198:    setTelegramLoading(true);
+frontend/src/pages/Settings.tsx:200:      await disconnectTelegram();
+frontend/src/pages/Settings.tsx:203:      setShowTelegramForm(false);
+frontend/src/pages/Settings.tsx:205:      setTelegramChatId("");
+frontend/src/pages/Settings.tsx:207:      setTelegramError(t("errorConnectTelegram", lang));
+frontend/src/pages/Settings.tsx:208:      showToast(t("errorConnectTelegram", lang), "error");
+frontend/src/pages/Settings.tsx:210:      setTelegramLoading(false);
+frontend/src/pages/Settings.tsx:215:    const sanitizedNotifications = sanitizePilotNotifications(notifications);
+frontend/src/pages/Settings.tsx:219:      await apiClient.patch("/onboard/notifications", sanitizedNotifications);
+frontend/src/pages/Settings.tsx:221:      showToast(t("notificationsUpdated", lang), "success");
+frontend/src/pages/Settings.tsx:250:    setNotifications(sanitizePilotNotifications(onboardStatus?.notifications));
+frontend/src/pages/Settings.tsx:251:  }, [onboardStatus?.notifications]);
+frontend/src/pages/Settings.tsx:471:        {/* Telegram */}
+frontend/src/pages/Settings.tsx:476:          {!showTelegramForm ? (
+frontend/src/pages/Settings.tsx:492:                      void handleDisconnectTelegram();
+frontend/src/pages/Settings.tsx:495:                    setShowTelegramForm(true);
+frontend/src/pages/Settings.tsx:516:                <button onClick={() => setShowTelegramForm(false)} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)]">
+frontend/src/pages/Settings.tsx:526:                <input type="text" value={telegramChatId} onChange={(e) => setTelegramChatId(e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
+frontend/src/pages/Settings.tsx:538:                <button onClick={() => setShowTelegramForm(false)} className="flex-1 py-2 rounded-lg border border-[var(--color-border)] text-xs font-bold text-[var(--color-fg-muted)]">{t("cancel", lang)}</button>
+frontend/src/pages/Settings.tsx:539:                <button onClick={handleConnectTelegram} disabled={telegramLoading} className="flex-1 py-2 rounded-lg bg-[var(--color-accent-blue)] text-white text-xs font-bold disabled:opacity-50">
+frontend/src/pages/Settings.tsx:549:            <Bell size={15} /> {t("notifications", lang).toUpperCase()}
+frontend/src/pages/Settings.tsx:556:                  value={notifications.primaryChannel}
+frontend/src/pages/Settings.tsx:574:              <p className="text-xs font-medium text-[var(--color-fg-muted)]">{t("notificationChannels", lang)}</p>
+frontend/src/pages/Settings.tsx:583:                    checked={notifications.enabledChannels[channel]}
+frontend/src/pages/Settings.tsx:610:                    checked={notifications.categories[key]}
+frontend/src/pages/Settings.tsx:627:              disabled={notificationsLoading}
+frontend/src/pages/Settings.tsx:630:              {notificationsLoading ? t("saving", lang) : t("save", lang)}
+frontend/src/pages/Reports.tsx:46:type ReportFilter = "all" | "deep_dive" | "daily_brief" | "quick_check" | "full_report" | "new_ideas";
+frontend/src/pages/Reports.tsx:54:  { id: "daily_brief", label: "Daily brief" },
+frontend/src/pages/Reports.tsx:66:  daily_brief: {
+frontend/src/pages/Reports.tsx:140:  if (item.mode === "quick_check" || item.mode === "daily_brief" || item.mode === "full_report") {
+frontend/src/pages/Reports.tsx:1145:  const isBriefMode = item.mode === "daily_brief" || item.mode === "full_report";
+frontend/src/pages/Reports.tsx:1154:  const dailyEntries = portfolioDailyEntries.filter((entry) => entry.mode === "daily_brief");
+frontend/src/pages/Reports.tsx:1166:    item.mode === "daily_brief" && !hasDailyQueueMetadata && attentionDailyEntries.length > 0
+frontend/src/pages/Reports.tsx:1502:          ["deep_dive", "full_report", "daily_brief", "quick_check", "new_ideas"].includes(job.action)
+frontend/src/pages/Reports.tsx:1539:    () => (feedData?.items ?? []).filter((item) => item.kind !== "market_news"),
+frontend/src/store/i18n.ts:18:  | "telegram" | "whatsapp" | "webChannel" | "notifications"
+frontend/src/store/i18n.ts:31:  | "errorConnectTelegram" | "errorConnectWhatsApp" | "errorBothFields"
+frontend/src/store/i18n.ts:35:  | "primaryChannel" | "notificationChannels" | "notifyMeAbout"
+frontend/src/store/i18n.ts:37:  | "notificationsUpdated" | "errorUpdateNotifications" | "noAlerts"
+frontend/src/store/i18n.ts:95:  | "onboardTelegramStep1" | "onboardTelegramStep2" | "onboardTelegramStep3"
+frontend/src/store/i18n.ts:99:  | "onboardTelegramConnected" | "onboardTelegramFailed"
+frontend/src/store/i18n.ts:114:  | "onboardReviewAccount" | "onboardReviewSchedule" | "onboardReviewTelegram"
+frontend/src/store/i18n.ts:115:  | "onboardReviewPortfolio" | "onboardTelegramYes" | "onboardTelegramNo"
+frontend/src/store/i18n.ts:121:  | "adminTelegramSection" | "adminScheduleSection" | "adminRateLimitsSection"
+frontend/src/store/i18n.ts:133:  | "adminEditTelegram" | "adminAddTelegram" | "adminSaveTelegram"
+frontend/src/store/i18n.ts:136:  | "adminTelegramYes" | "adminTelegramNo"
+frontend/src/store/i18n.ts:145:  | "setupBannerTitle" | "setupBannerBodyChannelAgnostic" | "setupBannerBodyTelegram"
+frontend/src/store/i18n.ts:214:    telegram: "Telegram",
+frontend/src/store/i18n.ts:217:    notifications: "Notifications",
+frontend/src/store/i18n.ts:226:    telegramGuideStep1: 'Send "/newbot" to exactly @BotFather in Telegram, follow the prompts, and copy the token it gives you.',
+frontend/src/store/i18n.ts:228:    telegramGuideStep3: 'Open @userinfobot in Telegram, send any message, and copy the numeric ID it shows.',
+frontend/src/store/i18n.ts:263:    telegramConnected: "Telegram connected!",
+frontend/src/store/i18n.ts:266:    errorConnectTelegram: "Failed to connect Telegram",
+frontend/src/store/i18n.ts:275:    notificationChannels: "Channels",
+frontend/src/store/i18n.ts:280:    notificationsUpdated: "Notifications updated",
+frontend/src/store/i18n.ts:281:    errorUpdateNotifications: "Failed to update notifications",
+frontend/src/store/i18n.ts:455:    onboardStep3Title: "🤖 Connect Telegram (Optional)",
+frontend/src/store/i18n.ts:456:    onboardStep3Sub: "Get portfolio alerts and interact with your agent via Telegram.",
+frontend/src/store/i18n.ts:457:    onboardTelegramStep1: "1. Open Telegram → find @BotFather",
+frontend/src/store/i18n.ts:458:    onboardTelegramStep2: "2. Send /newbot → follow instructions",
+frontend/src/store/i18n.ts:459:    onboardTelegramStep3: "3. Paste your bot token below",
+frontend/src/store/i18n.ts:461:    onboardChatIdHint: "Get from @userinfobot on Telegram",
+frontend/src/store/i18n.ts:467:    onboardTelegramConnected: "Telegram connected!",
+frontend/src/store/i18n.ts:468:    onboardTelegramFailed: "Failed to connect Telegram. Check your token and chat ID.",
+frontend/src/store/i18n.ts:509:    onboardReviewTelegram: "Telegram",
+frontend/src/store/i18n.ts:511:    onboardTelegramYes: "✓ Connected",
+frontend/src/store/i18n.ts:512:    onboardTelegramNo: "Not connected",
+frontend/src/store/i18n.ts:528:    adminTelegramSection: "Telegram (optional)",
+frontend/src/store/i18n.ts:569:    adminEditTelegram: "Edit Telegram",
+frontend/src/store/i18n.ts:570:    adminAddTelegram: "Add Telegram",
+frontend/src/store/i18n.ts:571:    adminSaveTelegram: "Save Telegram",
+frontend/src/store/i18n.ts:576:    adminTelegramYes: "Telegram: ✅ connected",
+frontend/src/store/i18n.ts:577:    adminTelegramNo: "Telegram: ✗ not connected",
+frontend/src/store/i18n.ts:599:    setupBannerBodyTelegram: "We'll notify you on Telegram when ready.",
+frontend/src/store/i18n.ts:677:    notifications: "התראות",
+frontend/src/store/i18n.ts:726:    errorConnectTelegram: "חיבור הטלגרם נכשל",
+frontend/src/store/i18n.ts:735:    notificationChannels: "ערוצים",
+frontend/src/store/i18n.ts:740:    notificationsUpdated: "ההתראות עודכנו",
+frontend/src/store/i18n.ts:917:    onboardTelegramStep1: "1. פתח טלגרם → חפש @BotFather",
+frontend/src/store/i18n.ts:918:    onboardTelegramStep2: "2. שלח /newbot → עקוב אחר ההוראות",
+frontend/src/store/i18n.ts:919:    onboardTelegramStep3: "3. הדבק את טוקן הבוט למטה",
+frontend/src/store/i18n.ts:927:    onboardTelegramConnected: "טלגרם חובר בהצלחה!",
+frontend/src/store/i18n.ts:928:    onboardTelegramFailed: "חיבור הטלגרם נכשל. בדוק את הטוקן ומזהה השיחה.",
+frontend/src/store/i18n.ts:969:    onboardReviewTelegram: "טלגרם",
+frontend/src/store/i18n.ts:971:    onboardTelegramYes: "✓ מחובר",
+frontend/src/store/i18n.ts:972:    onboardTelegramNo: "לא מחובר",
+frontend/src/store/i18n.ts:988:    adminTelegramSection: "טלגרם (אופציונלי)",
+frontend/src/store/i18n.ts:1029:    adminEditTelegram: "ערוך טלגרם",
+frontend/src/store/i18n.ts:1030:    adminAddTelegram: "הוסף טלגרם",
+frontend/src/store/i18n.ts:1031:    adminSaveTelegram: "שמור טלגרם",
+frontend/src/store/i18n.ts:1036:    adminTelegramYes: "טלגרם: ✅ מחובר",
+frontend/src/store/i18n.ts:1037:    adminTelegramNo: "טלגרם: ✗ לא מחובר",
+frontend/src/store/i18n.ts:1059:    setupBannerBodyTelegram: "נעדכן אותך בטלגרם כשהפעולה תסתיים.",
+frontend/src/pages/Admin.tsx:7:  adminAddTelegram,
+frontend/src/pages/Admin.tsx:177:    daily_brief_max: "3",
+frontend/src/pages/Admin.tsx:178:    daily_brief_period: "24",
+frontend/src/pages/Admin.tsx:211:          daily_brief: { maxPerPeriod: Number(form.daily_brief_max), periodHours: Number(form.daily_brief_period) },
+frontend/src/pages/Admin.tsx:256:            <p className="text-xs font-bold text-[var(--color-fg-subtle)] uppercase mb-2">{t("adminTelegramSection", language)}</p>
+frontend/src/pages/Admin.tsx:1654:  daily_brief: "Daily Brief",
+frontend/src/pages/Admin.tsx:1742:  onAddTelegram,
+frontend/src/pages/Admin.tsx:1750:  onAddTelegram: (userId: string, botToken: string, chatId: string) => void;
+frontend/src/pages/Admin.tsx:1758:  const [showTelegram,  setShowTelegram]  = useState(false);
+frontend/src/pages/Admin.tsx:1854:        {user.hasTelegram
+frontend/src/pages/Admin.tsx:1855:          ? <p>{t("adminTelegramYes", language)}{user.telegramChatId ? ` (${user.telegramChatId})` : ""}</p>
+frontend/src/pages/Admin.tsx:1856:          : <p>{t("adminTelegramNo", language)}</p>}
+frontend/src/pages/Admin.tsx:1890:        <button onClick={() => setShowTelegram(!showTelegram)}
+frontend/src/pages/Admin.tsx:1893:          {user.hasTelegram ? t("adminEditTelegram", language) : t("adminAddTelegram", language)}
+frontend/src/pages/Admin.tsx:1934:      {/* Edit Telegram */}
+frontend/src/pages/Admin.tsx:1935:      {showTelegram && (
+frontend/src/pages/Admin.tsx:1937:          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>{t("adminTelegramSection", language)}</p>
+frontend/src/pages/Admin.tsx:1945:            <button onClick={() => { onAddTelegram(user.userId, botToken, chatId); setShowTelegram(false); }}
+frontend/src/pages/Admin.tsx:1948:              {t("adminSaveTelegram", language)}
+frontend/src/pages/Admin.tsx:1950:            <button onClick={() => setShowTelegram(false)}
+frontend/src/pages/Admin.tsx:2013:  { value: "telegram", label: "Telegram" },
+frontend/src/pages/Admin.tsx:2438:  const handleAddTelegram = async (userId: string, botToken: string, chatId: string) => {
+frontend/src/pages/Admin.tsx:2439:    await adminAddTelegram(userId, botToken, chatId);
+frontend/src/pages/Admin.tsx:2573:                    onAddTelegram={handleAddTelegram}
+frontend/src/api/admin.ts:27:  daily_brief: { maxPerPeriod: number; periodHours: number };
+frontend/src/api/admin.ts:67:  hasTelegram: boolean;
+frontend/src/api/admin.ts:93:  hasTelegram: boolean;
+frontend/src/api/admin.ts:385:export const adminAddTelegram = async (userId: string, botToken: string, chatId: string): Promise<void> => {
+frontend/src/types/api.ts:37: | "daily_brief" | "full_report" | "deep_dive"
+frontend/src/types/api.ts:224: daily_brief: RateLimit;
+frontend/src/types/api.ts:312: kind: "daily_brief" | "report" | "market_news";
+frontend/src/types/api.ts:365: notifications: NotificationPreferences;

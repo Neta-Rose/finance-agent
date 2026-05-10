@@ -1,0 +1,18 @@
+{
+  "id": "f8a0293d-4ef1-45a3-9519-36b443a4d39c",
+  "runtime": "bash",
+  "purpose": "Smoke-check deployed pilot feature admin endpoint auth/health without exposing secrets",
+  "script_chars": 774,
+  "started_at": "2026-05-09T14:09:42.607Z",
+  "finished_at": "2026-05-09T14:09:42.707Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 100,
+  "stdout_bytes": 126,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/f8a0293d-4ef1-45a3-9519-36b443a4d39c.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/f8a0293d-4ef1-45a3-9519-36b443a4d39c.stderr"
+}

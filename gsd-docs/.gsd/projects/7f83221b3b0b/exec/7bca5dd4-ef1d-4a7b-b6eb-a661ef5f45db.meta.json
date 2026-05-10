@@ -1,0 +1,18 @@
+{
+  "id": "7bca5dd4-ef1d-4a7b-b6eb-a661ef5f45db",
+  "runtime": "bash",
+  "purpose": "slice verification backend notification tests",
+  "script_chars": 220,
+  "started_at": "2026-05-10T11:55:47.354Z",
+  "finished_at": "2026-05-10T11:55:51.479Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4125,
+  "stdout_bytes": 5935,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/7bca5dd4-ef1d-4a7b-b6eb-a661ef5f45db.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/7bca5dd4-ef1d-4a7b-b6eb-a661ef5f45db.stderr"
+}

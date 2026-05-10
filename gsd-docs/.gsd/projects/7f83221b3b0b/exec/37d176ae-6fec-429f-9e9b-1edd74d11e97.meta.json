@@ -1,0 +1,18 @@
+{
+  "id": "37d176ae-6fec-429f-9e9b-1edd74d11e97",
+  "runtime": "bash",
+  "purpose": "slice verification frontend build",
+  "script_chars": 140,
+  "started_at": "2026-05-10T11:56:20.240Z",
+  "finished_at": "2026-05-10T11:56:25.609Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 5369,
+  "stdout_bytes": 434,
+  "stderr_bytes": 360,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/37d176ae-6fec-429f-9e9b-1edd74d11e97.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/37d176ae-6fec-429f-9e9b-1edd74d11e97.stderr"
+}

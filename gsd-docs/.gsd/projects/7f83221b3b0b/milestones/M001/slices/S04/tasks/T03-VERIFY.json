@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T03",
+  "unitId": "M001/S04/T03",
+  "timestamp": 1778416181452,
+  "passed": true,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "node scripts/verify-saved-chat-ui.mjs",
+      "exitCode": 0,
+      "durationMs": 60,
+      "verdict": "pass"
+    },
+    {
+      "command": "npm --prefix frontend run lint",
+      "exitCode": 0,
+      "durationMs": 6353,
+      "verdict": "pass"
+    },
+    {
+      "command": "npm --prefix frontend run build",
+      "exitCode": 0,
+      "durationMs": 5730,
+      "verdict": "pass"
+    }
+  ]
+}

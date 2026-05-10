@@ -1,0 +1,219 @@
+
+> clawd-backend@1.0.0 test
+> node scripts/run-tests.mjs --test-name-pattern notification service
+
+TAP version 13
+1..0
+# Subtest: /root/clawd/backend/src/routes/adminPilotFeatures.test.ts
+ok 1 - /root/clawd/backend/src/routes/adminPilotFeatures.test.ts
+  ---
+  duration_ms: 579.62604
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/fullReportRoutes.test.ts
+ok 2 - /root/clawd/backend/src/routes/fullReportRoutes.test.ts
+  ---
+  duration_ms: 188.307225
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/llmProxy.test.ts
+ok 3 - /root/clawd/backend/src/routes/llmProxy.test.ts
+  ---
+  duration_ms: 801.051785
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/routes/strategiesRoutes.test.ts
+ok 4 - /root/clawd/backend/src/routes/strategiesRoutes.test.ts
+  ---
+  duration_ms: 189.406452
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/schemas/strategy.test.ts
+ok 5 - /root/clawd/backend/src/schemas/strategy.test.ts
+  ---
+  duration_ms: 191.486664
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/scripts/supersedeStuckJob.test.ts
+ok 6 - /root/clawd/backend/src/scripts/supersedeStuckJob.test.ts
+  ---
+  duration_ms: 190.923457
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/advisorLlmService.test.ts
+ok 7 - /root/clawd/backend/src/services/advisorLlmService.test.ts
+  ---
+  duration_ms: 252.849128
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/baselineCoverageService.test.ts
+ok 8 - /root/clawd/backend/src/services/baselineCoverageService.test.ts
+  ---
+  duration_ms: 203.366756
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/dailyBriefService.selection.test.ts
+ok 9 - /root/clawd/backend/src/services/dailyBriefService.selection.test.ts
+  ---
+  duration_ms: 945.722024
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/dailyBriefService.test.ts
+ok 10 - /root/clawd/backend/src/services/dailyBriefService.test.ts
+  ---
+  duration_ms: 213.881023
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/deepDiveService.test.ts
+ok 11 - /root/clawd/backend/src/services/deepDiveService.test.ts
+  ---
+  duration_ms: 274.430881
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/feedService.test.ts
+ok 12 - /root/clawd/backend/src/services/feedService.test.ts
+  ---
+  duration_ms: 221.065355
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/fullReportService.test.ts
+ok 13 - /root/clawd/backend/src/services/fullReportService.test.ts
+  ---
+  duration_ms: 225.121738
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobAdmissionService.test.ts
+ok 14 - /root/clawd/backend/src/services/jobAdmissionService.test.ts
+  ---
+  duration_ms: 208.148907
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobStateReconciler.test.ts
+ok 15 - /root/clawd/backend/src/services/jobStateReconciler.test.ts
+  ---
+  duration_ms: 225.553367
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/jobTriggerService.test.ts
+ok 16 - /root/clawd/backend/src/services/jobTriggerService.test.ts
+  ---
+  duration_ms: 958.815202
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/llmProxy.test.ts
+ok 17 - /root/clawd/backend/src/services/llmProxy.test.ts
+  ---
+  duration_ms: 234.276782
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/newIdeasService.test.ts
+ok 18 - /root/clawd/backend/src/services/newIdeasService.test.ts
+  ---
+  duration_ms: 285.852126
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/notificationComposer.test.ts
+ok 19 - /root/clawd/backend/src/services/notificationComposer.test.ts
+  ---
+  duration_ms: 217.593279
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/notificationService.test.ts
+ok 20 - /root/clawd/backend/src/services/notificationService.test.ts
+  ---
+  duration_ms: 215.065389
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pilotFeatureCatalogService.test.ts
+ok 21 - /root/clawd/backend/src/services/pilotFeatureCatalogService.test.ts
+  ---
+  duration_ms: 222.035371
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pilotFeatureReviewService.test.ts
+ok 22 - /root/clawd/backend/src/services/pilotFeatureReviewService.test.ts
+  ---
+  duration_ms: 735.673336
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/pointsBudgetService.test.ts
+ok 23 - /root/clawd/backend/src/services/pointsBudgetService.test.ts
+  ---
+  duration_ms: 687.657487
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/quickCheckService.test.ts
+ok 24 - /root/clawd/backend/src/services/quickCheckService.test.ts
+  ---
+  duration_ms: 241.456172
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/stepQueue.test.ts
+ok 25 - /root/clawd/backend/src/services/stepQueue.test.ts
+  ---
+  duration_ms: 1157.826676
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/strategyBaselineService.test.ts
+ok 26 - /root/clawd/backend/src/services/strategyBaselineService.test.ts
+  ---
+  duration_ms: 228.814684
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/strategyFileService.test.ts
+ok 27 - /root/clawd/backend/src/services/strategyFileService.test.ts
+  ---
+  duration_ms: 236.803732
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/workspaceService.test.ts
+ok 28 - /root/clawd/backend/src/services/workspaceService.test.ts
+  ---
+  duration_ms: 451.542572
+  type: 'test'
+  ...
+1..0
+# Subtest: /root/clawd/backend/src/services/workspaceTemplate.test.ts
+ok 29 - /root/clawd/backend/src/services/workspaceTemplate.test.ts
+  ---
+  duration_ms: 211.764743
+  type: 'test'
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3847.246841
+Pilot surface verification passed: WhatsApp setup and notification selection are hidden from Settings, saves force WhatsApp disabled, and pilot copy stays nameless.
+EXIT_CODE=0 DURATION_MS=4109

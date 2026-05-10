@@ -1,0 +1,46 @@
+GSD state files:
+
+S01 mentions:
+.gsd/milestones/M001/M001-CONTEXT.md:8:This is a nameless portfolio-operations product for private investors. The system is already deployed on a VPS with backend, frontend, and Postgres. It helps users feel their portfolio is continuously watched by keeping durable strategy understanding per position, monitoring daily changes cheaply, escalating only when something meaningful changes, and explaining advisory output through Web and Telegram.
+.gsd/milestones/M001/M001-CONTEXT.md:30:- Entry point: deployed Web app, Telegram bot/webhook, backend API, admin UI.
+.gsd/milestones/M001/M001-CONTEXT.md:31:- Environment: production-like VPS deployment with Postgres.
+.gsd/milestones/M001/M001-CONTEXT.md:114:**Rationale:** The chat was previously too unsafe and may now be too restrictive. Pilot value requires practical report/verdict/catalyst explanations without leaking architecture, files, deployment, or internal docs.
+.gsd/milestones/M001/M001-CONTEXT.md:164:- `open-bugs/v5-deploy-bugs.md` — recent known issues; structured outputs likely fixed root-string schema failures, but budget/observability gaps remain relevant.
+.gsd/milestones/M001/M001-CONTEXT.md:180:- Before production-touching changes or restarts, create a production report under `/root/codex/production-reports/`.
+.gsd/milestones/M001/M001-CONTEXT.md:203:- S01: JSON feature catalog exists; Postgres review state exists; admin UI can browse entries and edit status/comment; feature entries include error-handling expectations.
+.gsd/milestones/M001/M001-CONTEXT.md:215:- Exact feature inventory size — enumerate during S01 from Web/admin surfaces.
+.gsd/milestones/M001/M001-ROADMAP.md:3:**Vision:** Make the already deployed portfolio-operations product precise, readable, connected, observable, and trustworthy enough for a first Web + Telegram pilot, while hiding unsupported WhatsApp and keeping user-facing copy nameless.
+.gsd/milestones/M001/M001-ROADMAP.md:17:- [x] **S01: S01** `risk:high` `depends:[]`
+.gsd/milestones/M001/M001-ROADMAP.md:20:- [ ] **S02: Pilot Surface Gating + Nameless Copy** `risk:medium` `depends:[S01]`
+.gsd/milestones/M001/M001-ROADMAP.md:35:- [ ] **S07: Pilot Operational Visibility** `risk:medium` `depends:[S01,S03,S05]`
+.gsd/milestones/M001/M001-ROADMAP.md:38:- [ ] **S08: End-to-End Pilot Rehearsal** `risk:high` `depends:[S01,S02,S03,S04,S05,S06,S07]`
+.gsd/milestones/M001/M001-ROADMAP.md:43:### S01 → S02
+.gsd/milestones/M001/M001-ROADMAP.md:58:Consumes from S01:
+.gsd/milestones/M001/M001-ROADMAP.md:103:Consumes from S01:
+.gsd/milestones/M001/slices/S01/tasks/T04-SUMMARY.md:3:parent: S01
+.gsd/milestones/M001/slices/S01/tasks/T05-VERIFY.json:4:  "unitId": "M001/S01/T05",
+.gsd/milestones/M001/slices/S01/tasks/T05-SUMMARY.md:3:parent: S01
+.gsd/milestones/M001/slices/S01/S01-SUMMARY.md:3:Unit `complete-slice` for `M001/S01` failed to produce this artifact after idle recovery exhausted all retries.
+.gsd/milestones/M001/slices/S01/S01-SUMMARY.md:5:**Reason**: Deterministic policy rejection for complete-slice "M001/S01": write: HARD BLOCK: unit "complete-slice" runs under tools-policy "planning-dispatch" — cannot write "production-reports/S01-verification-fix.md" — writes are restricted to .gsd/. This is a mechanical gate enforced by manifest.tools (#4934). You MUST NOT proceed, retry the same call, or rationalize past this block. If you need to write user source, the work belongs in execute-task, not in a planning unit.. Retrying cannot resolve this gate — writing blocker placeholder to advance pipeline.
+.gsd/milestones/M001/slices/S01/tasks/T01-SUMMARY.md:3:parent: S01
+.gsd/milestones/M001/slices/S01/tasks/T01-SUMMARY.md:27:Created the pilot feature catalog foundation for S01. Added strict Zod schemas and exported types for immutable catalog entries plus review status values. Implemented a deterministic loader that reads all `docs/pilot-features/*.json`, validates file shape, rejects malformed JSON/schema violations with path-specific reasons, rejects duplicate IDs, rejects unsafe evidence paths pointing at ignored runtime/user/secret locations, and sorts entries by surface, title, and ID. Added `docs/pilot-features/pilot-core.json` with eight non-placeholder entries covering onboarding/portfolio, reports, strategies, alerts/notifications, Telegram delivery/chat webhook, in-app chat, controls/settings, and admin/operator console surfaces. Added a narrow `.gitignore` exception so `docs/pilot-features/*.json` can be tracked despite the broader root `docs/` ignore rule.
+.gsd/milestones/M001/slices/S01/S01-PLAN.md:1:# S01: Pilot Feature Inventory + Admin Review
+.gsd/milestones/M001/slices/S01/S01-PLAN.md:19:- This slice proves: integration; automated proof is backend contract tests plus frontend TypeScript/build, with non-blocking human UAT after deployment.
+.gsd/milestones/M001/slices/S01/tasks/T02-SUMMARY.md:3:parent: S01
+.gsd/milestones/M001/slices/S01/tasks/T04-VERIFY.json:4:  "unitId": "M001/S01/T04",
+.gsd/milestones/M001/slices/S01/S01-RESEARCH.md:1:# S01 — Research
+.gsd/milestones/M001/slices/S01/S01-RESEARCH.md:7:Research for S01 could not be completed in this planning unit because the tool policy mechanically blocked required subagent dispatch for parallel slice research.
+.gsd/milestones/M001/slices/S01/S01-RESEARCH.md:19:Run S01 research from an execution context where `subagent` and/or code-read tools are permitted, or directly execute a research task that is allowed to inspect the codebase and persist `.gsd` artifacts. The intended research scope remains: pilot feature catalog JSON structure, Postgres-backed `pilot_feature_reviews` mutable review state, and admin API/UI patterns for browsing feature entries and editing review status/comment/error-handling expectations.
+.gsd/milestones/M001/slices/S01/S01-RESEARCH.md:29:1. Re-run S01 research in an execution-capable context.
+.gsd/milestones/M001/slices/S01/tasks/T01-VERIFY.json:4:  "unitId": "M001/S01/T01",
+.gsd/milestones/M001/slices/S01/tasks/T03-SUMMARY.md:3:parent: S01
+.gsd/milestones/M001/slices/S01/tasks/T03-SUMMARY.md:41:Added a small exported test-only route dependency seam in `admin.ts` so admin route behavior can be tested without a live Postgres connection while production defaults still use the real catalog/review service.
+.gsd/milestones/M001/slices/S02/tasks/T02-PLAN.md:17:4. Do not rewrite internal `CLAUDE.md`, `SOUL.md`, deployment scripts, API headers, database schemas, or package names.
+.gsd/milestones/M001/slices/S01/tasks/T03-VERIFY.json:4:  "unitId": "M001/S01/T03",
+.gsd/milestones/M001/slices/S02/S02-PLAN.md:11:- S01 feature inventory reflects the S02 policy: WhatsApp-related behavior is removed from pilot-ready descriptions or explicitly marked hidden/deferred, and evidence paths remain tracked files.
+.gsd/milestones/M001/slices/S02/S02-PLAN.md:37:Upstream surfaces consumed: S01 pilot feature catalog contract in `docs/pilot-features/README.md`, `docs/pilot-features/pilot-core.json`, and backend pilot feature tests. New wiring introduced: frontend Settings copy/control changes, public copy changes, catalog policy updates, and a tracked verification script that enforces S02 policy against real repository files. Remaining before milestone end-to-end usability: S03 notification composition/delivery, S04-S05 saved/safe chat, S06 readability, S07 operations visibility, and S08 live Web + Telegram rehearsal.
+.gsd/milestones/M001/slices/S02/tasks/T01-PLAN.md:47:- Failure state exposed: Reintroduced unsupported WhatsApp UI is identified before deployment by file and invariant name.
+.gsd/milestones/M001/slices/S01/tasks/T02-VERIFY.json:4:  "unitId": "M001/S01/T02",
+.gsd/milestones/M001/slices/S02/tasks/T03-PLAN.md:11:Update the S01 pilot feature inventory so owner/admin review surfaces accurately describe WhatsApp as hidden/deferred rather than pilot-ready, then close the full S02 verification set. This task completes R004’s catalog contract and proves the changed inventory still satisfies the existing backend catalog loader tests.
+.gsd/milestones/M001/slices/S02/tasks/T03-PLAN.md:15:2. Update `docs/pilot-features/README.md` only if the S02 guidance needs sharper wording for future maintainers; preserve the S01 boundary that catalog JSON is immutable product inventory and Postgres stores mutable review state.
+.gsd/milestones/M001/slices/S02/S02-RESEARCH.md:19:Run S02 research from an execution context where `subagent` and/or code-read tools are permitted, or directly execute a research task that is allowed to inspect the codebase and persist `.gsd` artifacts. The intended research scope remains: find user-facing WhatsApp surfaces and hide/defer them for the pilot, locate pilot-facing copy containing “Clawd” or “finance-agent,” replace with neutral product language, and ensure S01 feature inventory entries/status can reflect WhatsApp and naming-sensitive surfaces once S01 exists.

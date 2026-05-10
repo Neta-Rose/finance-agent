@@ -1,0 +1,18 @@
+{
+  "id": "0abbe7ea-0958-428b-a2a0-cbed4a4dc701",
+  "runtime": "bash",
+  "purpose": "GREEN telegram delivery helper tests",
+  "script_chars": 68,
+  "started_at": "2026-05-10T11:59:25.046Z",
+  "finished_at": "2026-05-10T11:59:28.781Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 3735,
+  "stdout_bytes": 6043,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/0abbe7ea-0958-428b-a2a0-cbed4a4dc701.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/0abbe7ea-0958-428b-a2a0-cbed4a4dc701.stderr"
+}

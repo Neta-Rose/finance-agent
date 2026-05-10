@@ -1,0 +1,18 @@
+{
+  "id": "6ad30126-aa77-4283-841d-cedce50334a4",
+  "runtime": "bash",
+  "purpose": "RED telegram delivery helper tests",
+  "script_chars": 68,
+  "started_at": "2026-05-10T11:58:40.309Z",
+  "finished_at": "2026-05-10T11:58:43.841Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 3532,
+  "stdout_bytes": 7420,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/6ad30126-aa77-4283-841d-cedce50334a4.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/6ad30126-aa77-4283-841d-cedce50334a4.stderr"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "ae8e2998-3e4b-4743-8ebb-2a3a67789088",
+  "runtime": "bash",
+  "purpose": "Re-run specific failing backend test files with dummy mocked LLM credentials",
+  "script_chars": 217,
+  "started_at": "2026-05-09T14:04:56.354Z",
+  "finished_at": "2026-05-09T14:04:56.486Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 132,
+  "stdout_bytes": 2854,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/ae8e2998-3e4b-4743-8ebb-2a3a67789088.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/ae8e2998-3e4b-4743-8ebb-2a3a67789088.stderr"
+}

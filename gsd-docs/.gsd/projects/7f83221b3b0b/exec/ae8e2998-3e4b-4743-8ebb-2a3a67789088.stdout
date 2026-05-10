@@ -1,0 +1,68 @@
+TAP version 13
+# node:internal/modules/package_json_reader:314
+#   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+#         ^
+# Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'tsx' imported from /tmp/clawd-s01-fix/backend/
+#     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)
+#     at packageResolve (node:internal/modules/esm/resolve:767:81)
+#     at moduleResolve (node:internal/modules/esm/resolve:853:18)
+#     at defaultResolve (node:internal/modules/esm/resolve:983:11)
+#     at \#cachedDefaultResolve (node:internal/modules/esm/loader:731:20)
+#     at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)
+#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)
+#     at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:36)
+#     at TracingChannel.tracePromise (node:diagnostics_channel:350:14)
+#     at ModuleLoader.import (node:internal/modules/esm/loader:663:21) {
+#   code: 'ERR_MODULE_NOT_FOUND'
+# }
+# Node.js v22.22.0
+# Subtest: src/services/dailyBriefService.test.ts
+not ok 1 - src/services/dailyBriefService.test.ts
+  ---
+  duration_ms: 51.564461
+  type: 'test'
+  location: '/tmp/clawd-s01-fix/backend/src/services/dailyBriefService.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# node:internal/modules/package_json_reader:314
+#   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+#         ^
+# Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'tsx' imported from /tmp/clawd-s01-fix/backend/
+#     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)
+#     at packageResolve (node:internal/modules/esm/resolve:767:81)
+#     at moduleResolve (node:internal/modules/esm/resolve:853:18)
+#     at defaultResolve (node:internal/modules/esm/resolve:983:11)
+#     at \#cachedDefaultResolve (node:internal/modules/esm/loader:731:20)
+#     at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)
+#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)
+#     at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:36)
+#     at TracingChannel.tracePromise (node:diagnostics_channel:350:14)
+#     at ModuleLoader.import (node:internal/modules/esm/loader:663:21) {
+#   code: 'ERR_MODULE_NOT_FOUND'
+# }
+# Node.js v22.22.0
+# Subtest: src/services/stepQueue.test.ts
+not ok 2 - src/services/stepQueue.test.ts
+  ---
+  duration_ms: 34.205088
+  type: 'test'
+  location: '/tmp/clawd-s01-fix/backend/src/services/stepQueue.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 0
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 65.657756

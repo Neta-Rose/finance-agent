@@ -1,0 +1,248 @@
+conversation refs
+frontend/src/App.tsx:218: <Route path="/chat" element={
+frontend/src/components/ui/BottomNav.tsx:9:  { to: "/chat", icon: MessageCircle, labelKey: "chatTab" as const },
+backend/src/db/entities/ConversationTurnEntity.ts:6:  conversationId: string;
+backend/src/db/entities/ConversationTurnEntity.ts:20:  tableName: "conversation_turns",
+backend/src/db/entities/ConversationTurnEntity.ts:22:    conversationId: { name: "conversation_id", type: "varchar", length: 64, primary: true },
+backend/src/db/entities/ToolCallEntity.ts:8:  conversationId: string;
+backend/src/db/entities/ToolCallEntity.ts:25:    conversationId: { name: "conversation_id", type: "varchar", length: 64 },
+frontend/src/api/chat.ts:10:  conversationId: string;
+frontend/src/api/chat.ts:18:  conversationId: string;
+frontend/src/api/chat.ts:31:  conversation: {
+frontend/src/api/chat.ts:46:  conversationId?: string
+frontend/src/api/chat.ts:48:  const res = await apiClient.post<SendMessageResponse>("/chat/messages", {
+frontend/src/api/chat.ts:50:    conversationId,
+frontend/src/api/chat.ts:56:  conversationId: string
+frontend/src/api/chat.ts:59:    `/chat/conversations/${conversationId}`
+frontend/src/api/admin.ts:385:export const adminAddTelegram = async (userId: string, botToken: string, chatId: string): Promise<void> => {
+frontend/src/api/admin.ts:388:    body: JSON.stringify({ botToken, telegramChatId: chatId }),
+frontend/src/api/admin.ts:466:  sourceClass: "backend_job" | "telegram_command" | "dashboard_action" | "direct_chat" | "unknown_agent_session";
+frontend/src/store/i18n.ts:5:  | "settingsTab" | "portfolioTab" | "alertsTab" | "reportsTab" | "strategiesTab" | "controlsTab" | "chatTab"
+frontend/src/store/i18n.ts:30:  | "botToken" | "chatId" | "telegramConnected" | "whatsappConnected" | "channelDisconnected"
+frontend/src/store/i18n.ts:169:    chatTab: "Chat",
+frontend/src/store/i18n.ts:227:    telegramGuideStep2: "Find your new bot by username and send it any message — this activates the chat.",
+frontend/src/store/i18n.ts:259:    chatId: "Chat ID",
+frontend/src/store/i18n.ts:270:    errorInvalidChatId: "Invalid chat ID",
+frontend/src/store/i18n.ts:464:    onboardBothFields: "Both bot token and chat ID are required",
+frontend/src/store/i18n.ts:466:    onboardInvalidChatId: "Invalid chat ID format",
+frontend/src/store/i18n.ts:468:    onboardTelegramFailed: "Failed to connect Telegram. Check your token and chat ID.",
+frontend/src/store/i18n.ts:629:    chatTab: "צ'אט",
+frontend/src/store/i18n.ts:719:    chatId: "מזהה שיחה",
+frontend/src/pages/Onboarding.tsx:388:          <label className={labelCls}>{t("chatId", language)}</label>
+frontend/src/pages/Settings.tsx:525:                <label className={labelCls}>{t("chatId", lang)}</label>
+frontend/src/pages/Admin.tsx:259:                <label className={labelCls}>{t("chatId", language)}</label>
+frontend/src/pages/Admin.tsx:1170:    if (sourceClass === "direct_chat") return "chat";
+frontend/src/pages/Admin.tsx:1174:    if (source === "inferred_direct_chat") return "direct";
+frontend/src/pages/Admin.tsx:1750:  onAddTelegram: (userId: string, botToken: string, chatId: string) => void;
+frontend/src/pages/Admin.tsx:1763:  const [chatId,        setChatId]        = useState(user.telegramChatId ?? "");
+frontend/src/pages/Admin.tsx:1941:          <input value={chatId} onChange={e => setChatId(e.target.value)} placeholder="Chat ID"
+frontend/src/pages/Admin.tsx:1945:            <button onClick={() => { onAddTelegram(user.userId, botToken, chatId); setShowTelegram(false); }}
+frontend/src/pages/Admin.tsx:2438:  const handleAddTelegram = async (userId: string, botToken: string, chatId: string) => {
+frontend/src/pages/Admin.tsx:2439:    await adminAddTelegram(userId, botToken, chatId);
+backend/src/db/entities/ChannelBindingEntity.ts:9:  conversationId: string | null;
+backend/src/db/entities/ChannelBindingEntity.ts:26:    conversationId: { name: "conversation_id", type: "varchar", length: 64, nullable: true },
+frontend/src/pages/Chat.tsx:4:import { sendChatMessage } from "../api/chat";
+frontend/src/pages/Chat.tsx:8: * Dashboard chat pane — Phase 5, task 5.14.
+frontend/src/pages/Chat.tsx:11: * so the user can return to the same conversation across sessions.
+frontend/src/pages/Chat.tsx:14:const STORAGE_KEY = "chat_session";
+frontend/src/pages/Chat.tsx:18:  conversationId: string;
+frontend/src/pages/Chat.tsx:38:function saveSession(conversationId: string, messages: Message[]): void {
+frontend/src/pages/Chat.tsx:40:    const session: StoredSession = { conversationId, messages, savedAt: Date.now() };
+frontend/src/pages/Chat.tsx:52: * Dashboard chat pane — Phase 5, task 5.14.
+frontend/src/pages/Chat.tsx:58: * the same conversation continues across messages in the same session.
+frontend/src/pages/Chat.tsx:72:  const [conversationId, setConversationId] = useState<string | undefined>(stored?.conversationId);
+frontend/src/pages/Chat.tsx:76:  // Persist session whenever messages or conversationId change
+frontend/src/pages/Chat.tsx:78:    if (conversationId && messages.length > 0) {
+frontend/src/pages/Chat.tsx:79:      saveSession(conversationId, messages);
+frontend/src/pages/Chat.tsx:81:  }, [conversationId, messages]);
+frontend/src/pages/Chat.tsx:94:      setConversationId(data.conversationId);
+frontend/src/pages/Chat.tsx:130:    mutation.mutate({ text, convId: conversationId });
+frontend/src/pages/Chat.tsx:158:          {conversationId && (
+frontend/src/pages/Chat.tsx:169:            title="Start a new conversation"
+backend/src/scripts/migrateUserStateToPostgres.ts:491:  const chatId = typeof profile?.["telegramChatId"] === "string"
+backend/src/scripts/migrateUserStateToPostgres.ts:494:  if (!chatId) return;
+backend/src/scripts/migrateUserStateToPostgres.ts:502:    channelIdentifier: chatId,
+backend/src/scripts/migrateUserStateToPostgres.ts:504:    conversationId: null,
+backend/src/scripts/migrateUserStateToPostgres.ts:510:    payload: { channel: "telegram", chatId },
+backend/src/app.ts:30:import chatRoutes from "./routes/chat.js";
+backend/src/app.ts:89:  app.use("/api", chatRoutes); // POST /api/chat/messages, GET /api/chat/conversations/:id
+backend/src/db/entities/ConversationEntity.ts:29:  tableName: "conversations",
+backend/src/services/eventStore.ts:10:  sourceClass: "backend_job" | "telegram_command" | "dashboard_action" | "direct_chat" | "unknown_agent_session";
+backend/src/services/stepQueue/instructorClient.ts:70:  // instructor.chat.completions.create returns Promise<z.infer<Schema>> when
+backend/src/services/stepQueue/instructorClient.ts:73:  const value = (await client.chat.completions.create({
+backend/src/services/stepQueue/modelTier.ts:37:    "chat_agent": "google/gemini-2.5-flash",
+backend/src/services/stepQueue/modelTier.ts:49:    "chat_agent": "google/gemini-2.5-flash",
+backend/src/services/stepQueue/modelTier.ts:61:    "chat_agent": "google/gemini-2.5-flash",
+backend/src/services/stepQueue/modelTier.ts:73:    "chat_agent": "anthropic/claude-sonnet-4-5",
+backend/src/services/stepQueue/expansion.ts:19:  (k) => k !== "quick_check.evaluate" && k !== "tracking.evaluate" && k !== "chat_agent"
+backend/src/services/stepQueue/types.ts:13:  "chat_agent",
+backend/src/services/stepQueue/types.ts:105:  "chat_agent": "chat_agent.json",
+backend/src/services/llmProxy.ts:159:  sourceClass: "backend_job" | "telegram_command" | "dashboard_action" | "direct_chat" | "unknown_agent_session";
+backend/src/services/llmProxy.ts:226:    explicitSource === "direct_chat" || explicitPurpose === "direct_chat";
+backend/src/services/llmProxy.ts:234:        ? "direct_chat"
+backend/src/services/llmProxy.ts:264:      purpose: "direct_chat",
+backend/src/services/llmProxy.ts:267:      sourceClass: "direct_chat",
+backend/src/services/llmProxy.ts:269:      attributionSource: "conversation_metadata",
+backend/src/services/llmProxy.ts:274:    purpose: "direct_chat",
+backend/src/services/llmProxy.ts:277:    sourceClass: explicitDirectChat ? "direct_chat" : "unknown_agent_session",
+backend/src/services/llmProxy.ts:279:    attributionSource: explicitDirectChat ? "explicit_header" : "inferred_direct_chat",
+backend/src/schemas/channels.ts:5:  telegramChatId: z.string().regex(/^\d+$/, "Invalid telegram chat ID"),
+backend/src/services/telegramDelivery.test.ts:54:    chatId: "chat-1",
+backend/src/services/telegramDelivery.test.ts:78:    chatId: "chat-1",
+backend/src/services/telegramDelivery.test.ts:101:    chatId: "chat-1",
+backend/src/db/entities/OutputFilterEventEntity.ts:7:  conversationId: string;
+backend/src/db/entities/OutputFilterEventEntity.ts:20:    conversationId: { name: "conversation_id", type: "varchar", length: 64 },
+backend/src/services/channelService.ts:41:  const chatId = (telegram as { chatId?: unknown }).chatId;
+backend/src/services/channelService.ts:42:  return typeof chatId === "string" && chatId.trim().length > 0 ? chatId : null;
+backend/src/services/telegramDelivery.ts:8:  chatId: string;
+backend/src/services/telegramDelivery.ts:120:          chat_id: options.chatId,
+backend/src/services/notificationService.ts:209:function readProfileTelegramTarget(value: unknown): { botToken: string; chatId: string } | null {
+backend/src/services/notificationService.ts:216:  const chatId = (telegram as { chatId?: unknown }).chatId;
+backend/src/services/notificationService.ts:218:  if (typeof chatId !== "string" || chatId.trim().length === 0) return null;
+backend/src/services/notificationService.ts:219:  return { botToken, chatId };
+backend/src/services/notificationService.ts:222:async function getTelegramTarget(userId: string): Promise<{ botToken: string; chatId: string } | null> {
+backend/src/services/notificationService.ts:247:    const chatId = bindingRows[0]?.channel_identifier;
+backend/src/services/notificationService.ts:249:    if (!chatId || !botToken) return null;
+backend/src/services/notificationService.ts:250:    return { botToken, chatId };
+backend/src/services/notificationService.ts:264:    chatId: target.chatId,
+backend/src/services/advisorLlmService.ts:112:    const response = await fetch(`${PROXY_BASE_URL}/chat/completions`, {
+backend/src/services/advisorLlmService.ts:213:    const response = await fetch(`${PROXY_BASE_URL}/chat/completions`, {
+backend/src/services/notificationService.test.ts:240:        chatId: "chat-missing-token",
+backend/src/services/notificationService.test.ts:286:          chatId: "chat-http-failure",
+backend/src/services/portfolioRiskStore.ts:11: * Newest snapshot per user feeds the `getRiskSummary` chat tool and the
+backend/src/services/featureFlagService.ts:39:  { kind: "boolean", name: "chat_agent_enabled", enabled: false },
+backend/src/services/featureFlagService.ts:50:  { kind: "value", name: "conversation_token_cap", value: 120000 },
+backend/src/services/pilotFeatureReviewService.test.ts:32:    edgeCases: ["Telegram chat is not linked"],
+backend/src/services/channelBindingStore.ts:8: * Channel-binding store — Telegram chat / WhatsApp phone → user_id (§4.16,
+backend/src/services/channelBindingStore.ts:10: * a Clawd user, and by the chat agent to pick a stable conversationId.
+backend/src/services/channelBindingStore.ts:17:  conversationId: string | null;
+backend/src/services/channelBindingStore.ts:26:  conversationId?: string | null;
+backend/src/services/channelBindingStore.ts:33:  conversation_id: string | null;
+backend/src/services/channelBindingStore.ts:49:    conversationId: row.conversation_id,
+
+backend dirs
+backend/src/db/applicationDataSource.ts
+backend/src/db/entities/AdminAuditLogEntity.ts
+backend/src/db/entities/ChannelBindingEntity.ts
+backend/src/db/entities/ConversationEntity.ts
+backend/src/db/entities/ConversationTurnEntity.ts
+backend/src/db/entities/CorporateActionEntity.ts
+backend/src/db/entities/EncryptedSecretEntity.ts
+backend/src/db/entities/EscalationHistoryEntity.ts
+backend/src/db/entities/FeatureFlagEntity.ts
+backend/src/db/entities/JobEntity.ts
+backend/src/db/entities/MigrationArchiveEntity.ts
+backend/src/db/entities/ModelTierAssignmentEntity.ts
+backend/src/db/entities/NotificationEntity.ts
+backend/src/db/entities/ObservabilityRequestEntity.ts
+backend/src/db/entities/OutputFilterEventEntity.ts
+backend/src/db/entities/PilotFeatureReviewEntity.ts
+backend/src/db/entities/PortfolioRiskSnapshotEntity.ts
+backend/src/db/entities/PositionTransactionEntity.ts
+backend/src/db/entities/ReportBatchEntity.ts
+backend/src/db/entities/ReportIndexEntity.ts
+backend/src/db/entities/StepLifecycleEventEntity.ts
+backend/src/db/entities/StepWorkItemEntity.ts
+backend/src/db/entities/StrategyEntity.ts
+backend/src/db/entities/TickerSnoozeEntity.ts
+backend/src/db/entities/TickerWorkItemEntity.ts
+backend/src/db/entities/ToolCallEntity.ts
+backend/src/db/entities/TrackedAssetEntity.ts
+backend/src/db/entities/UserEntity.ts
+backend/src/db/entities/UserPointsBudgetEntity.ts
+backend/src/db/entities/VerdictActionEntity.ts
+backend/src/routes/adminPilotFeatures.test.ts
+backend/src/routes/admin.ts
+backend/src/routes/analystConfig.ts
+backend/src/routes/auth.ts
+backend/src/routes/channels.ts
+backend/src/routes/chat.ts
+backend/src/routes/conditions.ts
+backend/src/routes/control.ts
+backend/src/routes/fullReportRoutes.test.ts
+backend/src/routes/jobs.ts
+backend/src/routes/llmProxy.test.ts
+backend/src/routes/llmProxy.ts
+backend/src/routes/notifications.ts
+backend/src/routes/onboarding.ts
+backend/src/routes/portfolio.ts
+backend/src/routes/reports.ts
+backend/src/routes/search.ts
+backend/src/routes/strategiesRoutes.test.ts
+backend/src/routes/strategies.ts
+backend/src/routes/support.ts
+backend/src/routes/telegram.ts
+backend/src/routes/verdictActions.ts
+backend/src/routes/verdicts.ts
+backend/src/routes/whatsapp.ts
+backend/src/schemas/analysts.ts
+backend/src/schemas/channels.ts
+backend/src/schemas/control.ts
+backend/src/schemas/index.ts
+backend/src/schemas/job.ts
+backend/src/schemas/notifications.ts
+backend/src/schemas/onboarding.ts
+backend/src/schemas/pilotFeature.ts
+backend/src/schemas/portfolio.ts
+backend/src/schemas/profile.ts
+backend/src/schemas/strategy.test.ts
+backend/src/schemas/strategy.ts
+backend/src/schemas/support.ts
+backend/src/scripts/supersedeStuckJob.test.ts
+backend/src/services/advisorLlmService.test.ts
+backend/src/services/baselineCoverageService.test.ts
+backend/src/services/chat/agentChat.ts
+backend/src/services/chat/confirmationStore.ts
+backend/src/services/chat/conversationStore.ts
+backend/src/services/chat/outputFilter.ts
+backend/src/services/chat/personaPrompt.ts
+backend/src/services/dailyBriefService.selection.test.ts
+backend/src/services/dailyBriefService.test.ts
+backend/src/services/dbUtils.ts
+backend/src/services/deepDiveService.test.ts
+backend/src/services/feedService.test.ts
+backend/src/services/fullReportService.test.ts
+backend/src/services/jobAdmissionService.test.ts
+backend/src/services/jobStateReconciler.test.ts
+backend/src/services/jobTriggerService.test.ts
+backend/src/services/llmProxy.test.ts
+backend/src/services/migrationArchiveStore.ts
+backend/src/services/newIdeasService.test.ts
+backend/src/services/notificationComposer.test.ts
+backend/src/services/notificationService.test.ts
+backend/src/services/pilotFeatureCatalogService.test.ts
+backend/src/services/pilotFeatureReviewService.test.ts
+backend/src/services/pointsBudgetService.test.ts
+backend/src/services/quickCheckService.test.ts
+backend/src/services/stepQueue.test.ts
+backend/src/services/strategyBaselineService.test.ts
+backend/src/services/strategyFileService.test.ts
+backend/src/services/telegramDelivery.test.ts
+backend/src/services/workspaceService.test.ts
+backend/src/services/workspaceTemplate.test.ts
+
+frontend chat files
+frontend/src/api/admin.ts
+frontend/src/api/analystConfig.ts
+frontend/src/api/auth.ts
+frontend/src/api/balance.ts
+frontend/src/api/channels.ts
+frontend/src/api/chat.ts
+frontend/src/api/client.ts
+frontend/src/api/conditions.ts
+frontend/src/api/control.ts
+frontend/src/api/jobs.ts
+frontend/src/api/notifications.ts
+frontend/src/api/onboarding.ts
+frontend/src/api/portfolioRisk.ts
+frontend/src/api/portfolio.ts
+frontend/src/api/search.ts
+frontend/src/api/strategies.ts
+frontend/src/api/support.ts
+frontend/src/api/verdictActions.ts
+frontend/src/pages/Chat.tsx
+frontend/src/store/authStore.ts
+frontend/src/store/i18n.ts
+frontend/src/store/preferencesStore.ts
+frontend/src/store/toastStore.ts
+frontend/src/types/api.ts

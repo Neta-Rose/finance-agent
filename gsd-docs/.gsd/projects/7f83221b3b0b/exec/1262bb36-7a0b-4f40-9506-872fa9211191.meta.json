@@ -1,0 +1,18 @@
+{
+  "id": "1262bb36-7a0b-4f40-9506-872fa9211191",
+  "runtime": "bash",
+  "purpose": "Check GSD S01 deployment/completion evidence",
+  "script_chars": 282,
+  "started_at": "2026-05-10T02:36:15.808Z",
+  "finished_at": "2026-05-10T02:36:15.830Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 22,
+  "stdout_bytes": 8934,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/1262bb36-7a0b-4f40-9506-872fa9211191.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/1262bb36-7a0b-4f40-9506-872fa9211191.stderr"
+}

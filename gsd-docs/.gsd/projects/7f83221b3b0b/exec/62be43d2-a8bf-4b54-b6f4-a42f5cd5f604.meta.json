@@ -1,0 +1,18 @@
+{
+  "id": "62be43d2-a8bf-4b54-b6f4-a42f5cd5f604",
+  "runtime": "bash",
+  "purpose": "Find S01 production/deploy evidence outside GSD status",
+  "script_chars": 547,
+  "started_at": "2026-05-10T02:36:23.900Z",
+  "finished_at": "2026-05-10T02:36:23.939Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 39,
+  "stdout_bytes": 21085,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/62be43d2-a8bf-4b54-b6f4-a42f5cd5f604.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/62be43d2-a8bf-4b54-b6f4-a42f5cd5f604.stderr"
+}

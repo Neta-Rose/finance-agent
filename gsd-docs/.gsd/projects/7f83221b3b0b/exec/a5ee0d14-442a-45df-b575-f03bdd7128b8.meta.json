@@ -1,0 +1,18 @@
+{
+  "id": "a5ee0d14-442a-45df-b575-f03bdd7128b8",
+  "runtime": "bash",
+  "purpose": "frontend lint after notification composer contract",
+  "script_chars": 30,
+  "started_at": "2026-05-10T11:50:25.168Z",
+  "finished_at": "2026-05-10T11:50:32.489Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 7321,
+  "stdout_bytes": 605,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/a5ee0d14-442a-45df-b575-f03bdd7128b8.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/a5ee0d14-442a-45df-b575-f03bdd7128b8.stderr"
+}

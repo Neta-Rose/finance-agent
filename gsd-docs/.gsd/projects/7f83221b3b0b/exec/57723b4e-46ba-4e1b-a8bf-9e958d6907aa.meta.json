@@ -1,0 +1,18 @@
+{
+  "id": "57723b4e-46ba-4e1b-a8bf-9e958d6907aa",
+  "runtime": "bash",
+  "purpose": "red run saved chat store tests",
+  "script_chars": 83,
+  "started_at": "2026-05-10T12:12:14.206Z",
+  "finished_at": "2026-05-10T12:12:22.289Z",
+  "exit_code": 1,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 8083,
+  "stdout_bytes": 71780,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/57723b4e-46ba-4e1b-a8bf-9e958d6907aa.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/57723b4e-46ba-4e1b-a8bf-9e958d6907aa.stderr"
+}

@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: createSavedConversation applies the default 7 day TTL when no override is configured
+ok 1 - createSavedConversation applies the default 7 day TTL when no override is configured
+  ---
+  duration_ms: 1.800544
+  type: 'test'
+  ...
+# Subtest: createSavedConversation honors positive TTL overrides and coerces invalid or low values back to seven days
+ok 2 - createSavedConversation honors positive TTL overrides and coerces invalid or low values back to seven days
+  ---
+  duration_ms: 0.611397
+  type: 'test'
+  ...
+# Subtest: listSavedDashboardConversations returns only dashboard conversations scoped to the requested user and excludes archived rows in SQL
+ok 3 - listSavedDashboardConversations returns only dashboard conversations scoped to the requested user and excludes archived rows in SQL
+  ---
+  duration_ms: 0.238769
+  type: 'test'
+  ...
+# Subtest: loadConversationForUser reports active archived expired and missing conversation states without leaking other users
+ok 4 - loadConversationForUser reports active archived expired and missing conversation states without leaking other users
+  ---
+  duration_ms: 0.547518
+  type: 'test'
+  ...
+# Subtest: renameSavedConversation validates titles and updates only a matching active conversation owned by the user
+ok 5 - renameSavedConversation validates titles and updates only a matching active conversation owned by the user
+  ---
+  duration_ms: 0.833506
+  type: 'test'
+  ...
+# Subtest: rename and archive fail closed for missing or wrong-user conversations
+ok 6 - rename and archive fail closed for missing or wrong-user conversations
+  ---
+  duration_ms: 0.327218
+  type: 'test'
+  ...
+# Subtest: archiveSavedConversation performs a soft archive scoped by id and user
+ok 7 - archiveSavedConversation performs a soft archive scoped by id and user
+  ---
+  duration_ms: 0.22652
+  type: 'test'
+  ...
+# Subtest: saved-chat store exposes database-unavailable and malformed-row failures as typed errors
+ok 8 - saved-chat store exposes database-unavailable and malformed-row failures as typed errors
+  ---
+  duration_ms: 0.336538
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 622.380389

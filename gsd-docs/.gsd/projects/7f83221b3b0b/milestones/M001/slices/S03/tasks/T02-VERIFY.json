@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T02",
+  "unitId": "M001/S03/T02",
+  "timestamp": 1778414228916,
+  "passed": true,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "npm --prefix backend test -- --test-name-pattern \"notification service\"",
+      "exitCode": 0,
+      "durationMs": 3496,
+      "verdict": "pass"
+    },
+    {
+      "command": "node scripts/verify-pilot-surface.mjs",
+      "exitCode": 0,
+      "durationMs": 31,
+      "verdict": "pass"
+    }
+  ]
+}

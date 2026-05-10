@@ -1,0 +1,217 @@
+--- backend/src/services/deepDiveService.ts
+195:   meta.newestBatchId = batchId;
+196: 
+197:   await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+198:   await fs.writeFile(pagePath, JSON.stringify(page, null, 2), "utf-8");
+199: 
+200:   await publishNotification({
+201:     userId: ws.userId,
+202:     category: "report",
+203:     title: `${ticker} deep dive`,
+204:     body: strategy.reasoning,
+205:     ticker,
+206:     batchId,
+207:   });
+208: }
+209: 
+210: async function scanDeepDiveArtifacts(
+211:   ws: UserWorkspace,
+212:   ticker: string,
+213:   triggeredAt: string
+214: ): Promise<StepScanResult> {
+215:   const reportDir = path.join(ws.reportsDir, ticker);
+--- backend/src/services/notificationService.test.ts
+30:         marketNews: true,
+31:       },
+32:     },
+33:   });
+34: 
+35:   const created = await publishNotification({
+36:     userId,
+37:     category: "daily_brief",
+38:     title: "Daily brief",
+39:     body: "Needs deeper review: AAPL, MSFT.",
+40:     ticker: "AAPL",
+41:     batchId: "batch_1",
+42:   });
+43: 
+44:   assert.equal(created.length, 1);
+45:   assert.equal(created[0]?.channel, "web");
+46: 
+47:   const unread = await listNotifications(userId, { channel: "web", unreadOnly: true, limit: 10 });
+48:   assert.equal(unread.length, 1);
+49:   assert.equal(unread[0]?.readAt, null);
+50: 
+73:         marketNews: true,
+74:       },
+75:     },
+76:   });
+77: 
+78:   const first = await publishNotification({
+79:     userId,
+80:     category: "report",
+81:     title: "Deep dive complete",
+82:     body: "AAPL report is ready.",
+83:     ticker: "AAPL",
+84:     batchId: "batch_duplicate_deep_dive",
+85:   });
+86:   const second = await publishNotification({
+87:     userId,
+88:     category: "report",
+89:     title: "Deep dive complete",
+90:     body: "AAPL report is ready.",
+91:     ticker: "AAPL",
+92:     batchId: "batch_duplicate_deep_dive",
+93:   });
+81:     title: "Deep dive complete",
+82:     body: "AAPL report is ready.",
+83:     ticker: "AAPL",
+84:     batchId: "batch_duplicate_deep_dive",
+85:   });
+86:   const second = await publishNotification({
+87:     userId,
+88:     category: "report",
+89:     title: "Deep dive complete",
+90:     body: "AAPL report is ready.",
+91:     ticker: "AAPL",
+92:     batchId: "batch_duplicate_deep_dive",
+93:   });
+94: 
+95:   assert.equal(first.length, 1);
+96:   assert.equal(second.length, 1);
+97:   assert.equal(second[0]?.id, first[0]?.id);
+98: 
+99:   const items = await listNotifications(userId, { channel: "web", limit: 10 });
+100:   assert.equal(items.length, 1);
+101:   assert.equal(items[0]?.batchId, "batch_duplicate_deep_dive");
+164:           recipientPhone: "+14155550123",
+165:         },
+166:       },
+167:     });
+168: 
+169:     const created = await publishNotification({
+170:       userId,
+171:       category: "report",
+172:       title: "Deep dive complete",
+173:       body: "AAPL report is ready.",
+174:       ticker: "AAPL",
+175:       batchId: "batch_2",
+176:     });
+177: 
+178:     assert.equal(created.length, 1);
+179:     assert.equal(created[0]?.channel, "whatsapp");
+180:     assert.equal(requests.length, 1);
+181:     assert.match(requests[0]!.url, /graph\.facebook\.com/);
+182: 
+183:     const body = JSON.parse(String(requests[0]!.init?.body));
+184:     assert.equal(body.messaging_product, "whatsapp");
+--- backend/src/services/dailyBriefService.ts
+603:   const escalatedTickers = result.tickers
+604:     .filter((item) => item.needsEscalation)
+605:     .slice(0, 4)
+606:     .map((item) => item.ticker);
+607: 
+608:   await publishNotification({
+609:     userId: ws.userId,
+610:     category: "daily_brief",
+611:     title: "Daily brief",
+612:     body:
+613:       escalatedTickers.length > 0
+614:         ? `${result.summary.headline} Today: ${result.summary.today} Open: /reports?batch=${encodeURIComponent(batchId)}`
+615:         : `${result.summary.headline} ${result.summary.securityNote} Open: /reports?batch=${encodeURIComponent(batchId)}`,
+616:     ticker: result.tickers[0]?.ticker ?? null,
+617:     batchId,
+618:   });
+619: }
+620: 
+621: export async function runDailyBriefJob(
+622:   ws: UserWorkspace,
+623:   job: Job
+--- backend/src/services/fullReportService.ts
+438:   meta.newestBatchId = batchId;
+439: 
+440:   await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+441:   await fs.writeFile(pagePath, JSON.stringify(page, null, 2), "utf-8");
+442: 
+443:   await publishNotification({
+444:     userId: ws.userId,
+445:     category: "report",
+446:     title: "Full report",
+447:     body: `Refreshed ${tickers.length} ticker${tickers.length === 1 ? "" : "s"}.`,
+448:     ticker: tickers[0] ?? null,
+449:     batchId,
+450:   });
+451: }
+452: 
+453: async function updateBootstrapState(
+454:   ws: UserWorkspace,
+455:   state: FullReportState
+456: ): Promise<void> {
+457:   await syncStateToBaselineCoverage(ws, {
+458:     lastFullReportAt: state.status === "completed" ? state.completedAt : null,
+--- backend/src/services/quickCheckService.ts
+195:   meta.newestBatchId = batchId;
+196: 
+197:   await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+198:   await fs.writeFile(pagePath, JSON.stringify(page, null, 2), "utf-8");
+199: 
+200:   await publishNotification({
+201:     userId: ws.userId,
+202:     category: "report",
+203:     title: `${result.ticker} quick check`,
+204:     body: result.escalation_reason ?? "Quick check completed.",
+205:     ticker: result.ticker,
+206:     batchId,
+207:   });
+208: }
+209: 
+210: // ─── Escalation dedup ────────────────────────────────────────────────────────
+211: //
+212: // Prevents re-triggering deep dives for the exact same set of signals that
+213: // already caused an escalation. A new deep dive will only be queued when:
+214: //   1. No previous escalation exists for this ticker, OR
+215: //   2. The strategy was updated AFTER the last escalation (deep dive addressed
+--- backend/src/services/feedService.ts
+268:   const next = [record, ...current].slice(0, MAX_STORED_EVENTS);
+269:   await fs.mkdir(path.dirname(filePath), { recursive: true });
+270:   await fs.writeFile(filePath, JSON.stringify(next, null, 2), "utf-8");
+271:   try {
+272:     const { publishNotification } = await import("./notificationService.js");
+273:     await publishNotification({
+274:       userId,
+275:       category: "market_news",
+276:       title: event.title,
+277:       body: event.summary,
+278:       ticker: event.ticker,
+279:       batchId: null,
+280:     });
+281:   } catch {
+282:     // Feed event storage stays authoritative even if notification publication fails.
+283:   }
+284:   return record;
+285: }
+286: 
+287: async function readAllReportBatches(
+288:   ws: UserWorkspace,
+--- backend/src/services/newIdeasService.ts
+578:   meta.newestBatchId = batchId;
+579: 
+580:   await fs.writeFile(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+581:   await fs.writeFile(pagePath, JSON.stringify(page, null, 2), "utf-8");
+582: 
+583:   await publishNotification({
+584:     userId: ws.userId,
+585:     category: "report",
+586:     title: "New ideas",
+587:     body: `Generated ${entries.length} new idea${entries.length === 1 ? "" : "s"}.`,
+588:     ticker: entries[0]?.ticker ?? null,
+589:     batchId,
+590:   });
+591: }
+592: 
+593: async function rankIdeasWithAdvisor(
+594:   ws: UserWorkspace,
+595:   portfolioTickers: string[],
+596:   exposure: ExposureSummary
+597: ): Promise<Array<{ candidate: CandidateIdea; score: number; reasoning: string; usedLlm: boolean }>> {
+598:   const baseRanked = CANDIDATE_UNIVERSE

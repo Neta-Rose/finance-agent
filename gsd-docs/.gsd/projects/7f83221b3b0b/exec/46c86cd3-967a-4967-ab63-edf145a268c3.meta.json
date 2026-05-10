@@ -1,0 +1,18 @@
+{
+  "id": "46c86cd3-967a-4967-ab63-edf145a268c3",
+  "runtime": "bash",
+  "purpose": "slice verification pilot surface",
+  "script_chars": 146,
+  "started_at": "2026-05-10T11:56:04.838Z",
+  "finished_at": "2026-05-10T11:56:04.907Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 69,
+  "stdout_bytes": 192,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/46c86cd3-967a-4967-ab63-edf145a268c3.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/46c86cd3-967a-4967-ab63-edf145a268c3.stderr"
+}

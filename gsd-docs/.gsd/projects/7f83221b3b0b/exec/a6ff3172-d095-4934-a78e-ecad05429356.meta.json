@@ -1,0 +1,18 @@
+{
+  "id": "a6ff3172-d095-4934-a78e-ecad05429356",
+  "runtime": "bash",
+  "purpose": "Map S02 T01 settings and WhatsApp references",
+  "script_chars": 471,
+  "started_at": "2026-05-10T02:44:34.754Z",
+  "finished_at": "2026-05-10T02:44:34.777Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 23,
+  "stdout_bytes": 27432,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/a6ff3172-d095-4934-a78e-ecad05429356.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/a6ff3172-d095-4934-a78e-ecad05429356.stderr"
+}

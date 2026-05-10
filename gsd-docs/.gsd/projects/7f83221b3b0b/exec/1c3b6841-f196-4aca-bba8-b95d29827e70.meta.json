@@ -1,0 +1,18 @@
+{
+  "id": "1c3b6841-f196-4aca-bba8-b95d29827e70",
+  "runtime": "bash",
+  "purpose": "backend typecheck after test mock fix",
+  "script_chars": 30,
+  "started_at": "2026-05-10T12:14:29.553Z",
+  "finished_at": "2026-05-10T12:14:33.897Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4344,
+  "stdout_bytes": 36,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/1c3b6841-f196-4aca-bba8-b95d29827e70.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/1c3b6841-f196-4aca-bba8-b95d29827e70.stderr"
+}

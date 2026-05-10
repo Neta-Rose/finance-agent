@@ -1,0 +1,18 @@
+{
+  "id": "0c3cf067-85ab-4866-baca-f8a44d9466e5",
+  "runtime": "bash",
+  "purpose": "T04 targeted backend notification tests",
+  "script_chars": 111,
+  "started_at": "2026-05-10T12:03:07.278Z",
+  "finished_at": "2026-05-10T12:03:11.575Z",
+  "exit_code": 0,
+  "signal": null,
+  "timed_out": false,
+  "duration_ms": 4297,
+  "stdout_bytes": 6102,
+  "stderr_bytes": 0,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_path": "/root/clawd/.gsd/exec/0c3cf067-85ab-4866-baca-f8a44d9466e5.stdout",
+  "stderr_path": "/root/clawd/.gsd/exec/0c3cf067-85ab-4866-baca-f8a44d9466e5.stderr"
+}
