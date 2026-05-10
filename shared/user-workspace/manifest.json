@@ -1,17 +1,10 @@
 {
-  "sharedFiles": [
-    "SOUL.md",
-    "AGENTS.md",
-    "HEARTBEAT.md"
-  ],
+  "sharedFiles": [],
   "templatedFiles": [
     {
       "source": "USER.md.template",
       "target": "USER.md"
     }
   ],
-  "emptyFiles": [
-    "IDENTITY.md",
-    "TOOLS.md"
-  ]
+  "emptyFiles": []
 }

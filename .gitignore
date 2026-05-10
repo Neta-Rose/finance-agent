@@ -96,5 +96,11 @@ skills/xlsx
 
 # Generated/runtime artifacts
 data/cache/
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/observability-export*.json
+.artifacts/
+state/
 .superpowers/
 logs/

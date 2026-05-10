@@ -46,10 +46,16 @@ async function safeReadJson<T>(filePath: string): Promise<T | null> {
 }
 
 async function loadWorkspaceTemplateManifest(): Promise<WorkspaceTemplateManifest> {
-  // Phase 3: SOUL.md, AGENTS.md, HEARTBEAT.md are retired (B2.1).
-  // The manifest may still reference them; we filter them out here so new
-  // workspaces never receive OpenClaw-managed files.
-  const RETIRED_SHARED_FILES = new Set(["SOUL.md", "AGENTS.md", "HEARTBEAT.md", "RESET.md"]);
+  // Retired OpenClaw-managed workspace files should not be provisioned into
+  // new user workspaces, even if an older custom manifest still references them.
+  const RETIRED_SHARED_FILES = new Set([
+    "SOUL.md",
+    "AGENTS.md",
+    "HEARTBEAT.md",
+    "RESET.md",
+    "IDENTITY.md",
+    "TOOLS.md",
+  ]);
 
   const fallback: WorkspaceTemplateManifest = {
     sharedFiles: [],

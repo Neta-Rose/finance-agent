@@ -1,12 +1,15 @@
 import "dotenv/config";
 import fs from "node:fs/promises";
-import path from "node:path";
 import pg from "pg";
 
-const backupPath =
-  process.env.OBSERVABILITY_SQLITE_EXPORT_PATH ??
-  path.resolve("/root/clawd/data/observability-export.json");
+const backupPath = process.env.OBSERVABILITY_SQLITE_EXPORT_PATH;
 const databaseUrl = process.env.APP_DATABASE_URL ?? process.env.OBSERVABILITY_DATABASE_URL;
+
+if (!backupPath) {
+  throw new Error(
+    "OBSERVABILITY_SQLITE_EXPORT_PATH is required; observability exports are not stored in the repository"
+  );
+}
 
 if (!databaseUrl) {
   throw new Error("APP_DATABASE_URL is required");
