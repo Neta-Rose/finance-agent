@@ -16,8 +16,12 @@ async function findTestFiles(dir) {
   return files.flat().sort((a, b) => a.localeCompare(b));
 }
 
-const testFiles = await findTestFiles(srcRoot);
-const forwardedNodeTestArgs = process.argv.slice(2);
+const forwardedArgs = process.argv.slice(2);
+const requestedTestFiles = forwardedArgs
+  .filter((arg) => !arg.startsWith("-") && arg.endsWith(".test.ts"))
+  .map((arg) => path.resolve(backendRoot, arg));
+const forwardedNodeTestArgs = forwardedArgs.filter((arg) => !requestedTestFiles.includes(path.resolve(backendRoot, arg)));
+const testFiles = requestedTestFiles.length > 0 ? requestedTestFiles : await findTestFiles(srcRoot);
 const child = spawn(
   process.execPath,
   ["--test", "--import", "tsx", ...forwardedNodeTestArgs, ...testFiles],

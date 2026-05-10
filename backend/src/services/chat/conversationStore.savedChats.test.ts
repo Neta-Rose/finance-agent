@@ -105,7 +105,8 @@ test("listSavedDashboardConversations returns only dashboard conversations scope
   assert.match(deps.calls[0]!.sql, /channel = 'dashboard'/);
   assert.match(deps.calls[0]!.sql, /archived_at IS NULL/);
   assert.match(deps.calls[0]!.sql, /ORDER BY updated_at DESC, started_at DESC/);
-  assert.deepEqual(deps.calls[0]!.params, ["user_a"]);
+  assert.match(deps.calls[0]!.sql, /LIMIT \$2 OFFSET \$3/);
+  assert.deepEqual(deps.calls[0]!.params, ["user_a", 50, 0]);
 });
 
 test("loadConversationForUser reports active archived expired and missing conversation states without leaking other users", async () => {

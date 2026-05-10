@@ -42,6 +42,15 @@ export interface AgentChatResult {
   turnCount: number;
 }
 
+type AgentChatConversationErrorCode = "conversation_not_found" | "conversation_archived" | "conversation_expired";
+
+export class AgentChatConversationError extends Error {
+  constructor(readonly code: AgentChatConversationErrorCode, readonly conversationId: string) {
+    super(code);
+    this.name = "AgentChatConversationError";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -69,6 +78,26 @@ function extractTextFromContent(content: unknown): string {
       .join("\n");
   }
   return String(content ?? "");
+}
+
+function inferConversationTitle(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 60) return normalized;
+  return `${normalized.slice(0, 57).trimEnd()}...`;
+}
+
+async function loadActiveConversationForUser(input: { userId: string; conversationId: string }) {
+  const conv = await conversationStore.loadConversationForUser(input);
+  if (!conv) {
+    throw new AgentChatConversationError("conversation_not_found", input.conversationId);
+  }
+  if (conv.isArchived) {
+    throw new AgentChatConversationError("conversation_archived", input.conversationId);
+  }
+  if (conv.isExpired) {
+    throw new AgentChatConversationError("conversation_expired", input.conversationId);
+  }
+  return conv;
 }
 
 /**
@@ -120,12 +149,16 @@ function extractToolUseBlocks(content: unknown): Array<{ id: string; name: strin
 export async function agentChat(input: AgentChatInput): Promise<AgentChatResult> {
   const { userId, text, channel } = input;
 
+  let conv: conversationStore.ConversationRecord | null = input.conversationId
+    ? await loadActiveConversationForUser({ userId, conversationId: input.conversationId })
+    : null;
+
   // Feature gate (F3.1 — startup guard also enforces this)
   const enabled = await isFeatureEnabled("chat_agent_enabled", userId);
   if (!enabled) {
     return {
       replyText: REDIRECT_LINE,
-      conversationId: input.conversationId ?? `conv_disabled_${Date.now()}`,
+      conversationId: conv?.id ?? `conv_disabled_${Date.now()}`,
       terminationReason: "error",
       totalCostUsd: 0,
       turnCount: 0,
@@ -135,7 +168,7 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
   // Budget gate (NFR2.2)
   const budget = await ensurePointsBudgetAvailable(userId);
   if (!budget.allowed) {
-    const convId = input.conversationId ?? `conv_budget_${Date.now()}`;
+    const convId = conv?.id ?? `conv_budget_${Date.now()}`;
     return {
       replyText: "Your daily budget is exhausted. Try again after the budget window resets.",
       conversationId: convId,
@@ -145,12 +178,12 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
     };
   }
 
-  // Resolve or create conversation
-  let conv = input.conversationId
-    ? await conversationStore.loadConversation(input.conversationId)
-    : null;
+  // Create a saved dashboard conversation only after cheap validation/gates pass,
+  // so disabled-provider and budget-exhausted paths do not leave orphan metadata.
   if (!conv) {
-    conv = await conversationStore.createConversation({ userId, channel });
+    conv = channel === "dashboard"
+      ? await conversationStore.createSavedConversation({ userId, title: inferConversationTitle(text) })
+      : await conversationStore.createConversation({ userId, channel });
   }
   const conversationId = conv.id;
 

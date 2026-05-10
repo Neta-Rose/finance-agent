@@ -142,18 +142,24 @@ export async function createSavedConversation(
 
 export async function listSavedDashboardConversations(
   userId: string,
-  deps: ConversationStoreDeps = defaultDeps
+  optionsOrDeps: { limit?: number; offset?: number } | ConversationStoreDeps = {},
+  maybeDeps?: ConversationStoreDeps
 ): Promise<SavedConversationMetadata[]> {
+  const options = isConversationStoreDeps(optionsOrDeps) ? {} : optionsOrDeps;
+  const deps = isConversationStoreDeps(optionsOrDeps) ? optionsOrDeps : maybeDeps ?? defaultDeps;
   return withStoreErrors("listSavedDashboardConversations", async () => {
     const ds = await requireDataSource(deps);
+    const limit = Math.min(Math.max(Math.trunc(options.limit ?? 50), 1), 100);
+    const offset = Math.max(Math.trunc(options.offset ?? 0), 0);
     const rows = await ds.query(
       `SELECT ${conversationSelectColumns()}
          FROM conversations
         WHERE user_id = $1
           AND channel = 'dashboard'
           AND archived_at IS NULL
-        ORDER BY updated_at DESC, started_at DESC`,
-      [userId]
+        ORDER BY updated_at DESC, started_at DESC
+        LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
     ) as Array<Record<string, unknown>>;
     return rows.map(fromSavedConversationRow);
   });
@@ -226,6 +232,13 @@ export async function archiveSavedConversation(
     }
     return fromSavedConversationRow(rows[0]);
   });
+}
+
+function isConversationStoreDeps(value: unknown): value is ConversationStoreDeps {
+  return !!value
+    && typeof value === "object"
+    && typeof (value as Partial<ConversationStoreDeps>).databaseConfigured === "function"
+    && typeof (value as Partial<ConversationStoreDeps>).dataSourceProvider === "function";
 }
 
 // ---------------------------------------------------------------------------
