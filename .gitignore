@@ -48,7 +48,6 @@ data/research/
 backend/src/logs/
 
 # ── GSD baseline (auto-generated) ──
-.gsd
 .gsd-id
 .mcp.json
 .bg-shell/
