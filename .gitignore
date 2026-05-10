@@ -81,18 +81,18 @@ tmp/
 .agents/
 .claude/
 skills-lock.json
-skills/code-review-excellence/
-skills/docx/
-skills/error-handling-patterns/
-skills/find-skills/
-skills/git-advanced-workflows/
-skills/pdf/
-skills/postgresql-table-design/
-skills/pptx/
-skills/skill-creator/
-skills/sql-code-review/
-skills/sql-optimization/
-skills/xlsx/
+skills/code-review-excellence
+skills/docx
+skills/error-handling-patterns
+skills/find-skills
+skills/git-advanced-workflows
+skills/pdf
+skills/postgresql-table-design
+skills/pptx
+skills/skill-creator
+skills/sql-code-review
+skills/sql-optimization
+skills/xlsx
 
 # Generated/runtime artifacts
 data/cache/
