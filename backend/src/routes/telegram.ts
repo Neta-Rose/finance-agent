@@ -4,6 +4,7 @@ import { agentChat } from "../services/chat/agentChat.js";
 import { logger } from "../services/logger.js";
 import { completeChannelBinding } from "./channels.js";
 import { getApplicationDataSource, isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
+import { redactTelegramError, sendTelegramMessage } from "../services/telegramDelivery.js";
 
 /**
  * Telegram webhook — Phase 6, task 6.2.
@@ -19,47 +20,19 @@ import { getApplicationDataSource, isApplicationDatabaseConfigured } from "../db
 
 const router = express.Router();
 
-const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
-
-function splitMessage(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text];
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > 0) {
-    chunks.push(remaining.slice(0, maxLen));
-    remaining = remaining.slice(maxLen);
-  }
-  return chunks;
-}
-
 async function deliverTelegramReply(
   botToken: string,
   chatId: string,
   text: string
 ): Promise<void> {
-  const chunks = splitMessage(text, TELEGRAM_MAX_MESSAGE_LENGTH);
-  for (const chunk of chunks) {
-    try {
-      const response = await fetch(
-        `https://api.telegram.org/bot${botToken}/sendMessage`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: chunk,
-            parse_mode: "Markdown",
-            disable_web_page_preview: true,
-          }),
-        }
-      );
-      if (!response.ok) {
-        const body = await response.text();
-        logger.warn(`Telegram delivery failed: ${body.slice(0, 200)}`);
-      }
-    } catch (err) {
-      logger.warn(`Telegram delivery error: ${(err as Error).message}`);
-    }
+  const result = await sendTelegramMessage({ botToken, chatId, text });
+  if (!result.delivered) {
+    logger.warn(JSON.stringify({
+      event: "telegram_reply_delivery_failed",
+      attemptedChunks: result.attemptedChunks,
+      totalChunks: result.totalChunks,
+      error: redactTelegramError(result.error),
+    }));
   }
 }
 

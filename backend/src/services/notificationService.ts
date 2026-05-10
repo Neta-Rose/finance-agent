@@ -15,6 +15,7 @@ import {
   insertNotification as dbInsertNotification,
   updateDelivery as dbUpdateDelivery,
 } from "./notificationStore.js";
+import { redactTelegramError, sendTelegramMessage } from "./telegramDelivery.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
 const MAX_OUTBOX_ITEMS = 250;
@@ -138,11 +139,8 @@ function categoryEnabled(preferences: NotificationPreferences, category: Notific
 }
 
 function redactLogMessage(value: unknown, maxLength = 180): string {
-  return String(value instanceof Error ? value.message : value ?? "unknown error")
-    .replace(/bot\d+:[A-Za-z0-9_-]+/g, "bot<redacted>")
-    .replace(/https:\/\/api\.telegram\.org\/[^\s]+/g, "https://api.telegram.org/<redacted>")
+  return redactTelegramError(value, maxLength)
     .replace(/Bearer\s+\S+/gi, "Bearer <redacted>")
-    .replace(/\s+/g, " ")
     .slice(0, maxLength);
 }
 
@@ -208,7 +206,26 @@ async function updateOutboxRecord(
   await writeOutbox(userId, next);
 }
 
+function readProfileTelegramTarget(value: unknown): { botToken: string; chatId: string } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const connections = (value as { channelConnections?: unknown }).channelConnections;
+  if (typeof connections !== "object" || connections === null) return null;
+  const telegram = (connections as { telegram?: unknown }).telegram;
+  if (typeof telegram !== "object" || telegram === null) return null;
+  const botToken = (telegram as { botToken?: unknown }).botToken;
+  const chatId = (telegram as { chatId?: unknown }).chatId;
+  if (typeof botToken !== "string" || botToken.trim().length === 0) return null;
+  if (typeof chatId !== "string" || chatId.trim().length === 0) return null;
+  return { botToken, chatId };
+}
+
 async function getTelegramTarget(userId: string): Promise<{ botToken: string; chatId: string } | null> {
+  try {
+    const raw = await fs.readFile(profilePath(userId), "utf-8");
+    const profileTarget = readProfileTelegramTarget(JSON.parse(raw) as unknown);
+    if (profileTarget) return profileTarget;
+  } catch {}
+
   try {
     const { isApplicationDatabaseConfigured, getApplicationDataSource } = await import("../db/applicationDataSource.js");
     if (!isApplicationDatabaseConfigured()) return null;
@@ -236,37 +253,23 @@ async function getTelegramTarget(userId: string): Promise<{ botToken: string; ch
   }
 }
 
-async function deliverTelegram(record: NotificationEnvelope): Promise<{ delivered: boolean; error: string | null }> {
+async function deliverTelegram(record: NotificationEnvelope): Promise<{ delivered: boolean; error: string | null; attemptedChunks: number }> {
   const target = await getTelegramTarget(record.userId);
   if (!target) {
-    return { delivered: false, error: "telegram target not configured" };
+    return { delivered: false, error: "telegram target not configured", attemptedChunks: 0 };
   }
 
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${target.botToken}/sendMessage`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        chat_id: target.chatId,
-        text: record.body,
-        disable_web_page_preview: true,
-      }),
-    });
+  const result = await sendTelegramMessage({
+    botToken: target.botToken,
+    chatId: target.chatId,
+    text: record.body,
+  });
 
-    if (!response.ok) {
-      const body = await response.text();
-      return { delivered: false, error: `telegram send failed: ${redactLogMessage(body, 140)}` };
-    }
-
-    return { delivered: true, error: null };
-  } catch (err) {
-    return {
-      delivered: false,
-      error: redactLogMessage(err, 140),
-    };
-  }
+  return {
+    delivered: result.delivered,
+    error: result.error,
+    attemptedChunks: result.attemptedChunks,
+  };
 }
 
 async function deliverWhatsApp(record: NotificationEnvelope): Promise<{ delivered: boolean; error: string | null }> {
@@ -423,7 +426,7 @@ export async function publishNotification(
     if (record.channel === "telegram") {
       const result = await deliverTelegram(record);
       const deliveredAtIso = result.delivered ? new Date().toISOString() : null;
-      deliveryOutcomes.push(`telegram:${result.delivered ? "delivered" : "failed"}`);
+      deliveryOutcomes.push(`telegram:${result.delivered ? "delivered" : "failed"}:${result.attemptedChunks}`);
       await updateOutboxRecord(record.userId, record.id, {
         delivered: result.delivered,
         deliveredAt: deliveredAtIso,

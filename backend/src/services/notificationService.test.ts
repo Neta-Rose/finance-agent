@@ -225,6 +225,96 @@ test("getNotificationPreferences falls back to web when external channels are no
   assert.equal(preferences.enabledChannels.whatsapp, false);
 });
 
+test("publishNotification records telegram failure when target is missing bot token", async () => {
+  const { publishNotification, listNotifications } = await import("./notificationService.js");
+  const userId = "telegram-missing-token-user";
+  await writeProfile(userId, {
+    primaryChannel: "telegram",
+    enabledChannels: {
+      telegram: true,
+      web: false,
+      whatsapp: false,
+    },
+    channelConnections: {
+      telegram: {
+        chatId: "chat-missing-token",
+      },
+    },
+  });
+
+  const created = await publishNotification({
+    userId,
+    kind: "daily_brief",
+    summary: "Telegram should fail without a bot token.",
+    batchId: "batch_missing_telegram_target",
+  });
+
+  assert.equal(created.length, 1);
+  assert.equal(created[0]?.channel, "telegram");
+
+  const items = await listNotifications(userId, { channel: "telegram", limit: 10 });
+  assert.equal(items.length, 1);
+  assert.equal(items[0]?.delivered, false);
+  assert.equal(items[0]?.deliveredAt, null);
+  assert.equal(items[0]?.error, "telegram target not configured");
+});
+
+test("publishNotification records redacted telegram non-2xx failures", async () => {
+  const originalFetch = global.fetch;
+  const token = "123456:notification-secret-token";
+  const requests: Array<{ url: string; init: RequestInit | undefined }> = [];
+  global.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    requests.push({ url: String(url), init });
+    return new Response(`bad token ${token} https://api.telegram.org/bot${token}/sendMessage`, {
+      status: 500,
+    });
+  }) as typeof fetch;
+
+  try {
+    const { publishNotification, listNotifications } = await import("./notificationService.js");
+    const userId = "telegram-http-failure-user";
+    await writeProfile(userId, {
+      primaryChannel: "telegram",
+      enabledChannels: {
+        telegram: true,
+        web: false,
+        whatsapp: false,
+      },
+      channelConnections: {
+        telegram: {
+          botToken: token,
+          chatId: "chat-http-failure",
+        },
+      },
+    });
+
+    const created = await publishNotification({
+      userId,
+      kind: "market_news",
+      headline: "Fed decision *moves* markets",
+      summary: "Telegram API should fail and persist a redacted reason.",
+      batchId: "batch_telegram_http_failure",
+    });
+
+    assert.equal(created.length, 1);
+    assert.equal(requests.length, 1);
+    const body = JSON.parse(String(requests[0]?.init?.body)) as Record<string, unknown>;
+    assert.equal(body["parse_mode"], undefined);
+    assert.equal(body["disable_web_page_preview"], true);
+    assert.match(String(body["text"]), /Fed decision moves markets/);
+
+    const items = await listNotifications(userId, { channel: "telegram", limit: 10 });
+    assert.equal(items.length, 1);
+    assert.equal(items[0]?.delivered, false);
+    assert.equal(items[0]?.deliveredAt, null);
+    assert.match(items[0]?.error ?? "", /telegram http 500/);
+    assert.doesNotMatch(items[0]?.error ?? "", /notification-secret-token/);
+    assert.doesNotMatch(items[0]?.error ?? "", /bot123456:notification-secret-token/);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("publishNotification delivers to whatsapp when whatsapp is connected and enabled", async () => {
   const originalFetch = global.fetch;
   const requests: Array<{ url: string; init: RequestInit | undefined }> = [];

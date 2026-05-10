@@ -30,6 +30,18 @@ async function readProfileRecord(userId: string): Promise<Record<string, unknown
   }
 }
 
+function getProfileTelegramTarget(profile: Record<string, unknown>): string | null {
+  const directChatId = profile.telegramChatId;
+  if (typeof directChatId === "string" && directChatId.trim().length > 0) return directChatId;
+
+  const connections = profile.channelConnections;
+  if (typeof connections !== "object" || connections === null) return null;
+  const telegram = (connections as { telegram?: unknown }).telegram;
+  if (typeof telegram !== "object" || telegram === null) return null;
+  const chatId = (telegram as { chatId?: unknown }).chatId;
+  return typeof chatId === "string" && chatId.trim().length > 0 ? chatId : null;
+}
+
 async function writeProfileRecord(userId: string, profile: Record<string, unknown>): Promise<void> {
   await fs.writeFile(profilePath(userId), JSON.stringify(profile, null, 2), "utf-8");
 }
@@ -52,12 +64,14 @@ export async function getUserChannelConnectivity(userId: string): Promise<UserCh
     getStoredWhatsAppConnection(userId),
   ]);
 
+  const profile = await readProfileRecord(userId);
   const telegramBinding = bindings.find((b) => b.channel === "telegram");
+  const profileTelegramTarget = getProfileTelegramTarget(profile);
 
   return {
     telegram: {
-      connected: telegramBinding !== undefined,
-      target: telegramBinding?.channelIdentifier ?? null,
+      connected: telegramBinding !== undefined || profileTelegramTarget !== null,
+      target: telegramBinding?.channelIdentifier ?? profileTelegramTarget,
     },
     whatsapp: {
       connected: whatsappConnection !== null,
