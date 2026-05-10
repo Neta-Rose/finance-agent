@@ -164,7 +164,7 @@ export function HeroStatCard({ value, pnlLine, pnlPositive, portfolioScore, desc
   );
 }
 
-export const SCORE_BAR_ANCHORS = [
+const SCORE_BAR_ANCHORS = [
   { at: 0, label: "exit" },
   { at: 50, label: "hold" },
   { at: 100, label: "strong buy" },

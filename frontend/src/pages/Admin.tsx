@@ -1104,6 +1104,7 @@ function UserActivityBadge({ userId }: { userId: string }) {
   const [data, setData] = useState<UserObservability | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [renderedAt] = useState(() => Date.now());
   const pageSize = 20;
 
   useEffect(() => {
@@ -1218,7 +1219,7 @@ function UserActivityBadge({ userId }: { userId: string }) {
           {pointsExhausted && data.pointsBalance?.windowEnd && (
             <span className="text-[var(--color-fg-subtle)] ml-1">
               · resets {(() => {
-                const ms = new Date(data.pointsBalance.windowEnd).getTime() - Date.now();
+                const ms = new Date(data.pointsBalance.windowEnd).getTime() - renderedAt;
                 if (ms <= 0) return "soon";
                 const h = Math.floor(ms / 3_600_000);
                 const m = Math.floor((ms % 3_600_000) / 60_000);

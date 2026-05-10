@@ -22,6 +22,8 @@ function getCurrencyLabel(exchange: string): string {
   return "USD";
 }
 
+const EMPTY_ACCOUNTS: string[] = [];
+
 interface AddPositionModalProps {
   open: boolean;
   onClose: () => void;
@@ -52,7 +54,7 @@ export function AddPositionModal({ open, onClose, onEditExisting, preferredAccou
     staleTime: 60_000,
   });
 
-  const accounts = portfolio?.accounts ?? [];
+  const accounts = portfolio?.accounts ?? EMPTY_ACCOUNTS;
 
   // Clash: positions that already hold this ticker
   const clashPositions: PositionRow[] = useMemo(() => {

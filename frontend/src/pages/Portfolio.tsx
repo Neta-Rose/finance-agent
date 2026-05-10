@@ -165,7 +165,6 @@ export function Portfolio() {
 
   const [selectedPosition, setSelectedPosition] = useState<PositionRowType | null>(null);
   const [addPositionOpen, setAddPositionOpen] = useState(false);
-  const [editingTicker, setEditingTicker] = useState<string | null>(null);
   const [accountManagerOpen, setAccountManagerOpen] = useState(false);
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({});
 
@@ -282,14 +281,6 @@ export function Portfolio() {
     () => attentionItems.find((i) => i.ticker === strategyTicker) ?? null,
     [attentionItems, strategyTicker]
   );
-
-  useEffect(() => {
-    if (editingTicker && portfolio) {
-      const position = portfolio.positions.find((item) => item.ticker === editingTicker) ?? null;
-      setSelectedPosition(position);
-      setEditingTicker(null);
-    }
-  }, [editingTicker, portfolio]);
 
   const activeJobs = useMemo(() => {
     if (!jobsData?.jobs) return [];
@@ -419,27 +410,6 @@ export function Portfolio() {
 
     return summaries.sort((a, b) => a.name.localeCompare(b.name));
   }, [portfolio]);
-
-  useEffect(() => {
-    if (accountSummaries.length === 0) return;
-    setExpandedAccounts((current) => {
-      const next = { ...current };
-      let changed = false;
-      for (const account of accountSummaries) {
-        if (!(account.name in next)) {
-          next[account.name] = false;
-          changed = true;
-        }
-      }
-      for (const name of Object.keys(next)) {
-        if (!accountSummaries.find((account) => account.name === name)) {
-          delete next[name];
-          changed = true;
-        }
-      }
-      return changed ? next : current;
-    });
-  }, [accountSummaries]);
 
   const handlePositionClick = (position: PositionRowType) => {
     setSelectedPosition(position);
@@ -973,8 +943,9 @@ export function Portfolio() {
           setAddPositionOpen(false);
         }}
         onEditExisting={(ticker) => {
+          const position = portfolio?.positions.find((item) => item.ticker === ticker) ?? null;
           setAddPositionOpen(false);
-          setEditingTicker(ticker);
+          setSelectedPosition(position);
         }}
       />
 

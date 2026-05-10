@@ -68,12 +68,12 @@ export function TickerSearch({ value, onChange, placeholder = "Search ticker…"
   const results = data?.results ?? [];
   const searchError = data?.error ?? null;
 
-  // Reset highlight + open dropdown when results arrive
-  useEffect(() => {
+  const handleQueryChange = (nextQuery: string) => {
+    const normalizedQuery = nextQuery.toUpperCase();
+    setQuery(normalizedQuery);
     setHighlightIdx(-1);
-    if (debouncedQuery.length >= 2) setOpen(true);
-    else setOpen(false);
-  }, [debouncedQuery, results.length]);
+    setOpen(normalizedQuery.length >= 2);
+  };
 
   const handleSelect = useCallback((result: TickerSelection) => {
     onChange(result);
@@ -142,7 +142,7 @@ export function TickerSearch({ value, onChange, placeholder = "Search ticker…"
           ref={inputRef}
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value.toUpperCase())}
+          onChange={(e) => handleQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => { if (debouncedQuery.length >= 2) setOpen(true); }}
           placeholder={placeholder}

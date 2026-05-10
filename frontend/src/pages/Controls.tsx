@@ -132,7 +132,7 @@ export function Controls() {
     }
     // Refresh the jobs list to update UI
     queryClient.invalidateQueries({ queryKey: ["jobs"] });
-  }, [showToast, queryClient]);
+  }, [showToast, queryClient, language]);
 
   return (
     <>

@@ -29,8 +29,7 @@ const EXCHANGES = [
   { value: "OTHER", label: "Other", currency: "USD" },
 ] as const;
 
-const CURRENCIES = ["USD", "ILA", "GBP", "EUR"] as const;
-type Currency = typeof CURRENCIES[number];
+type Currency = "USD" | "ILA" | "GBP" | "EUR";
 
 const DAY_KEYS: Array<{ value: string; key: TranslationKey }> = [
   { value: "sunday", key: "daySunday" },
