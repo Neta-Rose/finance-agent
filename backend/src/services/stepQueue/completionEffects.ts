@@ -281,13 +281,19 @@ export async function applyStepQueueCompletionEffects(
     if (options.publishNotifications) {
       await publishNotification({
         userId: ws.userId,
-        category: "report",
-        title: job.action === "deep_dive" && tickers[0] ? `${tickers[0]} deep dive` : "Full report",
-        body: job.action === "deep_dive" && tickers[0]
-          ? String(entries[tickers[0]]?.["reasoning"] ?? "Deep dive completed.")
-          : `Refreshed ${tickers.length} ticker${tickers.length === 1 ? "" : "s"}.`,
+        kind: job.action,
+        ...(job.action === "deep_dive"
+          ? {
+              reasoning: tickers[0]
+                ? String(entries[tickers[0]]?.["reasoning"] ?? "Deep dive completed.")
+                : "Deep dive completed.",
+            }
+          : {
+              summary: `Refreshed ${tickers.length} ticker${tickers.length === 1 ? "" : "s"}.`,
+            }),
         ticker: tickers[0] ?? null,
         batchId,
+        actionUrl: `/reports?batch=${encodeURIComponent(batchId)}`,
       });
     }
   }

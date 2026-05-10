@@ -607,14 +607,12 @@ async function appendDailyBriefBatch(
 
   await publishNotification({
     userId: ws.userId,
-    category: "daily_brief",
-    title: "Daily brief",
-    body:
-      escalatedTickers.length > 0
-        ? `${result.summary.headline} Today: ${result.summary.today} Open: /reports?batch=${encodeURIComponent(batchId)}`
-        : `${result.summary.headline} ${result.summary.securityNote} Open: /reports?batch=${encodeURIComponent(batchId)}`,
+    kind: "daily_brief",
+    headline: result.summary.headline,
+    summary: escalatedTickers.length > 0 ? result.summary.today : result.summary.securityNote,
     ticker: result.tickers[0]?.ticker ?? null,
     batchId,
+    actionUrl: `/reports?batch=${encodeURIComponent(batchId)}`,
   });
 }
 

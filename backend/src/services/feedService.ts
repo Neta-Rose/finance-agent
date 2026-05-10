@@ -272,11 +272,12 @@ export async function appendFeedEvent(
     const { publishNotification } = await import("./notificationService.js");
     await publishNotification({
       userId,
-      category: "market_news",
-      title: event.title,
-      body: event.summary,
+      kind: "market_news",
+      headline: event.title,
+      summary: event.summary,
       ticker: event.ticker,
       batchId: null,
+      actionUrl: event.url,
     });
   } catch {
     // Feed event storage stays authoritative even if notification publication fails.

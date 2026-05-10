@@ -582,11 +582,11 @@ async function appendNewIdeasBatch(
 
   await publishNotification({
     userId: ws.userId,
-    category: "report",
-    title: "New ideas",
-    body: `Generated ${entries.length} new idea${entries.length === 1 ? "" : "s"}.`,
+    kind: "new_ideas",
+    summary: `Generated ${entries.length} new idea${entries.length === 1 ? "" : "s"}.`,
     ticker: entries[0]?.ticker ?? null,
     batchId,
+    actionUrl: `/reports?batch=${encodeURIComponent(batchId)}`,
   });
 }
 

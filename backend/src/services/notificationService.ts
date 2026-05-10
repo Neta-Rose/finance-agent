@@ -5,6 +5,13 @@ import { resolveConfiguredPath } from "./paths.js";
 import { logger } from "./logger.js";
 import { getStoredWhatsAppConnection, getUserChannelConnectivity } from "./channelService.js";
 import {
+  composeNotification,
+  renderTelegramNotification,
+  renderWebNotification,
+  type ComposedNotification,
+  type SemanticNotificationRequest,
+} from "./notificationComposer.js";
+import {
   insertNotification as dbInsertNotification,
   updateDelivery as dbUpdateDelivery,
 } from "./notificationStore.js";
@@ -120,19 +127,55 @@ export interface NotificationEnvelope {
   error: string | null;
 }
 
-export interface NotificationPublishRequest {
+export interface NotificationPublishRequest extends SemanticNotificationRequest {
   userId: string;
-  category: "daily_brief" | "report" | "market_news";
-  title: string;
-  body: string;
-  ticker: string | null;
-  batchId: string | null;
 }
 
-function categoryEnabled(preferences: NotificationPreferences, category: NotificationPublishRequest["category"]): boolean {
+function categoryEnabled(preferences: NotificationPreferences, category: NotificationEnvelope["category"]): boolean {
   if (category === "daily_brief") return preferences.categories.dailyBriefs;
   if (category === "report") return preferences.categories.reportRuns;
   return preferences.categories.marketNews;
+}
+
+function redactLogMessage(value: unknown, maxLength = 180): string {
+  return String(value instanceof Error ? value.message : value ?? "unknown error")
+    .replace(/bot\d+:[A-Za-z0-9_-]+/g, "bot<redacted>")
+    .replace(/https:\/\/api\.telegram\.org\/[^\s]+/g, "https://api.telegram.org/<redacted>")
+    .replace(/Bearer\s+\S+/gi, "Bearer <redacted>")
+    .replace(/\s+/g, " ")
+    .slice(0, maxLength);
+}
+
+function logNotificationEvent(
+  level: "info" | "warn",
+  fields: Record<string, string | number | boolean | null | string[]>
+): void {
+  logger[level](JSON.stringify({ event: "notification_publication", ...fields }));
+}
+
+function renderRecordContent(
+  composed: ComposedNotification,
+  channel: NotificationEnvelope["channel"]
+): Pick<NotificationEnvelope, "category" | "title" | "body" | "ticker" | "batchId"> {
+  if (channel === "telegram") {
+    const telegram = renderTelegramNotification(composed);
+    return {
+      category: composed.category,
+      title: composed.title,
+      body: telegram.text,
+      ticker: composed.ticker,
+      batchId: composed.batchId,
+    };
+  }
+
+  const web = renderWebNotification(composed);
+  return {
+    category: web.category,
+    title: web.title,
+    body: web.body,
+    ticker: web.ticker,
+    batchId: web.batchId,
+  };
 }
 
 async function readOutbox(userId: string): Promise<NotificationEnvelope[]> {
@@ -207,22 +250,21 @@ async function deliverTelegram(record: NotificationEnvelope): Promise<{ delivere
       },
       body: JSON.stringify({
         chat_id: target.chatId,
-        text: `*${record.title}*\n${record.body}`,
-        parse_mode: "Markdown",
+        text: record.body,
         disable_web_page_preview: true,
       }),
     });
 
     if (!response.ok) {
       const body = await response.text();
-      return { delivered: false, error: `telegram send failed: ${body.slice(0, 140)}` };
+      return { delivered: false, error: `telegram send failed: ${redactLogMessage(body, 140)}` };
     }
 
     return { delivered: true, error: null };
   } catch (err) {
     return {
       delivered: false,
-      error: err instanceof Error ? err.message.slice(0, 140) : "telegram send failed",
+      error: redactLogMessage(err, 140),
     };
   }
 }
@@ -295,17 +337,33 @@ function buildCandidateChannels(
 export async function publishNotification(
   request: NotificationPublishRequest
 ): Promise<NotificationEnvelope[]> {
+  const composed = composeNotification(request);
   const preferences = await getNotificationPreferences(request.userId);
-  if (!categoryEnabled(preferences, request.category)) return [];
+  if (!categoryEnabled(preferences, composed.category)) {
+    logNotificationEvent("info", {
+      decision: "category_disabled",
+      userId: request.userId,
+      semanticKind: composed.kind,
+      category: composed.category,
+      batchId: composed.batchId,
+      channels: [],
+    });
+    return [];
+  }
 
-  if (request.batchId) {
+  if (composed.batchId) {
     const existing = (await readOutbox(request.userId)).filter(
-      (item) => item.category === request.category && item.batchId === request.batchId
+      (item) => item.category === composed.category && item.batchId === composed.batchId
     );
     if (existing.length > 0) {
-      logger.info(
-        `Skipped duplicate notification: user=${request.userId} category=${request.category} batch=${request.batchId}`
-      );
+      logNotificationEvent("info", {
+        decision: "duplicate_batch",
+        userId: request.userId,
+        semanticKind: composed.kind,
+        category: composed.category,
+        batchId: composed.batchId,
+        channels: existing.map((item) => item.channel),
+      });
       return existing;
     }
   }
@@ -316,14 +374,17 @@ export async function publishNotification(
   const createdAt = new Date().toISOString();
   const records = candidateChannels.map<NotificationEnvelope>((channel) => ({
     id: `ntf_${Date.now()}_${channel}_${Math.random().toString(16).slice(2, 8)}`,
+    userId: request.userId,
     createdAt,
     delivered: channel === "web",
     deliveredAt: channel === "web" ? createdAt : null,
     readAt: null,
     error: channel === "web" ? null : "pending delivery",
     channel,
-    ...request,
+    ...renderRecordContent(composed, channel),
   }));
+
+  const deliveryOutcomes: string[] = [];
 
   for (const record of records) {
     await appendOutboxRecord(record);
@@ -346,15 +407,23 @@ export async function publishNotification(
         error: record.error,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.warn(
-        `notification_dual_write_failed user=${record.userId} id=${record.id} error=${message}`
-      );
+      const message = redactLogMessage(err);
+      logNotificationEvent("warn", {
+        decision: "dual_write_failed",
+        userId: record.userId,
+        notificationId: record.id,
+        semanticKind: composed.kind,
+        category: record.category,
+        channel: record.channel,
+        batchId: record.batchId,
+        error: message,
+      });
     }
 
     if (record.channel === "telegram") {
       const result = await deliverTelegram(record);
       const deliveredAtIso = result.delivered ? new Date().toISOString() : null;
+      deliveryOutcomes.push(`telegram:${result.delivered ? "delivered" : "failed"}`);
       await updateOutboxRecord(record.userId, record.id, {
         delivered: result.delivered,
         deliveredAt: deliveredAtIso,
@@ -367,15 +436,23 @@ export async function publishNotification(
           error: result.error,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn(
-          `notification_dual_write_failed user=${record.userId} id=${record.id} error=${message}`
-        );
+        const message = redactLogMessage(err);
+        logNotificationEvent("warn", {
+          decision: "dual_write_delivery_failed",
+          userId: record.userId,
+          notificationId: record.id,
+          semanticKind: composed.kind,
+          category: record.category,
+          channel: record.channel,
+          batchId: record.batchId,
+          error: message,
+        });
       }
     }
     if (record.channel === "whatsapp") {
       const result = await deliverWhatsApp(record);
       const deliveredAtIso = result.delivered ? new Date().toISOString() : null;
+      deliveryOutcomes.push(`whatsapp:${result.delivered ? "delivered" : "failed"}`);
       await updateOutboxRecord(record.userId, record.id, {
         delivered: result.delivered,
         deliveredAt: deliveredAtIso,
@@ -388,17 +465,30 @@ export async function publishNotification(
           error: result.error,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn(
-          `notification_dual_write_failed user=${record.userId} id=${record.id} error=${message}`
-        );
+        const message = redactLogMessage(err);
+        logNotificationEvent("warn", {
+          decision: "dual_write_delivery_failed",
+          userId: record.userId,
+          notificationId: record.id,
+          semanticKind: composed.kind,
+          category: record.category,
+          channel: record.channel,
+          batchId: record.batchId,
+          error: message,
+        });
       }
     }
   }
 
-  logger.info(
-    `Published notification: user=${request.userId} category=${request.category} channels=${candidateChannels.join(",") || "none"}`
-  );
+  logNotificationEvent("info", {
+    decision: records.length > 0 ? "published" : "no_channels",
+    userId: request.userId,
+    semanticKind: composed.kind,
+    category: composed.category,
+    batchId: composed.batchId,
+    channels: candidateChannels,
+    deliveryOutcome: deliveryOutcomes.join(",") || (records.length > 0 ? "web:delivered" : "none"),
+  });
   return records;
 }
 

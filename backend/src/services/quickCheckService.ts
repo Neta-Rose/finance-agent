@@ -199,11 +199,11 @@ async function appendQuickCheckBatch(
 
   await publishNotification({
     userId: ws.userId,
-    category: "report",
-    title: `${result.ticker} quick check`,
-    body: result.escalation_reason ?? "Quick check completed.",
+    kind: "quick_check",
+    summary: result.escalation_reason ?? "Quick check completed.",
     ticker: result.ticker,
     batchId,
+    actionUrl: `/reports?batch=${encodeURIComponent(batchId)}`,
   });
 }
 

@@ -442,11 +442,11 @@ async function appendFullReportBatch(
 
   await publishNotification({
     userId: ws.userId,
-    category: "report",
-    title: "Full report",
-    body: `Refreshed ${tickers.length} ticker${tickers.length === 1 ? "" : "s"}.`,
+    kind: "full_report",
+    summary: `Refreshed ${tickers.length} ticker${tickers.length === 1 ? "" : "s"}.`,
     ticker: tickers[0] ?? null,
     batchId,
+    actionUrl: `/reports?batch=${encodeURIComponent(batchId)}`,
   });
 }
 

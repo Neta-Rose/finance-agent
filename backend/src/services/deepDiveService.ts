@@ -199,11 +199,11 @@ async function appendDeepDiveBatch(
 
   await publishNotification({
     userId: ws.userId,
-    category: "report",
-    title: `${ticker} deep dive`,
-    body: strategy.reasoning,
+    kind: "deep_dive",
+    reasoning: strategy.reasoning,
     ticker,
     batchId,
+    actionUrl: `/reports?batch=${encodeURIComponent(batchId)}`,
   });
 }
 
