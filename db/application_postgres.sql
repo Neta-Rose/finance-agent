@@ -720,8 +720,7 @@ CREATE TABLE IF NOT EXISTS user_points_credits (
   expires_at  TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_user_points_credits_user_expires
-  ON user_points_credits (user_id, expires_at DESC)
-  WHERE expires_at > NOW();
+  ON user_points_credits (user_id, expires_at DESC);
 
 -- ============================================================================
 -- Pilot feature review state — mutable admin annotations for tracked catalog ids
