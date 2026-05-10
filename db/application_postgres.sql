@@ -187,7 +187,7 @@ $$;
 
 -- ============================================================================
 -- Phase 1 DDL — Postgres operational state foundation
--- Spec: .kiro/specs/platform-stabilization-and-assistant/design.md §4.1–4.17
+-- Historical source: platform-stabilization-and-assistant design §4.1–4.17
 -- Requirements: A2.1, A3.1, P3.1
 -- All statements idempotent so the DDL re-runs cleanly on every backend start.
 -- ============================================================================
