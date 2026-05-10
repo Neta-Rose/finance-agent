@@ -169,7 +169,7 @@
       "surface": "web",
       "title": "Controls, jobs, settings, and account preferences",
       "shortSummary": "Lets a pilot user trigger supported analysis jobs, inspect job progress/history, update account settings, and tune delivery preferences.",
-      "detailedExplanation": "The Controls page exposes daily brief and deep dive actions, marks weekly report and new ideas as currently blocked, and shows active/recent jobs. Settings lets users update display name, password, schedule, theme, Telegram, WhatsApp, notification preferences, analyst pipeline configuration, and logout.",
+      "detailedExplanation": "The Controls page exposes daily brief and deep dive actions, marks weekly report and new ideas as currently blocked, and shows active/recent jobs. Settings lets users update display name, password, schedule, theme, Telegram, Web notification preferences, analyst pipeline configuration, and logout; WhatsApp setup and delivery controls are hidden/deferred for the pilot.",
       "happyPath": [
         "User opens /controls and queues a daily brief or ticker-specific deep dive.",
         "Active and recent jobs render with status, progress, and completion/failure notifications.",
@@ -183,7 +183,7 @@
       "errorHandling": [
         "Job trigger failures show backend-provided reason text in error toasts.",
         "Settings save failures show error toasts or inline field errors and keep the draft available.",
-        "Password, Telegram, and WhatsApp forms validate format and required fields before sending requests."
+        "Password and Telegram forms validate format and required fields before sending requests; WhatsApp setup is intentionally hidden/deferred for the pilot."
       ],
       "evidencePaths": [
         "frontend/src/pages/Controls.tsx",

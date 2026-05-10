@@ -1,6 +1,6 @@
-# Clawd
+# Portfolio Assistant
 
-Clawd is a portfolio-operations product for private investors who want their portfolio to feel actively watched without having to manually re-evaluate every position every day.
+This portfolio-operations product is for private investors who want their portfolio to feel actively watched without having to manually re-evaluate every position every day.
 
 ## The pain point
 
@@ -17,13 +17,13 @@ What the user wants is simple:
 - calm daily reassurance when nothing important changed
 - fast escalation when something did change
 - detailed deep dives only where needed
-- delivery in the interface they chose: Telegram, WhatsApp, or web
+- delivery in the pilot-supported interface they chose: Telegram or web
 
 The product should make the portfolio feel continuously tracked.
 
 ## The solution
 
-Clawd is built around a strategy-first workflow.
+The product is built around a strategy-first workflow.
 
 For each position:
 1. A deep dive creates a durable strategy file.
@@ -117,7 +117,7 @@ Reports, prompts, and notifications should derive from backend-owned state, not 
 
 ## What “working well” means
 
-Clawd is working well when:
+The product is working well when:
 - most positions do not trigger unnecessary expensive work
 - deep dives happen only when justified
 - every expensive request is attributable
