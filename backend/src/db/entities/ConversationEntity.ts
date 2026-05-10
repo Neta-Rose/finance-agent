@@ -13,7 +13,11 @@ export interface ConversationEntity {
   id: string;
   userId: string;
   channel: ConversationChannel;
+  title: string | null;
   startedAt: Date;
+  updatedAt: Date;
+  archivedAt: Date | null;
+  expiresAt: Date | null;
   endedAt: Date | null;
   turnCount: number;
   totalTokensIn: number;
@@ -31,7 +35,11 @@ export const ConversationEntitySchema = new EntitySchema<ConversationEntity>({
     id: { type: "varchar", length: 64, primary: true },
     userId: { name: "user_id", type: "varchar", length: 64 },
     channel: { type: "varchar", length: 16 },
+    title: { type: "varchar", length: 160, nullable: true },
     startedAt: { name: "started_at", type: "timestamptz" },
+    updatedAt: { name: "updated_at", type: "timestamptz" },
+    archivedAt: { name: "archived_at", type: "timestamptz", nullable: true },
+    expiresAt: { name: "expires_at", type: "timestamptz", nullable: true },
     endedAt: { name: "ended_at", type: "timestamptz", nullable: true },
     turnCount: { name: "turn_count", type: "integer", default: 0 },
     totalTokensIn: { name: "total_tokens_in", type: "integer", default: 0 },

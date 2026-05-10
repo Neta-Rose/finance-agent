@@ -560,7 +560,11 @@ CREATE TABLE IF NOT EXISTS conversations (
   id                   VARCHAR(64) PRIMARY KEY,
   user_id              VARCHAR(64) NOT NULL,
   channel              VARCHAR(16) NOT NULL CHECK (channel IN ('dashboard','telegram','whatsapp')),
+  title                VARCHAR(160),
   started_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  archived_at          TIMESTAMPTZ,
+  expires_at           TIMESTAMPTZ,
   ended_at             TIMESTAMPTZ,
   turn_count           INTEGER NOT NULL DEFAULT 0,
   total_tokens_in      INTEGER NOT NULL DEFAULT 0,
@@ -575,6 +579,23 @@ CREATE INDEX IF NOT EXISTS idx_conversations_user_started
 CREATE INDEX IF NOT EXISTS idx_conversations_termination
   ON conversations (termination_reason, started_at DESC)
   WHERE termination_reason IS NOT NULL;
+
+ALTER TABLE conversations
+  ADD COLUMN IF NOT EXISTS title VARCHAR(160),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_conversations_saved_list
+  ON conversations (user_id, channel, updated_at DESC, started_at DESC)
+  WHERE archived_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_conversations_archive_lookup
+  ON conversations (user_id, channel, archived_at, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_expires_at
+  ON conversations (expires_at)
+  WHERE expires_at IS NOT NULL AND archived_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS conversation_turns (
   conversation_id  VARCHAR(64) NOT NULL,
