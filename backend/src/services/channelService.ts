@@ -2,9 +2,40 @@ import { promises as fs } from "fs";
 import path from "path";
 import { resolveConfiguredPath } from "./paths.js";
 import { WhatsAppConnectionSchema, type WhatsAppConnection } from "../schemas/channels.js";
-import { listBindingsForUser, unbindChannel } from "./channelBindingStore.js";
+import { bindChannel, listBindingsForUser, unbindChannel } from "./channelBindingStore.js";
+import { upsertEncryptedSecret, deleteEncryptedSecret } from "./security/encryptedSecretsStore.js";
+import { isApplicationDatabaseConfigured } from "../db/applicationDataSource.js";
+import { logger } from "./logger.js";
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
+
+async function registerTelegramWebhook(botToken: string): Promise<void> {
+  const publicUrl = process.env["PUBLIC_URL"];
+  if (!publicUrl) {
+    logger.warn("PUBLIC_URL not set — skipping Telegram webhook registration");
+    return;
+  }
+  const secret = process.env["TELEGRAM_SECRET"];
+  const webhookUrl = `${publicUrl}/api/telegram/webhook`;
+  const body: Record<string, string> = { url: webhookUrl };
+  if (secret) body["secret_token"] = secret;
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json() as { ok: boolean; description?: string };
+    if (!json.ok) {
+      logger.warn(`Telegram setWebhook failed: ${json.description ?? "unknown"}`);
+    } else {
+      logger.info("Telegram webhook registered successfully");
+    }
+  } catch (err) {
+    logger.warn(`Telegram setWebhook error: ${(err as Error).message}`);
+  }
+}
 
 export interface ChannelStatus {
   connected: boolean;
@@ -86,12 +117,23 @@ export async function getUserChannelConnectivity(userId: string): Promise<UserCh
 
 export async function connectUserTelegramChannel(
   userId: string,
-  _botToken: string,
+  botToken: string,
   telegramChatId: string
 ): Promise<void> {
   const profile = await readProfileRecord(userId);
   profile.telegramChatId = telegramChatId;
   await writeProfileRecord(userId, profile);
+
+  if (isApplicationDatabaseConfigured()) {
+    await upsertEncryptedSecret({
+      userId,
+      secretKind: "telegram_bot_token",
+      plaintext: botToken,
+    });
+    await bindChannel({ channel: "telegram", channelIdentifier: telegramChatId, userId });
+  }
+
+  await registerTelegramWebhook(botToken);
 }
 
 export async function disconnectUserTelegramChannel(userId: string): Promise<void> {
@@ -104,6 +146,10 @@ export async function disconnectUserTelegramChannel(userId: string): Promise<voi
   const profile = await readProfileRecord(userId);
   delete profile.telegramChatId;
   await writeProfileRecord(userId, profile);
+
+  if (isApplicationDatabaseConfigured()) {
+    await deleteEncryptedSecret(userId, "telegram_bot_token");
+  }
 }
 
 export async function connectUserWhatsAppChannel(

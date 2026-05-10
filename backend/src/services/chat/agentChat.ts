@@ -16,6 +16,7 @@ import * as notificationStore from "../notificationStore.js";
 import * as portfolioRiskStore from "../portfolioRiskStore.js";
 import * as verdictActionsStore from "../verdictActionsStore.js";
 import { logger } from "../logger.js";
+import { eventStore } from "../eventStore.js";
 import type { ConversationChannel } from "../../db/entities/ConversationEntity.js";
 
 /**
@@ -342,6 +343,7 @@ ${toolManifestJson}`;
     const textContent = extractTextFromContent(rawContent);
     const toolUseBlocks = extractToolUseBlocks(rawContent);
 
+    const turnLatencyMs = Date.now() - t0;
     await conversationStore.appendTurn(conversationId, {
       role: "assistant",
       content: rawContent,
@@ -349,8 +351,26 @@ ${toolManifestJson}`;
       tokensIn: resp.usage.tokensIn,
       tokensOut: resp.usage.tokensOut,
       costUsd: resp.usage.costUsd,
-      latencyMs: Date.now() - t0,
+      latencyMs: turnLatencyMs,
     });
+    eventStore.logRequest({
+      userId,
+      purpose: "chat",
+      ticker: null,
+      jobId: null,
+      sourceClass: channel === "telegram" ? "telegram_command" : "direct_chat",
+      analyst: "chat",
+      model: resp.model,
+      tokensIn: resp.usage.tokensIn,
+      tokensOut: resp.usage.tokensOut,
+      costUsd: resp.usage.costUsd,
+      latencyMs: turnLatencyMs,
+      status: "success",
+      errorMessage: null,
+      attributionSource: "chat",
+      rejectionReason: null,
+      timestamp: new Date().toISOString(),
+    }).catch((err: unknown) => logger.warn(`agentChat: eventStore.logRequest failed: ${(err as Error).message}`));
     turnIndex += 1;
     messages.push({ role: "assistant", content: textContent });
 

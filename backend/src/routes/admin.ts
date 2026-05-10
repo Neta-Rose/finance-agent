@@ -599,6 +599,24 @@ router.post(
       createdAt: new Date().toISOString(),
     };
     await fs.writeFile(path.join(ws.root, "profile.json"), JSON.stringify(profile, null, 2), "utf-8");
+
+    if (isApplicationDatabaseConfigured()) {
+      const ds = await getApplicationDataSource();
+      await ds.query(
+        `INSERT INTO users (user_id, display_name, password_hash, schedule, rate_limits, model_tier, model_profile, state, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'testing', 'INCOMPLETE', NOW(), NOW())
+         ON CONFLICT (user_id) DO NOTHING`,
+        [
+          userId,
+          displayName,
+          hash,
+          JSON.stringify(schedule),
+          JSON.stringify(rateLimits),
+          modelTier,
+        ]
+      );
+    }
+
     await setUserPointsBudget(userId, pointsBudget);
 
     try {
