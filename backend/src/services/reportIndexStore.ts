@@ -150,14 +150,16 @@ export async function putReportBatch(input: PutReportBatchInput): Promise<Report
   });
 }
 
-export async function readReportBatch(batchId: string): Promise<ReportBatchRecord | null> {
+export async function readReportBatchForUser(userId: string, batchId: string): Promise<ReportBatchRecord | null> {
   if (!isApplicationDatabaseConfigured()) return null;
   const ds = await getApplicationDataSource();
   const rows = (await ds.query(
     `SELECT batch_id, user_id, job_id, mode, triggered_at, date,
             ticker_count, summary, highlights, created_at
-       FROM report_batches WHERE batch_id = $1 LIMIT 1`,
-    [batchId]
+       FROM report_batches
+      WHERE batch_id = $1 AND user_id = $2
+      LIMIT 1`,
+    [batchId, userId]
   )) as BatchRow[];
   return rows[0] ? batchFromRow(rows[0]) : null;
 }

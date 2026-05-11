@@ -79,7 +79,7 @@ export interface ToolContext {
   };
   reportIndexStore: {
     listReportBatches(userId: string, options?: { limit?: number }): Promise<ReportBatchRecord[]>;
-    readReportBatch?(batchId: string): Promise<ReportBatchRecord | null>;
+    readReportBatchForUser?(userId: string, batchId: string): Promise<ReportBatchRecord | null>;
   };
   escalationHistoryStore: {
     listEscalationHistory(userId: string, options?: { ticker?: string; limit?: number }): Promise<EscalationHistoryRecord[]>;

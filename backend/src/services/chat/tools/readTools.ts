@@ -19,6 +19,28 @@ import path from "path";
  */
 
 const USERS_DIR = resolveConfiguredPath(process.env["USERS_DIR"], "../users");
+const REPORT_BATCH_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
+function untrustedReportText(value: unknown, maxChars: number): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return `<UNTRUSTED kind="report_content">\n${trimmed.slice(0, maxChars)}\n</UNTRUSTED>`;
+}
+
+function untrustedReportJson(value: unknown, maxChars: number): unknown {
+  if (typeof value === "string") return untrustedReportText(value, maxChars);
+  if (Array.isArray(value)) return value.map((item) => untrustedReportJson(item, maxChars));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
+        key,
+        untrustedReportJson(nested, maxChars),
+      ])
+    );
+  }
+  return value;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -197,7 +219,7 @@ export function buildReadTools(_ctx: ToolContext): ToolDefinition[] {
       handler: async (args, toolCtx) => {
         const t0 = Date.now();
         const parsed = z.object({
-          batchId: z.string().optional(),
+          batchId: z.string().regex(REPORT_BATCH_ID_RE).optional(),
           ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/).optional(),
         }).safeParse(args);
         if (!parsed.success) {
@@ -216,12 +238,12 @@ export function buildReadTools(_ctx: ToolContext): ToolDefinition[] {
             batchId = batches[0].batchId;
           }
 
-          // Load batch metadata
+          // Load batch metadata through the user-scoped store method. The fallback
+          // keeps older test doubles working while preserving ownership checks.
           let batch: import("../../reportIndexStore.js").ReportBatchRecord | null = null;
-          if (toolCtx.reportIndexStore.readReportBatch) {
-            batch = await toolCtx.reportIndexStore.readReportBatch(batchId);
+          if (toolCtx.reportIndexStore.readReportBatchForUser) {
+            batch = await toolCtx.reportIndexStore.readReportBatchForUser(toolCtx.userId, batchId);
           } else {
-            // Fallback: find in recent list
             const batches = await toolCtx.reportIndexStore.listReportBatches(toolCtx.userId, { limit: 50 });
             batch = batches.find((b) => b.batchId === batchId) ?? null;
           }
@@ -241,19 +263,23 @@ export function buildReadTools(_ctx: ToolContext): ToolDefinition[] {
 
           // Include highlights if present
           if (batch.highlights) {
-            summary["highlights"] = batch.highlights;
+            summary["highlights"] = untrustedReportJson(batch.highlights, 400);
           }
 
           // Include batch-level summary if present
           if (batch.summary) {
-            summary["summary"] = batch.summary;
+            summary["summary"] = untrustedReportJson(batch.summary, 400);
           }
 
           // If a ticker filter is requested, include its entry from the index
           if (parsed.data.ticker && toolCtx.db) {
             const rows = await toolCtx.db.query(
-              `SELECT ticker, daily_section, entry FROM report_index WHERE batch_id = $1 AND ticker = $2 LIMIT 1`,
-              [batchId, parsed.data.ticker.toUpperCase()]
+              `SELECT ri.ticker, ri.daily_section, ri.entry
+                 FROM report_index ri
+                 JOIN report_batches rb ON rb.batch_id = ri.batch_id
+                WHERE ri.batch_id = $1 AND rb.user_id = $2 AND ri.ticker = $3
+                LIMIT 1`,
+              [batchId, toolCtx.userId, parsed.data.ticker.toUpperCase()]
             ) as Array<{ ticker: string; daily_section: string | null; entry: Record<string, unknown> }>;
             if (rows[0]) {
               const entry = rows[0].entry;
@@ -262,12 +288,10 @@ export function buildReadTools(_ctx: ToolContext): ToolDefinition[] {
               summary["dailySection"] = rows[0].daily_section;
               summary["verdict"] = entry["verdict"];
               summary["confidence"] = entry["confidence"];
-              summary["reasoning"] = typeof entry["reasoning"] === "string"
-                ? entry["reasoning"].slice(0, 400)
-                : entry["reasoning"];
-              summary["catalysts"] = entry["catalysts"];
-              summary["bullCase"] = entry["bullCase"] ?? entry["bull_case"];
-              summary["bearCase"] = entry["bearCase"] ?? entry["bear_case"];
+              summary["reasoning"] = untrustedReportText(entry["reasoning"], 400) ?? entry["reasoning"];
+              summary["catalysts"] = untrustedReportJson(entry["catalysts"], 300);
+              summary["bullCase"] = untrustedReportText(entry["bullCase"] ?? entry["bull_case"], 300);
+              summary["bearCase"] = untrustedReportText(entry["bearCase"] ?? entry["bear_case"], 300);
             } else {
               summary["ticker"] = parsed.data.ticker;
               summary["message"] = `No entry found for ${parsed.data.ticker} in this report.`;
@@ -275,17 +299,23 @@ export function buildReadTools(_ctx: ToolContext): ToolDefinition[] {
           } else if (toolCtx.db) {
             // Include all ticker verdicts from the index for a full summary
             const rows = await toolCtx.db.query(
-              `SELECT ticker, daily_section, entry->>'verdict' as verdict, entry->>'confidence' as confidence,
-                      entry->>'reasoning' as reasoning
-               FROM report_index WHERE batch_id = $1 ORDER BY ticker ASC`,
-              [batchId]
+              `SELECT ri.ticker,
+                      ri.daily_section,
+                      ri.entry->>'verdict' as verdict,
+                      ri.entry->>'confidence' as confidence,
+                      ri.entry->>'reasoning' as reasoning
+                 FROM report_index ri
+                 JOIN report_batches rb ON rb.batch_id = ri.batch_id
+                WHERE ri.batch_id = $1 AND rb.user_id = $2
+                ORDER BY ri.ticker ASC`,
+              [batchId, toolCtx.userId]
             ) as Array<{ ticker: string; daily_section: string | null; verdict: string; confidence: string; reasoning: string }>;
             summary["entries"] = rows.map((r) => ({
               ticker: r.ticker,
               section: r.daily_section,
               verdict: r.verdict,
               confidence: r.confidence,
-              reasoning: typeof r.reasoning === "string" ? r.reasoning.slice(0, 200) : r.reasoning,
+              reasoning: untrustedReportText(r.reasoning, 200),
             }));
           }
 

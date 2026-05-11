@@ -47,11 +47,11 @@ const VERDICT_LINE: Record<Verdict, string> = {
 
 /** Primary CTA label per verdict. HOLD → undefined = no primary button shown. */
 const VERDICT_CTA: Partial<Record<Verdict, string>> = {
-  REDUCE: "Reduce position",
-  SELL: "Sell position",
-  CLOSE: "Sell position",
-  BUY: "Add to position",
-  ADD: "Add to position",
+  REDUCE: "Deep dive before trimming",
+  SELL: "Deep dive before exiting",
+  CLOSE: "Deep dive before exiting",
+  BUY: "Deep dive before adding",
+  ADD: "Deep dive before adding",
 };
 
 function ctaBg(verdict: Verdict): string {
@@ -231,6 +231,7 @@ export function StrategyModal({
               <button
                 type="button"
                 onClick={handleDeepDive}
+                aria-label={`${ctaLabel} for ${ticker}`}
                 style={{
                   flex: 1,
                   padding: "12px",
@@ -262,7 +263,7 @@ export function StrategyModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {language === "he" ? "סגור" : "Dismiss · keep"}
+              {language === "he" ? "סגור" : "Close"}
             </button>
           </div>
         )}

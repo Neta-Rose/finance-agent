@@ -84,13 +84,45 @@ const DEFAULT_BODIES: Record<SemanticNotificationKind, string> = {
   market_news: "Market update available.",
 };
 
+function collapseRepeatedWords(value: string): string {
+  const words = value.split(" ");
+  const collapsed: string[] = [];
+  for (let i = 0; i < words.length;) {
+    const word = words[i]!;
+    let j = i + 1;
+    while (j < words.length && words[j]!.toLowerCase() === word.toLowerCase()) j += 1;
+    const count = j - i;
+    if (count > 6) {
+      collapsed.push(`${word} ×${count}`);
+    } else {
+      collapsed.push(...words.slice(i, j));
+    }
+    i = j;
+  }
+  return collapsed.join(" ");
+}
+
 function normalizePlainText(value: string | null | undefined): string {
-  return (value ?? "")
+  const normalized = (value ?? "")
     .replace(/[\u0000-\u001f\u007f]/g, " ")
     .replace(/<\/?script\b[^>]*>/gi, " ")
-    .replace(/[`*_~>#\[\]()]/g, "")
+    .replace(/[`*_~>#\[\]()]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  return collapseRepeatedWords(normalized);
+}
+
+function normalizeIdentifier(value: string | null | undefined, maxLength: number): string | null {
+  const normalized = (value ?? "").trim().replace(/[^A-Za-z0-9._-]/g, "");
+  return normalized.length > 0 ? clip(normalized, maxLength) : null;
+}
+
+function normalizeActionUrl(value: string | null | undefined, maxLength: number): string | null {
+  const normalized = (value ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/<\/?script\b[^>]*>/gi, "")
+    .trim();
+  return normalized.length > 0 ? clip(normalized, maxLength) : null;
 }
 
 function clip(value: string, maxLength: number): string {
@@ -102,11 +134,6 @@ function clip(value: string, maxLength: number): string {
 function normalizeTicker(value: string | null | undefined): string | null {
   const ticker = normalizePlainText(value).toUpperCase().replace(/[^A-Z0-9.-]/g, "");
   return ticker.length > 0 ? clip(ticker, 16) : null;
-}
-
-function normalizeOptional(value: string | null | undefined, maxLength: number): string | null {
-  const normalized = normalizePlainText(value);
-  return normalized.length > 0 ? clip(normalized, maxLength) : null;
 }
 
 function withTicker(title: string, ticker: string | null): string {
@@ -141,8 +168,8 @@ export function composeNotification(request: SemanticNotificationRequest): Compo
     title,
     body: selectBody(request, kind),
     ticker,
-    batchId: normalizeOptional(request.batchId, 128),
-    actionUrl: normalizeOptional(request.actionUrl, 300),
+    batchId: normalizeIdentifier(request.batchId, 128),
+    actionUrl: normalizeActionUrl(request.actionUrl, 300),
   };
 }
 
