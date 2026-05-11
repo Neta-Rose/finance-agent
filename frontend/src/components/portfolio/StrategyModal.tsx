@@ -14,6 +14,15 @@ import { formatILS, timeAgo } from "../../utils/format";
 import { whyToday } from "../../utils/today/whyToday";
 import { snippet } from "../../utils/today/classifyAttention";
 import { scoreColor } from "../../utils/today/scoreColor";
+import {
+  verdictSentence,
+  confidenceExplanation,
+  scoreBucketLabel,
+  scoreBucketEmoji,
+  formatCatalyst,
+  nextCatalyst,
+  reasoningSnippet,
+} from "../../utils/advisory";
 import type { StrategyRow, AttentionItem, PositionRow, Verdict } from "../../types/api";
 
 interface StrategyModalProps {
@@ -28,12 +37,12 @@ interface StrategyModalProps {
 }
 
 const VERDICT_LINE: Record<Verdict, string> = {
-  BUY: "Add or initiate.",
-  ADD: "Add to position.",
-  HOLD: "Hold steady.",
-  REDUCE: "Trim the position.",
-  SELL: "Reduce or exit.",
-  CLOSE: "Close out.",
+  BUY:    verdictSentence("BUY"),
+  ADD:    verdictSentence("ADD"),
+  HOLD:   verdictSentence("HOLD"),
+  REDUCE: verdictSentence("REDUCE"),
+  SELL:   verdictSentence("SELL"),
+  CLOSE:  verdictSentence("CLOSE"),
 };
 
 /** Primary CTA label per verdict. HOLD → undefined = no primary button shown. */
@@ -304,7 +313,6 @@ function DetailContent({
     strategy.timeframe && strategy.timeframe !== "undefined"
       ? ` · ${strategy.timeframe.replace(/_/g, " ")} horizon`
       : "";
-
   return (
     <div>
       {/* ScoreHero — score left, verdict + updated right */}
@@ -345,6 +353,18 @@ function DetailContent({
           >
             Position score
           </span>
+          {hasScore && (
+            <span
+              style={{
+                display: "block",
+                fontSize: "var(--text-xs)",
+                color: scoreColor(heroScore),
+                marginTop: 2,
+              }}
+            >
+              {scoreBucketEmoji(heroScore)} {scoreBucketLabel(heroScore)}
+            </span>
+          )}
         </div>
 
         {/* Right: verdict line + updated timestamp + timeframe */}
@@ -464,6 +484,66 @@ function DetailContent({
           {rationale}
         </p>
       )}
+
+      {/* Next catalyst — most urgent upcoming catalyst */}
+      {(() => {
+        const upcoming = nextCatalyst(strategy.catalysts ?? []);
+        if (!upcoming) return null;
+        return (
+          <div
+            style={{
+              margin: "0 16px 16px",
+              padding: "10px 12px",
+              borderRadius: "var(--radius-md)",
+              background: "rgba(59,130,246,0.08)",
+              border: "0.5px solid rgba(59,130,246,0.20)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "var(--text-2xs)",
+                fontWeight: "var(--weight-bold)",
+                color: "var(--color-accent-blue, var(--text-secondary))",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 4,
+              }}
+            >
+              {language === "he" ? "קטליסט הבא" : "Next catalyst"}
+            </div>
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", lineHeight: 1.4 }}>
+              {formatCatalyst(upcoming)}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Confidence explanation */}
+      <div
+        style={{
+          margin: "0 16px 16px",
+          padding: "8px 12px",
+          borderRadius: "var(--radius-md)",
+          background: "var(--color-bg-muted, rgba(0,0,0,0.04))",
+          border: "0.5px solid var(--bg-border)",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "var(--text-2xs)",
+            fontWeight: "var(--weight-bold)",
+            color: confidenceColor,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            marginRight: 6,
+          }}
+        >
+          {tConfidence(strategy.confidence, language)}
+        </span>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+          {confidenceExplanation(strategy.confidence)}
+        </span>
+      </div>
 
       {/* Bull / Bear 2-col */}
       {(strategy.bullCase || strategy.bearCase) && (
@@ -660,11 +740,5 @@ function ConditionRow({
 }
 
 function twoSentences(text: string | null | undefined): string {
-  if (!text) return "";
-  const trimmed = text.trim();
-  if (!trimmed) return "";
-  const parts = trimmed.split(/(?<=[.!?])\s+/);
-  const joined = parts.slice(0, 2).join(" ");
-  if (joined.length <= 280) return joined;
-  return joined.slice(0, 280).replace(/\s+\S*$/, "") + "…";
+  return reasoningSnippet(text, 280);
 }

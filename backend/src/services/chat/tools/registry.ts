@@ -29,6 +29,7 @@ export const READ_TOOL_NAMES = [
   "getStrategy",
   "getStrategies",
   "getRecentReports",
+  "getReportSummary",
   "getCatalystsDueSoon",
   "getEscalationHistory",
   "getRiskSummary",
@@ -78,6 +79,7 @@ export interface ToolContext {
   };
   reportIndexStore: {
     listReportBatches(userId: string, options?: { limit?: number }): Promise<ReportBatchRecord[]>;
+    readReportBatch?(batchId: string): Promise<ReportBatchRecord | null>;
   };
   escalationHistoryStore: {
     listEscalationHistory(userId: string, options?: { ticker?: string; limit?: number }): Promise<EscalationHistoryRecord[]>;

@@ -181,6 +181,123 @@ export function buildReadTools(_ctx: ToolContext): ToolDefinition[] {
       },
     },
 
+    // ── getReportSummary ─────────────────────────────────────────────────────
+    {
+      name: "getReportSummary",
+      category: "read",
+      description: "Returns a readable summary of a specific report batch by ID, or the most recent report if no ID is given. Includes mode, date, ticker verdicts, highlights, and key signals.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          batchId: { type: "string", description: "Report batch ID. Omit to use the most recent report." },
+          ticker: { type: "string", description: "Optional ticker to filter the summary to a single position." },
+        },
+        additionalProperties: false,
+      },
+      handler: async (args, toolCtx) => {
+        const t0 = Date.now();
+        const parsed = z.object({
+          batchId: z.string().optional(),
+          ticker: z.string().regex(/^[A-Z0-9.]{1,12}$/).optional(),
+        }).safeParse(args);
+        if (!parsed.success) {
+          await writeToolCallAudit(toolCtx, "getReportSummary", args as Record<string, unknown>, "error", Date.now() - t0);
+          return { status: "error", error: `invalid_args: ${parsed.error.message}` };
+        }
+        try {
+          let batchId = parsed.data.batchId;
+          // If no batchId given, find the most recent batch
+          if (!batchId) {
+            const batches = await toolCtx.reportIndexStore.listReportBatches(toolCtx.userId, { limit: 1 });
+            if (!batches[0]) {
+              await writeToolCallAudit(toolCtx, "getReportSummary", parsed.data, "success", Date.now() - t0);
+              return { status: "success", data: { message: "No reports found yet. Run a daily brief or deep dive first." } };
+            }
+            batchId = batches[0].batchId;
+          }
+
+          // Load batch metadata
+          let batch: import("../../reportIndexStore.js").ReportBatchRecord | null = null;
+          if (toolCtx.reportIndexStore.readReportBatch) {
+            batch = await toolCtx.reportIndexStore.readReportBatch(batchId);
+          } else {
+            // Fallback: find in recent list
+            const batches = await toolCtx.reportIndexStore.listReportBatches(toolCtx.userId, { limit: 50 });
+            batch = batches.find((b) => b.batchId === batchId) ?? null;
+          }
+
+          if (!batch) {
+            await writeToolCallAudit(toolCtx, "getReportSummary", parsed.data, "error", Date.now() - t0);
+            return { status: "error", error: "report_not_found" };
+          }
+
+          // Build a readable summary
+          const summary: Record<string, unknown> = {
+            batchId: batch.batchId,
+            mode: batch.mode,
+            date: batch.date,
+            tickerCount: batch.tickerCount,
+          };
+
+          // Include highlights if present
+          if (batch.highlights) {
+            summary["highlights"] = batch.highlights;
+          }
+
+          // Include batch-level summary if present
+          if (batch.summary) {
+            summary["summary"] = batch.summary;
+          }
+
+          // If a ticker filter is requested, include its entry from the index
+          if (parsed.data.ticker && toolCtx.db) {
+            const rows = await toolCtx.db.query(
+              `SELECT ticker, daily_section, entry FROM report_index WHERE batch_id = $1 AND ticker = $2 LIMIT 1`,
+              [batchId, parsed.data.ticker.toUpperCase()]
+            ) as Array<{ ticker: string; daily_section: string | null; entry: Record<string, unknown> }>;
+            if (rows[0]) {
+              const entry = rows[0].entry;
+              // Extract the most readable fields from the entry
+              summary["ticker"] = rows[0].ticker;
+              summary["dailySection"] = rows[0].daily_section;
+              summary["verdict"] = entry["verdict"];
+              summary["confidence"] = entry["confidence"];
+              summary["reasoning"] = typeof entry["reasoning"] === "string"
+                ? entry["reasoning"].slice(0, 400)
+                : entry["reasoning"];
+              summary["catalysts"] = entry["catalysts"];
+              summary["bullCase"] = entry["bullCase"] ?? entry["bull_case"];
+              summary["bearCase"] = entry["bearCase"] ?? entry["bear_case"];
+            } else {
+              summary["ticker"] = parsed.data.ticker;
+              summary["message"] = `No entry found for ${parsed.data.ticker} in this report.`;
+            }
+          } else if (toolCtx.db) {
+            // Include all ticker verdicts from the index for a full summary
+            const rows = await toolCtx.db.query(
+              `SELECT ticker, daily_section, entry->>'verdict' as verdict, entry->>'confidence' as confidence,
+                      entry->>'reasoning' as reasoning
+               FROM report_index WHERE batch_id = $1 ORDER BY ticker ASC`,
+              [batchId]
+            ) as Array<{ ticker: string; daily_section: string | null; verdict: string; confidence: string; reasoning: string }>;
+            summary["entries"] = rows.map((r) => ({
+              ticker: r.ticker,
+              section: r.daily_section,
+              verdict: r.verdict,
+              confidence: r.confidence,
+              reasoning: typeof r.reasoning === "string" ? r.reasoning.slice(0, 200) : r.reasoning,
+            }));
+          }
+
+          await writeToolCallAudit(toolCtx, "getReportSummary", parsed.data, "success", Date.now() - t0);
+          return { status: "success", data: summary };
+        } catch (err) {
+          await writeToolCallAudit(toolCtx, "getReportSummary", parsed.data ?? {}, "error", Date.now() - t0);
+          return { status: "error", error: (err as Error).message.slice(0, 200) };
+        }
+      },
+    },
+
     // ── getRecentReports ─────────────────────────────────────────────────────
     {
       name: "getRecentReports",
