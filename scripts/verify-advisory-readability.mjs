@@ -8,6 +8,7 @@
  * 3. The persona prompt covers all safe advisory request classes.
  * 4. The persona prompt does not expose "Clawd" or internal paths.
  * 5. The getReportSummary tool is in the read tool allowlist.
+ * 6. Report, strategy modal, Today attention, and score surfaces consume the readability helpers.
  */
 
 import { readFile } from "node:fs/promises";
@@ -154,6 +155,33 @@ try {
   }
 } catch (err) {
   fail(`Could not read Settings.tsx: ${err.message}`);
+}
+
+// ── 8. Readability helpers are used across S06 surfaces ─────────────────────
+console.log("\n[8] S06 surfaces use advisory readability helpers");
+try {
+  const reportsSrc = await readSrc("frontend/src/pages/Reports.tsx");
+  const strategyModalSrc = await readSrc("frontend/src/components/portfolio/StrategyModal.tsx");
+  const attentionCardSrc = await readSrc("frontend/src/components/today/AttentionCard.tsx");
+  const checks = [
+    [reportsSrc, "verdictSentence", "Reports uses readable verdict sentences"],
+    [reportsSrc, "confidenceExplanation", "Reports explains confidence"],
+    [reportsSrc, "scoreExplanation", "Reports explains scores"],
+    [reportsSrc, "formatCatalyst", "Reports formats catalysts"],
+    [strategyModalSrc, "scoreBucketLabel", "Strategy modal labels score buckets"],
+    [strategyModalSrc, "confidenceExplanation", "Strategy modal explains confidence"],
+    [strategyModalSrc, "nextCatalyst", "Strategy modal highlights next catalyst"],
+    [attentionCardSrc, "scoreBucketLabel", "Today attention cards label score buckets"],
+  ];
+  for (const [src, needle, label] of checks) {
+    if (src.includes(needle)) {
+      pass(label);
+    } else {
+      fail(`${label} — missing ${needle}`);
+    }
+  }
+} catch (err) {
+  fail(`Could not inspect S06 surfaces: ${err.message}`);
 }
 
 // ── Summary ──────────────────────────────────────────────────────────────────

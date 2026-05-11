@@ -22,6 +22,16 @@ import { usePreferencesStore } from "../store/preferencesStore";
 import { t, tConfidence } from "../store/i18n";
 import { useToastStore } from "../store/toastStore";
 import { formatILS } from "../utils/format";
+import {
+  confidenceExplanation,
+  formatCatalyst,
+  reasoningSnippet,
+  scoreBucketEmoji,
+  scoreBucketLabel,
+  scoreExplanation,
+  verdictSentence,
+} from "../utils/advisory";
+import type { Verdict } from "../types/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,6 +122,10 @@ const ESCALATED = new Set(["SELL", "CLOSE", "REDUCE"]);
 const POSITIVE = new Set(["BUY", "ADD"]);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function isVerdict(value: unknown): value is Verdict {
+  return typeof value === "string" && ["BUY", "ADD", "HOLD", "REDUCE", "SELL", "CLOSE"].includes(value);
+}
 
 function modeMeta(mode: string) {
   return MODE_META[mode] ?? MODE_META.deep_dive;
@@ -884,6 +898,11 @@ function QuickCheckSection({ content: c }: { content: Rec }) {
           <span className={`inline-block rounded-full border px-2.5 py-1 text-[11px] font-medium ${decisionStyle}`}>
             {decision === "not_safe" ? "escalate" : decision || "—"}
           </span>
+          {score !== null && score !== undefined ? (
+            <p className="text-[11px] font-medium text-[var(--color-fg-muted)]">
+              {scoreBucketEmoji(score)} {scoreBucketLabel(score)} — {scoreExplanation(score)}
+            </p>
+          ) : null}
           {c.escalation_reason ? (
             <p className="text-[11px] text-[var(--color-fg-muted)]">{c.escalation_reason as string}</p>
           ) : null}
@@ -935,10 +954,28 @@ function StrategySection({ content: c }: { content: Rec }) {
   const catalysts = c.catalysts as Catalyst[] | undefined;
   const entryConditions = c.entryConditions as string[] | undefined;
   const exitConditions = c.exitConditions as string[] | undefined;
+  const verdict = isVerdict(c.verdict) ? c.verdict : null;
+  const confidence = typeof c.confidence === "string" ? c.confidence : null;
+  const reasoning = typeof c.reasoning === "string" ? reasoningSnippet(c.reasoning, 280) : "";
 
   return (
     <div className="space-y-5">
-      {c.reasoning ? <BodyText text={c.reasoning as string} /> : null}
+      {verdict || confidence ? (
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2">
+          {verdict ? (
+            <p className="text-sm font-bold text-[var(--color-fg-default)]">
+              {verdict}: {verdictSentence(verdict)}
+            </p>
+          ) : null}
+          {confidence ? (
+            <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">
+              {confidenceExplanation(confidence)}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {reasoning ? <BodyText text={reasoning} /> : null}
 
       {catalysts && catalysts.length > 0 ? (
         <div>
@@ -957,9 +994,8 @@ function StrategySection({ content: c }: { content: Rec }) {
                         : "border-[var(--color-border)] bg-[var(--color-bg-muted)]"
                   }`}
                 >
-                  <p className="text-[var(--color-fg-default)]">{cat.description}</p>
+                  <p className="text-[var(--color-fg-default)]">{formatCatalyst(cat)}</p>
                   <div className="mt-0.5 flex gap-3 text-[10px] text-[var(--color-fg-subtle)]">
-                    {cat.expiresAt ? <span>Expires {formatDate(cat.expiresAt)}</span> : null}
                     {cat.triggered ? <span className="text-emerald-400">✓ Triggered</span> : null}
                     {expired ? <span className="text-red-400">⚠ Expired</span> : null}
                   </div>
@@ -1229,6 +1265,12 @@ function ReportCard({
                 <span className="text-[11px] text-[var(--color-fg-subtle)]">· {selectedEntry.timeframe}</span>
               ) : null}
             </div>
+          ) : null}
+          {!isBriefMode && selectedEntry ? (
+            <p className="mt-2 text-[12px] leading-5 text-[var(--color-fg-muted)]">
+              {isVerdict(selectedEntry.verdict) ? `${verdictSentence(selectedEntry.verdict)} ` : ""}
+              {confidenceExplanation(selectedEntry.confidence)}
+            </p>
           ) : null}
 
           {/* Summary — clamped in collapsed state, full text in expanded panel */}

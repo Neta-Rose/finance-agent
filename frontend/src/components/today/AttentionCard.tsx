@@ -1,6 +1,7 @@
 import { ActionBadge } from "../design/ActionBadge";
 import { scoreColor } from "../../utils/today/scoreColor";
 import { whyToday } from "../../utils/today/whyToday";
+import { scoreBucketEmoji, scoreBucketLabel } from "../../utils/advisory";
 import { timeAgo } from "../../utils/format";
 import { usePreferencesStore } from "../../store/preferencesStore";
 import type { AttentionItem } from "../../types/api";
@@ -103,6 +104,20 @@ export function AttentionCard({ item, score, weightPct, updatedAt, onClick }: At
             }}
           >
             {score}
+          </span>
+        )}
+        {score !== undefined && (
+          <span
+            style={{
+              display: "block",
+              fontSize: 10,
+              fontWeight: 500,
+              color: scoreTextColor,
+              lineHeight: 1.2,
+              marginTop: 3,
+            }}
+          >
+            {scoreBucketEmoji(score)} {scoreBucketLabel(score)}
           </span>
         )}
       </div>
