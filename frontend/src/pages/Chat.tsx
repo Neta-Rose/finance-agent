@@ -10,6 +10,7 @@ import {
   Send,
   Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import {
   archiveSavedConversation,
@@ -41,7 +42,52 @@ type ChatViewMessage = {
   role: "user" | "assistant";
   content: string;
   isError?: boolean;
+  toolCalls?: string[];
 };
+
+const TOOL_CALL_BLOCK_RE = /```tool_call\s*\n([\s\S]*?)\n```/g;
+
+const TOOL_DISPLAY_LABELS: Record<string, string> = {
+  getPortfolio: "Checked portfolio",
+  getStrategy: "Looked up strategy",
+  getStrategies: "Reviewed all strategies",
+  getRecentReports: "Fetched recent reports",
+  getReportSummary: "Read report summary",
+  getCatalystsDueSoon: "Checked upcoming catalysts",
+  getEscalationHistory: "Reviewed escalation history",
+  getRiskSummary: "Assessed portfolio risk",
+  getNotifications: "Checked notifications",
+  searchWeb: "Searched the web",
+  triggerQuickCheck: "Ran a quick check",
+  triggerDeepDive: "Triggered deep dive",
+  triggerDailyBrief: "Triggered daily brief",
+  snoozeTicker: "Snoozed ticker",
+  markVerdictAddressed: "Recorded verdict decision",
+  waitForJob: "Waited for job",
+};
+
+function toolDisplayLabel(name: string): string {
+  return TOOL_DISPLAY_LABELS[name] ?? name;
+}
+
+function extractToolCallsFromText(text: string): string[] {
+  const names: string[] = [];
+  const re = new RegExp(TOOL_CALL_BLOCK_RE.source, "g");
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1]!) as { name?: string };
+      if (typeof parsed.name === "string") names.push(parsed.name);
+    } catch {
+      // skip malformed
+    }
+  }
+  return names;
+}
+
+function stripToolCallBlocks(text: string): string {
+  return text.replace(new RegExp(TOOL_CALL_BLOCK_RE.source, "g"), "").trim();
+}
 
 function readLastOpenedConversationId(): string | undefined {
   try {
@@ -68,19 +114,37 @@ function clearLastOpenedConversationId(): void {
   }
 }
 
-function normalizeTurnContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (typeof content === "number" || typeof content === "boolean") return String(content);
-  if (content == null) return "";
-  return "Message content is unavailable.";
+function normalizeTurnContent(content: unknown): { text: string; toolCalls: string[] } {
+  if (typeof content === "string") {
+    const toolCalls = extractToolCallsFromText(content);
+    return { text: stripToolCallBlocks(content), toolCalls };
+  }
+  if (typeof content === "number" || typeof content === "boolean") {
+    return { text: String(content), toolCalls: [] };
+  }
+  if (content == null) return { text: "", toolCalls: [] };
+  return { text: "", toolCalls: [] };
 }
 
-function turnToMessage(turn: ConversationTurn): ChatViewMessage {
+function turnToMessage(turn: ConversationTurn): ChatViewMessage | null {
+  // Skip tool_result turns — they're internal plumbing, not for display
+  if (turn.role === "tool_result") return null;
   const role = turn.role === "user" ? "user" : "assistant";
+  const { text, toolCalls } = normalizeTurnContent(turn.content);
+  // Skip assistant turns that are purely tool calls (no visible text)
+  if (role === "assistant" && !text && toolCalls.length > 0) {
+    return {
+      id: `${turn.conversationId}-${turn.turnIndex}-${role}`,
+      role,
+      content: "",
+      toolCalls,
+    };
+  }
   return {
     id: `${turn.conversationId}-${turn.turnIndex}-${role}`,
     role,
-    content: normalizeTurnContent(turn.content),
+    content: text,
+    toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
   };
 }
 
@@ -168,7 +232,10 @@ export function Chat() {
 
   const messages = useMemo<ChatViewMessage[]>(() => {
     if (!historyQuery.data?.turns) return EMPTY_MESSAGES;
-    return historyQuery.data.turns.map(turnToMessage);
+    return historyQuery.data.turns.flatMap((turn) => {
+      const msg = turnToMessage(turn);
+      return msg ? [msg] : [];
+    });
   }, [historyQuery.data]);
 
   useEffect(() => {
@@ -578,34 +645,59 @@ export function Chat() {
           )}
 
           <div className="space-y-4">
-            {messages.map((message) => (
-              <div key={message.id} className={clsx("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-                <div
-                  className={clsx(
-                    "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                    message.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"
+            {messages.map((message) => {
+              const hasText = Boolean(message.content);
+              const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
+              if (!hasText && !hasToolCalls) return null;
+              return (
+                <div key={message.id} className={clsx("flex flex-col gap-1", message.role === "user" ? "items-end" : "items-start")}>
+                  {hasToolCalls && (
+                    <div className="flex flex-wrap gap-1.5 px-1">
+                      {message.toolCalls!.map((name, i) => (
+                        <span
+                          key={`${message.id}-tool-${i}`}
+                          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
+                          style={{
+                            background: "rgba(99,102,241,0.12)",
+                            color: "var(--color-fg-muted)",
+                            border: "1px solid rgba(99,102,241,0.2)",
+                          }}
+                        >
+                          <Zap size={10} style={{ color: "rgba(99,102,241,0.8)" }} aria-hidden="true" />
+                          {toolDisplayLabel(name)}
+                        </span>
+                      ))}
+                    </div>
                   )}
-                  style={
-                    message.role === "user"
-                      ? { background: "var(--color-accent-blue)", color: "#fff" }
-                      : message.isError
-                        ? {
-                            background: "rgba(239,68,68,0.1)",
-                            border: "1px solid rgba(239,68,68,0.2)",
-                            color: "var(--color-accent-red)",
-                          }
-                        : {
-                            background: "var(--color-bg-subtle)",
-                            border: "1px solid var(--color-border)",
-                            color: "var(--color-fg-default)",
-                          }
-                  }
-                >
-                  {message.isError && <AlertCircle size={14} className="mb-0.5 mr-1 inline" aria-hidden="true" />}
-                  <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>
+                  {hasText && (
+                    <div
+                      className={clsx(
+                        "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                        message.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"
+                      )}
+                      style={
+                        message.role === "user"
+                          ? { background: "var(--color-accent-blue)", color: "#fff" }
+                          : message.isError
+                            ? {
+                                background: "rgba(239,68,68,0.1)",
+                                border: "1px solid rgba(239,68,68,0.2)",
+                                color: "var(--color-accent-red)",
+                              }
+                            : {
+                                background: "var(--color-bg-subtle)",
+                                border: "1px solid var(--color-border)",
+                                color: "var(--color-fg-default)",
+                              }
+                      }
+                    >
+                      {message.isError && <AlertCircle size={14} className="mb-0.5 mr-1 inline" aria-hidden="true" />}
+                      <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {sendMutation.isPending && (
               <div className="flex justify-start">
