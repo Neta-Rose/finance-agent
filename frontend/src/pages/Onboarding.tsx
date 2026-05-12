@@ -404,11 +404,12 @@ function Step3({ state, update, onBack, onNext }: { state: OnboardingState; upda
 
 // ---- Position Card ----
 function PositionCard({
-  pos, idx, accountName, accounts, updateAccount,
+  pos, idx, accountName, accounts, updateAccount, errors = {},
 }: {
   pos: PositionEntry; idx: number; accountName: string;
   accounts: Account[];
   updateAccount: (id: string, updated: Account) => void;
+  errors?: Record<string, string>;
 }) {
   const language = usePreferencesStore((s) => s.language);
   const [tickerSelection, setTickerSelection] = useState<TickerSelection | null>(
@@ -456,16 +457,25 @@ function PositionCard({
       <div className="mb-2">
         <label className={labelCls}>{t("onboardTickerLabel", language)}</label>
         <TickerSearch value={tickerSelection} onChange={handleTickerChange} placeholder="AAPL" />
+        {errors[`t_${accounts.findIndex((a) => a.id === accountName)}_${idx}`] && (
+          <p className={errorCls}>{errors[`t_${accounts.findIndex((a) => a.id === accountName)}_${idx}`]}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className={labelCls}>{t("onboardSharesLabel", language)}</label>
           <input type="number" value={pos.shares} onChange={(e) => updatePos({ shares: e.target.value })} min="1" step="1" placeholder="100" className={inputCls} />
+          {errors[`s_${accounts.findIndex((a) => a.id === accountName)}_${idx}`] && (
+            <p className={errorCls}>{errors[`s_${accounts.findIndex((a) => a.id === accountName)}_${idx}`]}</p>
+          )}
         </div>
         <div>
           <label className={labelCls}>{t("onboardAvgPriceLabel", language)} ({pos.currency})</label>
           <input type="number" value={pos.avgPrice} onChange={(e) => updatePos({ avgPrice: e.target.value })} min="0.01" step="0.01" placeholder="150.00" className={inputCls} />
+          {errors[`p_${accounts.findIndex((a) => a.id === accountName)}_${idx}`] && (
+            <p className={errorCls}>{errors[`p_${accounts.findIndex((a) => a.id === accountName)}_${idx}`]}</p>
+          )}
         </div>
       </div>
     </div>
@@ -474,12 +484,13 @@ function PositionCard({
 
 // ---- Account Section ----
 function AccountSection({
-  account, accounts, updateAccount, deleteAccount, showDelete,
+  account, accounts, updateAccount, deleteAccount, showDelete, errors = {},
 }: {
   account: Account; accounts: Account[];
   updateAccount: (id: string, updated: Account) => void;
   deleteAccount: (id: string) => void;
   showDelete: boolean;
+  errors?: Record<string, string>;
 }) {
   const language = usePreferencesStore((s) => s.language);
   const [editingName, setEditingName] = useState(false);
@@ -537,7 +548,7 @@ function AccountSection({
       </div>
       <div className="p-3 space-y-2">
         {account.positions.map((pos, idx) => (
-          <PositionCard key={pos.id} pos={pos} idx={idx} accountName={account.id} accounts={accounts} updateAccount={updateAccount} />
+          <PositionCard key={pos.id} pos={pos} idx={idx} accountName={account.id} accounts={accounts} updateAccount={updateAccount} errors={errors} />
         ))}
         <button onClick={addPosition}
           className="w-full py-2 rounded-lg border border-dashed border-[var(--color-border)] text-xs text-[var(--color-accent-blue)] font-medium">
@@ -612,6 +623,7 @@ function Step4({
             updateAccount={updateAccount}
             deleteAccount={deleteAccount}
             showDelete={state.accounts.length > 1}
+            errors={errors}
           />
         ))}
         <button onClick={addAccount}
