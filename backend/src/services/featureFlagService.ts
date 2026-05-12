@@ -48,6 +48,7 @@ const DEFAULT_FLAGS: readonly FlagDefault[] = [
   // Admin-configurable scalar values (defaults from design §3 row 7).
   { kind: "value", name: "max_turns", value: 12 },
   { kind: "value", name: "conversation_token_cap", value: 120000 },
+  { kind: "value", name: "chat_request_min_remaining_points", value: 25 },
   { kind: "value", name: "chat_conversation_ttl_days", value: 7 },
   { kind: "value", name: "search_web_max_results", value: 8 },
   { kind: "value", name: "max_wait_for_job_sec", value: 600 },

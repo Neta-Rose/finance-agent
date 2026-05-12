@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   AlertCircle,
   Check,
@@ -20,9 +20,15 @@ import {
   listSavedConversations,
   renameSavedConversation,
   sendChatMessage,
+  type SavedConversationListResponse,
+  type ConversationHistory,
   type ConversationTurn,
   type SavedConversation,
 } from "../api/chat";
+import {
+  fetchBalance,
+  type UserPointsBalanceSnapshot,
+} from "../api/balance";
 import { clsx } from "clsx";
 
 /**
@@ -40,6 +46,7 @@ const LAST_OPENED_CONVERSATION_KEY = "chat_last_opened_conversation_id";
 const CONVERSATION_LIST_LIMIT = 50;
 const EMPTY_CONVERSATIONS: SavedConversation[] = [];
 const EMPTY_MESSAGES: ChatViewMessage[] = [];
+const CHAT_REQUEST_MIN_REMAINING_POINTS = 25;
 
 type ChatViewMessage = {
   id: string;
@@ -118,6 +125,17 @@ function rememberLastOpenedConversationId(conversationId: string): void {
   }
 }
 
+function prependConversationToList(
+  current: SavedConversationListResponse | undefined,
+  conversation: SavedConversation
+): SavedConversationListResponse | undefined {
+  if (!current) return current;
+  return {
+    ...current,
+    items: [conversation, ...current.items.filter((item) => item.id !== conversation.id)].slice(0, current.limit),
+  };
+}
+
 function clearLastOpenedConversationId(): void {
   try {
     localStorage.removeItem(LAST_OPENED_CONVERSATION_KEY);
@@ -178,6 +196,41 @@ function formatConversationMeta(conversation: SavedConversation): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function formatPoints(value: number): string {
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return `${Math.floor(value)}`;
+}
+
+function chatBudgetBlockReason(balance: UserPointsBalanceSnapshot | undefined): string | null {
+  if (!balance) return null;
+  if (balance.exhausted) {
+    return `Daily points are exhausted. Resets after the rolling budget window; contact admin if you need more now.`;
+  }
+  if (balance.pointsRemaining < CHAT_REQUEST_MIN_REMAINING_POINTS) {
+    return `Only ${formatPoints(balance.pointsRemaining)} points remain. Chat needs at least ${CHAT_REQUEST_MIN_REMAINING_POINTS} points reserved before it can send.`;
+  }
+  return null;
+}
+
+function chatPointsLabel(balance: UserPointsBalanceSnapshot | undefined): string {
+  if (!balance) return "… pts";
+  return `${formatPoints(balance.pointsRemaining)} pts`;
+}
+
+function renderChatText(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const re = /\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    parts.push(<strong key={`bold-${match.index}`} className="font-bold">{match[1]}</strong>);
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+}
+
 function getApiErrorMessage(error: unknown, fallback: string): string {
   const maybeError = error as {
     code?: string;
@@ -192,6 +245,7 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
     case "conversation_expired": return "That saved chat expired. Start a new chat to continue.";
     case "invalid_title": return "Enter a title before saving the rename.";
     case "invalid_request": return "Check the message and try again.";
+    case "points_budget_exhausted": return maybeError?.response?.data?.message ?? "Daily points budget is exhausted. Try again after the budget window resets or contact admin.";
     default: return maybeError?.response?.data?.message ?? fallback;
   }
 }
@@ -209,13 +263,23 @@ export function Chat() {
   const [renameError, setRenameError] = useState<string | null>(null);
   // Mobile drawer open state
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const hasScrolledInitially = useRef(false);
 
   const conversationsQuery = useQuery({
     queryKey: ["chat", "conversations"],
     queryFn: () => listSavedConversations({ limit: CONVERSATION_LIST_LIMIT, offset: 0 }),
   });
+
+  const balanceQuery = useQuery({
+    queryKey: ["balance"],
+    queryFn: fetchBalance,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  const budgetBlockReason = chatBudgetBlockReason(balanceQuery.data);
 
   const conversations = conversationsQuery.data?.items ?? EMPTY_CONVERSATIONS;
   const availableConversationIds = useMemo(
@@ -236,6 +300,7 @@ export function Chat() {
     queryFn: () => getConversationHistory(effectiveConversationId as string),
     enabled: Boolean(effectiveConversationId),
     retry: false,
+    placeholderData: keepPreviousData,
   });
 
   const messages = useMemo<ChatViewMessage[]>(() => {
@@ -250,11 +315,9 @@ export function Chat() {
     if (!conversationsQuery.data || !selectedConversationId || selectedConversationIsAvailable) return;
     const rememberedId = readLastOpenedConversationId();
     if (rememberedId === selectedConversationId) clearLastOpenedConversationId();
-  }, [conversationsQuery.data, selectedConversationId, selectedConversationIsAvailable]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, historyQuery.isFetching]);
+    setSelectedConversationId(undefined);
+    queryClient.removeQueries({ queryKey: ["chat", "conversation", selectedConversationId] });
+  }, [conversationsQuery.data, queryClient, selectedConversationId, selectedConversationIsAvailable]);
 
   // Close sidebar when screen grows to desktop width
   useEffect(() => {
@@ -267,6 +330,9 @@ export function Chat() {
   const createMutation = useMutation({
     mutationFn: () => createSavedConversation(null),
     onSuccess: async (conversation) => {
+      queryClient.setQueryData<SavedConversationListResponse | undefined>(["chat", "conversations"], (current) =>
+        prependConversationToList(current, conversation)
+      );
       setSelectedConversationId(conversation.id);
       rememberLastOpenedConversationId(conversation.id);
       setStatusMessage(null);
@@ -285,25 +351,90 @@ export function Chat() {
       let conversationId = effectiveConversationId;
       if (!conversationId) {
         const created = await createSavedConversation(null);
+        queryClient.setQueryData<SavedConversationListResponse | undefined>(["chat", "conversations"], (current) =>
+          prependConversationToList(current, created)
+        );
         conversationId = created.id;
         setSelectedConversationId(created.id);
         rememberLastOpenedConversationId(created.id);
       }
-      return sendChatMessage(text, conversationId);
+      const result = await sendChatMessage(text, conversationId);
+      return { ...result, submittedText: text };
     },
     onSuccess: async (data) => {
-      setPendingMessage(null);
       setStatusMessage(null);
       setSelectedConversationId(data.conversationId);
       rememberLastOpenedConversationId(data.conversationId);
+
+      queryClient.setQueryData<ConversationHistory | undefined>(["chat", "conversation", data.conversationId], (current) => {
+        if (!current) return current;
+        const nextIndex = current.turns.reduce((max, turn) => Math.max(max, turn.turnIndex), -1) + 1;
+        const now = new Date().toISOString();
+        const optimisticTurns: ConversationTurn[] = [
+          {
+            conversationId: data.conversationId,
+            turnIndex: nextIndex,
+            role: "user",
+            content: data.submittedText,
+            model: null,
+            tokensIn: 0,
+            tokensOut: 0,
+            costUsd: 0,
+            latencyMs: 0,
+            createdAt: now,
+          },
+          {
+            conversationId: data.conversationId,
+            turnIndex: nextIndex + 1,
+            role: "assistant",
+            content: data.replyText,
+            model: null,
+            tokensIn: 0,
+            tokensOut: 0,
+            costUsd: data.totalCostUsd,
+            latencyMs: 0,
+            createdAt: now,
+          },
+        ];
+        return {
+          ...current,
+          conversation: {
+            ...current.conversation,
+            turnCount: data.turnCount,
+            totalCostUsd: data.totalCostUsd,
+            terminationReason: data.terminationReason,
+            updatedAt: now,
+            lastActivityAt: now,
+          },
+          turns: [...current.turns, ...optimisticTurns],
+        };
+      });
+
       await queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] });
       await queryClient.invalidateQueries({ queryKey: ["chat", "conversation", data.conversationId] });
+      void queryClient.invalidateQueries({ queryKey: ["balance"] });
+      setPendingMessage(null);
     },
     onError: (error) => {
       setPendingMessage(null);
+      void queryClient.invalidateQueries({ queryKey: ["balance"] });
       setStatusMessage(getApiErrorMessage(error, "Could not send that message. Please try again."));
     },
   });
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    if (messages.length === 0 && !sendMutation.isPending) return;
+
+    if (!hasScrolledInitially.current && messages.length > 0) {
+      container.scrollTop = container.scrollHeight;
+      hasScrolledInitially.current = true;
+      return;
+    }
+
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  }, [messages, historyQuery.isFetching, sendMutation.isPending]);
 
   const renameMutation = useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) => renameSavedConversation(id, title),
@@ -344,6 +475,7 @@ export function Chat() {
   });
 
   const isBusy = createMutation.isPending || sendMutation.isPending;
+  const isSendBlocked = isBusy || Boolean(budgetBlockReason) || balanceQuery.isLoading;
   const hasConversations = conversations.length > 0;
   const showEmptyHistory = Boolean(effectiveConversationId) && !historyQuery.isLoading && messages.length === 0;
 
@@ -362,6 +494,10 @@ export function Chat() {
   const handleSend = () => {
     const text = input.trim();
     if (!text || sendMutation.isPending) return;
+    if (budgetBlockReason) {
+      setStatusMessage(budgetBlockReason);
+      return;
+    }
     setInput("");
     setPendingMessage(text);
     sendMutation.mutate(text);
@@ -399,7 +535,7 @@ export function Chat() {
   const conversationError = conversationsQuery.error
     ? getApiErrorMessage(conversationsQuery.error, "Could not load saved chats. Please try again.")
     : null;
-  const staleSelectionError = selectedConversationId && conversationsQuery.data && !selectedConversationIsAvailable
+  const staleSelectionError = selectedConversationId && conversationsQuery.data && !selectedConversationIsAvailable && !isBusy
     ? "That saved chat is no longer available. Choose another chat or start a new one."
     : null;
   const historyError = historyQuery.error
@@ -566,9 +702,8 @@ export function Chat() {
 
   return (
     <div
-      className="relative flex overflow-hidden"
+      className="flex h-full overflow-hidden"
       style={{
-        height: "calc(100dvh - 56px - env(safe-area-inset-bottom))",
         background: "var(--color-bg-base)",
       }}
     >
@@ -576,7 +711,7 @@ export function Chat() {
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-30 lg:hidden"
-          style={{ background: "rgba(0,0,0,0.45)" }}
+          style={{ background: "rgba(0,0,0,0.68)" }}
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -591,8 +726,7 @@ export function Chat() {
         )}
         style={{
           borderColor: "var(--color-border)",
-          background: "var(--color-bg-subtle)",
-          // On mobile the drawer needs its own height context
+          background: "var(--color-bg-base)",
           top: "0",
           bottom: "0",
         }}
@@ -620,7 +754,7 @@ export function Chat() {
           </button>
 
           <MessageCircle size={17} className="shrink-0" style={{ color: "var(--color-accent-blue)" }} aria-hidden="true" />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 pr-2">
             <h1 className="truncate text-sm font-bold" style={{ color: "var(--color-fg-default)" }}>
               {selectedConversation ? titleForConversation(selectedConversation) : "Portfolio chat"}
             </h1>
@@ -631,10 +765,21 @@ export function Chat() {
             )}
           </div>
           {selectedConversation && (
-            <span className="shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ background: "rgba(59,130,246,0.10)", color: "var(--color-accent-blue)" }}>
+            <span className="hidden shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] sm:inline-flex" style={{ background: "rgba(59,130,246,0.10)", color: "var(--color-accent-blue)" }}>
               Saved
             </span>
           )}
+          <span
+            className="shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold tabular-nums"
+            style={{
+              borderColor: balanceQuery.data?.exhausted || budgetBlockReason ? "rgba(226,80,80,0.35)" : "rgba(66,201,122,0.28)",
+              background: balanceQuery.data?.exhausted || budgetBlockReason ? "rgba(226,80,80,0.08)" : "rgba(66,201,122,0.08)",
+              color: balanceQuery.data?.exhausted || budgetBlockReason ? "var(--color-red)" : "var(--color-green)",
+            }}
+            aria-label="Chat points remaining"
+          >
+            {chatPointsLabel(balanceQuery.data)}
+          </span>
         </div>
 
         {/* Error banner */}
@@ -653,7 +798,7 @@ export function Chat() {
         )}
 
         {/* Messages */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        <div ref={messagesContainerRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
           {!effectiveConversationId && !historyQuery.isLoading && (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
               <MessageCircle size={44} style={{ color: "var(--color-fg-subtle)" }} aria-hidden="true" />
@@ -741,7 +886,7 @@ export function Chat() {
                       }
                     >
                       {message.isError && <AlertCircle size={14} className="mb-0.5 mr-1 inline" aria-hidden="true" />}
-                      <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>
+                      <span style={{ whiteSpace: "pre-wrap" }}>{renderChatText(message.content)}</span>
                     </div>
                   )}
                 </div>
@@ -768,13 +913,18 @@ export function Chat() {
               </div>
             )}
 
-            <div ref={bottomRef} />
           </div>
         </div>
 
         {/* Input bar */}
-        <div className="shrink-0 border-t px-3 py-3" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}>
-          <div className="flex items-end gap-2 rounded-2xl border px-3 py-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
+        <div className="shrink-0 border-t px-3 py-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}>
+          {budgetBlockReason && (
+            <div className="mb-2 flex items-start gap-2 rounded-xl border px-3 py-2 text-xs" role="status" style={{ borderColor: "rgba(226,80,80,0.28)", background: "rgba(226,80,80,0.08)", color: "var(--color-accent-red)" }}>
+              <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>{budgetBlockReason}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 rounded-2xl border px-3 py-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
             <label className="sr-only" htmlFor="chat-message-input">Message portfolio chat</label>
             <textarea
               id="chat-message-input"
@@ -791,20 +941,17 @@ export function Chat() {
             <button
               type="button"
               onClick={handleSend}
-              disabled={!input.trim() || sendMutation.isPending || createMutation.isPending}
-              className="shrink-0 rounded-full p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!input.trim() || isSendBlocked}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               style={{
-                background: input.trim() && !isBusy ? "var(--color-accent-blue)" : "var(--color-bg-muted)",
-                color: input.trim() && !isBusy ? "#fff" : "var(--color-fg-subtle)",
+                background: input.trim() && !isSendBlocked ? "var(--color-accent-blue)" : "var(--color-bg-muted)",
+                color: input.trim() && !isSendBlocked ? "#fff" : "var(--color-fg-subtle)",
               }}
               aria-label="Send message"
             >
-              {sendMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              {sendMutation.isPending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
             </button>
           </div>
-          <p className="mt-1.5 text-center text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
-            Enter to send · Shift+Enter for new line
-          </p>
         </div>
       </section>
     </div>

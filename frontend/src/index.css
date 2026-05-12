@@ -109,6 +109,10 @@
   padding-bottom: calc(56px + env(safe-area-inset-bottom));
   min-height: 100dvh;
 }
+.chat-page-content {
+  height: calc(100dvh - 56px - env(safe-area-inset-bottom));
+  overflow: hidden;
+}
 
 /* ── Middle theme (dim dark, iOS-style gray) ── */
 [data-theme="middle"] {

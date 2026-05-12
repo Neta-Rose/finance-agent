@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { fetchBalance } from "../../api/balance";
 
 /**
@@ -16,6 +17,7 @@ function timeUntilReset(windowEnd: string): string {
 }
 
 export function PointsBadge() {
+  const location = useLocation();
   const { data: balance } = useQuery({
     queryKey: ["balance"],
     queryFn: fetchBalance,
@@ -24,7 +26,7 @@ export function PointsBadge() {
     retry: 1,
   });
 
-  if (!balance) return null;
+  if (!balance || location.pathname === "/chat") return null;
 
   const label = balance.exhausted
     ? `Resets in ${timeUntilReset(balance.windowEnd)}`

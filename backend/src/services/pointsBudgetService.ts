@@ -145,18 +145,23 @@ export async function getUserPointsBalanceSnapshot(
 }
 
 export async function ensurePointsBudgetAvailable(
-  userId: string
+  userId: string,
+  options: { minRemainingPoints?: number } = {}
 ): Promise<
   | { allowed: true; balance: PointsBalanceSnapshot }
   | { allowed: false; balance: PointsBalanceSnapshot; reason: string }
 > {
   const balance = await getUserPointsBalanceSnapshot(userId);
-  if (!balance.exhausted) {
+  const minRemainingPoints = Math.max(0, Number(options.minRemainingPoints ?? 0));
+  if (!balance.exhausted && balance.pointsRemaining >= minRemainingPoints) {
     return { allowed: true, balance };
   }
+  const reason = balance.exhausted
+    ? "Daily points budget exhausted. Try again after the budget window resets or increase the user budget."
+    : `Daily points budget is too low to start this request. Remaining: ${balance.pointsRemaining} points; required reserve: ${minRemainingPoints} points.`;
   return {
     allowed: false,
     balance,
-    reason: "Daily points budget exhausted. Try again after the budget window resets or increase the user budget.",
+    reason,
   };
 }

@@ -52,6 +52,8 @@ export class AgentChatConversationError extends Error {
   }
 }
 
+const CHAT_REQUEST_MIN_REMAINING_POINTS = 25;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -166,8 +168,11 @@ export async function agentChat(input: AgentChatInput): Promise<AgentChatResult>
     };
   }
 
-  // Budget gate (NFR2.2)
-  const budget = await ensurePointsBudgetAvailable(userId);
+  // Budget gate (NFR2.2). Require a small reserve before the provider call so
+  // a near-empty balance cannot start a request that predictably overshoots.
+  const minRemainingPoints = await getFeatureValue<number>("chat_request_min_remaining_points", userId)
+    ?? CHAT_REQUEST_MIN_REMAINING_POINTS;
+  const budget = await ensurePointsBudgetAvailable(userId, { minRemainingPoints });
   if (!budget.allowed) {
     const convId = conv?.id ?? `conv_budget_${Date.now()}`;
     return {

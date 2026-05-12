@@ -254,6 +254,31 @@ test("POST /chat/messages maps cross-user archived and expired continuation refu
   }
 });
 
+test("POST /chat/messages returns a clear budget error without selecting a fake conversation", async () => {
+  setChatRouteDepsForTest(makeDeps({
+    agentChat: async () => ({
+      conversationId: "conv_budget_123",
+      replyText: "Your daily budget is exhausted. Try again after the budget window resets.",
+      terminationReason: "points_budget_exhausted" as const,
+      totalCostUsd: 0,
+      turnCount: 0,
+    }),
+  }));
+
+  const result = await invokeChatRouterJson({
+    method: "POST",
+    url: "/chat/messages",
+    body: { text: "will this spend?" },
+  });
+
+  assert.equal(result.statusCode, 402);
+  assert.deepEqual(result.body, {
+    error: "points_budget_exhausted",
+    message: "Your daily budget is exhausted. Try again after the budget window resets.",
+    conversationId: null,
+  });
+});
+
 test("saved-chat API maps database unavailable and store failures without leaking internals", async () => {
   setChatRouteDepsForTest(makeDeps({ databaseConfigured: () => false }));
   const unavailable = await invokeChatRouterJson({ method: "GET", url: "/chat/conversations" });

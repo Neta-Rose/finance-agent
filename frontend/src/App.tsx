@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "./store/authStore";
 import { usePreferencesStore } from "./store/preferencesStore";
@@ -162,9 +162,12 @@ function OnboardingRoute() {
 }
 
 function AppLayout({ children }: { children: React.ReactNode }) {
+ const location = useLocation();
+ const isChatRoute = location.pathname === "/chat";
+
  return (
- <div className="bg-[var(--color-bg-base)] min-h-screen">
- <div className="page-content">{children}</div>
+ <div className={isChatRoute ? "h-[100dvh] overflow-hidden bg-[var(--color-bg-base)]" : "bg-[var(--color-bg-base)] min-h-screen"}>
+ <div className={isChatRoute ? "chat-page-content" : "page-content"}>{children}</div>
  <BottomNav />
  </div>
  );

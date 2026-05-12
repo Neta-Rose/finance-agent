@@ -177,6 +177,14 @@ router.post(
         channel: "dashboard",
         ...(parsed.data.conversationId ? { conversationId: parsed.data.conversationId } : {}),
       });
+      if (result.terminationReason === "points_budget_exhausted") {
+        res.status(402).json({
+          error: "points_budget_exhausted",
+          message: result.replyText,
+          conversationId: result.conversationId.startsWith("conv_budget_") ? null : result.conversationId,
+        });
+        return;
+      }
       res.json({
         conversationId: result.conversationId,
         replyText: result.replyText,
