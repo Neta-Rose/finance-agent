@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Check,
+  ChevronLeft,
   Loader2,
   MessageCircle,
   Pencil,
@@ -30,6 +31,9 @@ import { clsx } from "clsx";
  * Saved conversations, metadata, and message turns are loaded from the backend.
  * Browser storage is limited to a best-effort preference for the last opened
  * conversation ID; no message content is persisted client-side.
+ *
+ * Mobile: full-screen chat view with a slide-in drawer sidebar.
+ * Desktop (lg+): side-by-side panel layout.
  */
 
 const LAST_OPENED_CONVERSATION_KEY = "chat_last_opened_conversation_id";
@@ -43,10 +47,10 @@ type ChatViewMessage = {
   content: string;
   isError?: boolean;
   toolCalls?: string[];
-  confirmationAction?: string; // extracted from backend confirmation prompt
+  confirmationAction?: string;
 };
 
-// Matches any fenced code block whose language starts with "tool" (tool_call, tool_code, tool_use, tool_result, etc.)
+// Matches any fenced code block whose language starts with "tool"
 const TOOL_FENCED_BLOCK_RE = /```tool[^\n]*\n[\s\S]*?```/g;
 
 // Only the tool_call variant carries parseable JSON with a tool name
@@ -110,7 +114,7 @@ function rememberLastOpenedConversationId(conversationId: string): void {
   try {
     localStorage.setItem(LAST_OPENED_CONVERSATION_KEY, conversationId);
   } catch {
-    // Preference writes are best-effort only.
+    // best-effort
   }
 }
 
@@ -118,7 +122,7 @@ function clearLastOpenedConversationId(): void {
   try {
     localStorage.removeItem(LAST_OPENED_CONVERSATION_KEY);
   } catch {
-    // Preference cleanup is best-effort only.
+    // best-effort
   }
 }
 
@@ -127,7 +131,6 @@ function normalizeTurnContent(content: unknown): { text: string; toolCalls: stri
     const toolCalls = extractToolCallsFromText(content);
     const confirmationMatch = CONFIRMATION_PROMPT_RE.exec(content);
     if (confirmationMatch) {
-      // Strip the entire confirmation prompt — render as a styled chip instead
       const text = content.replace(CONFIRMATION_PROMPT_RE, "").trim();
       return { text: stripToolCallBlocks(text), toolCalls, confirmationAction: confirmationMatch[1]!.trim() };
     }
@@ -141,11 +144,9 @@ function normalizeTurnContent(content: unknown): { text: string; toolCalls: stri
 }
 
 function turnToMessage(turn: ConversationTurn): ChatViewMessage | null {
-  // Skip tool_result turns — they're internal plumbing, not for display
   if (turn.role === "tool_result") return null;
   const role = turn.role === "user" ? "user" : "assistant";
   const { text, toolCalls, confirmationAction } = normalizeTurnContent(turn.content);
-  // Skip assistant turns that are purely tool calls (no visible text)
   if (role === "assistant" && !text && !confirmationAction && toolCalls.length > 0) {
     return {
       id: `${turn.conversationId}-${turn.turnIndex}-${role}`,
@@ -170,12 +171,11 @@ function titleForConversation(conversation: SavedConversation): string {
 }
 
 function formatConversationMeta(conversation: SavedConversation): string {
-  const turns = `${conversation.turnCount} ${conversation.turnCount === 1 ? "turn" : "turns"}`;
   const updated = conversation.updatedAt || conversation.lastActivityAt;
-  if (!updated) return turns;
+  if (!updated) return `${conversation.turnCount} turns`;
   const date = new Date(updated);
-  if (Number.isNaN(date.getTime())) return turns;
-  return `${turns} · ${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  if (Number.isNaN(date.getTime())) return `${conversation.turnCount} turns`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -183,26 +183,16 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
     code?: string;
     response?: { data?: { error?: string; message?: string } };
   };
-  if (maybeError?.code === "ECONNABORTED") {
-    return "The request timed out. Please try again.";
-  }
-
+  if (maybeError?.code === "ECONNABORTED") return "The request timed out. Please try again.";
   const code = maybeError?.response?.data?.error;
   switch (code) {
-    case "database_unavailable":
-      return "Saved chats are temporarily unavailable. Please try again soon.";
-    case "conversation_not_found":
-      return "That saved chat is no longer available.";
-    case "conversation_archived":
-      return "That saved chat was archived. Choose another chat or start a new one.";
-    case "conversation_expired":
-      return "That saved chat expired. Start a new chat to continue.";
-    case "invalid_title":
-      return "Enter a title before saving the rename.";
-    case "invalid_request":
-      return "Check the message and try again.";
-    default:
-      return maybeError?.response?.data?.message ?? fallback;
+    case "database_unavailable": return "Saved chats are temporarily unavailable. Please try again soon.";
+    case "conversation_not_found": return "That saved chat is no longer available.";
+    case "conversation_archived": return "That saved chat was archived. Choose another chat or start a new one.";
+    case "conversation_expired": return "That saved chat expired. Start a new chat to continue.";
+    case "invalid_title": return "Enter a title before saving the rename.";
+    case "invalid_request": return "Check the message and try again.";
+    default: return maybeError?.response?.data?.message ?? fallback;
   }
 }
 
@@ -217,6 +207,8 @@ export function Chat() {
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  // Mobile drawer open state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -227,7 +219,7 @@ export function Chat() {
 
   const conversations = conversationsQuery.data?.items ?? EMPTY_CONVERSATIONS;
   const availableConversationIds = useMemo(
-    () => new Set(conversations.map((conversation) => conversation.id)),
+    () => new Set(conversations.map((c) => c.id)),
     [conversations]
   );
   const selectedConversationIsAvailable = selectedConversationId
@@ -235,7 +227,7 @@ export function Chat() {
     : false;
   const effectiveConversationId = selectedConversationIsAvailable ? selectedConversationId : undefined;
   const selectedConversation = useMemo(
-    () => conversations.find((conversation) => conversation.id === effectiveConversationId),
+    () => conversations.find((c) => c.id === effectiveConversationId),
     [conversations, effectiveConversationId]
   );
 
@@ -264,12 +256,21 @@ export function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, historyQuery.isFetching]);
 
+  // Close sidebar when screen grows to desktop width
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const handler = (e: MediaQueryListEvent) => { if (e.matches) setSidebarOpen(false); };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const createMutation = useMutation({
     mutationFn: () => createSavedConversation(null),
     onSuccess: async (conversation) => {
       setSelectedConversationId(conversation.id);
       rememberLastOpenedConversationId(conversation.id);
       setStatusMessage(null);
+      setSidebarOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] });
       await queryClient.invalidateQueries({ queryKey: ["chat", "conversation", conversation.id] });
       inputRef.current?.focus();
@@ -291,7 +292,6 @@ export function Chat() {
       return sendChatMessage(text, conversationId);
     },
     onSuccess: async (data) => {
-      setInput("");
       setPendingMessage(null);
       setStatusMessage(null);
       setSelectedConversationId(data.conversationId);
@@ -327,7 +327,7 @@ export function Chat() {
     onSuccess: async (_conversation, archivedId) => {
       setStatusMessage(null);
       setEditingConversationId(null);
-      const nextConversation = conversations.find((conversation) => conversation.id !== archivedId);
+      const nextConversation = conversations.find((c) => c.id !== archivedId);
       if (nextConversation) {
         setSelectedConversationId(nextConversation.id);
         rememberLastOpenedConversationId(nextConversation.id);
@@ -352,6 +352,7 @@ export function Chat() {
     rememberLastOpenedConversationId(conversationId);
     setStatusMessage(null);
     setEditingConversationId(null);
+    setSidebarOpen(false);
   };
 
   const handleNewChat = () => {
@@ -374,10 +375,7 @@ export function Chat() {
 
   const handleSaveRename = (conversationId: string) => {
     const title = renameTitle.trim();
-    if (!title) {
-      setRenameError("Enter a title before saving the rename.");
-      return;
-    }
+    if (!title) { setRenameError("Enter a title before saving the rename."); return; }
     renameMutation.mutate({ id: conversationId, title });
   };
 
@@ -409,242 +407,264 @@ export function Chat() {
     : null;
   const activeError = statusMessage ?? historyError ?? staleSelectionError ?? conversationError;
 
+  // Sidebar panel — shared between drawer (mobile) and static (desktop)
+  const sidebarContent = (
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <p className="text-sm font-bold" style={{ color: "var(--color-fg-default)" }}>
+          Chats
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleNewChat}
+            disabled={createMutation.isPending}
+            className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+            style={{ background: "var(--color-accent-blue)", color: "#fff" }}
+            aria-label="Create new chat"
+          >
+            {createMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            New
+          </button>
+          {/* Close button — mobile only */}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden inline-flex items-center justify-center rounded-xl p-1.5"
+            style={{ color: "var(--color-fg-muted)" }}
+            aria-label="Close sidebar"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      {conversationError && (
+        <div className="mx-3 mb-2 rounded-xl border px-3 py-2 text-xs" role="alert" style={{ borderColor: "rgba(239,68,68,0.35)", color: "var(--color-accent-red)" }}>
+          {conversationError}
+        </div>
+      )}
+
+      {/* List */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+        {conversationsQuery.isLoading && (
+          <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--color-fg-muted)" }}>
+            <Loader2 size={13} className="animate-spin" />
+            Loading…
+          </div>
+        )}
+
+        {!conversationsQuery.isLoading && !conversationError && !hasConversations && (
+          <div className="rounded-2xl border px-4 py-5 text-sm" style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
+            No saved chats yet.
+          </div>
+        )}
+
+        <div className="space-y-1.5" role="list" aria-label="Saved conversation list">
+          {conversations.map((conversation) => {
+            const isSelected = conversation.id === effectiveConversationId;
+            const isEditing = editingConversationId === conversation.id;
+            const isArchiving = archiveMutation.isPending && archiveMutation.variables === conversation.id;
+            return (
+              <div
+                key={conversation.id}
+                role="listitem"
+                className={clsx("rounded-2xl border transition-colors", isSelected && "shadow-sm")}
+                style={{
+                  borderColor: isSelected ? "var(--color-accent-blue)" : "var(--color-border)",
+                  background: isSelected ? "rgba(59,130,246,0.10)" : "transparent",
+                }}
+              >
+                {isEditing ? (
+                  <div className="space-y-2 p-2">
+                    <label className="sr-only" htmlFor={`rename-${conversation.id}`}>Rename saved chat</label>
+                    <input
+                      id={`rename-${conversation.id}`}
+                      value={renameTitle}
+                      onChange={(e) => { setRenameTitle(e.target.value); setRenameError(null); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveRename(conversation.id);
+                        if (e.key === "Escape") handleCancelRename();
+                      }}
+                      className="w-full rounded-lg border bg-transparent px-2 py-1.5 text-sm outline-none focus:ring-2"
+                      style={{ borderColor: "var(--color-border)", color: "var(--color-fg-default)" }}
+                      disabled={renameMutation.isPending}
+                    />
+                    {renameError && (
+                      <p className="text-xs" role="alert" style={{ color: "var(--color-accent-red)" }}>{renameError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveRename(conversation.id)}
+                        disabled={renameMutation.isPending || !renameTitle.trim()}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs disabled:opacity-50"
+                        style={{ background: "var(--color-accent-blue)", color: "#fff" }}
+                      >
+                        {renameMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelRename}
+                        className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs"
+                        style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}
+                      >
+                        <X size={12} />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="group">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectConversation(conversation.id)}
+                      className="block w-full px-3 py-2.5 text-left"
+                      aria-current={isSelected ? "true" : undefined}
+                    >
+                      <span className="block truncate text-sm font-medium" style={{ color: "var(--color-fg-default)" }}>
+                        {titleForConversation(conversation)}
+                      </span>
+                      <span className="block text-xs" style={{ color: "var(--color-fg-subtle)" }}>
+                        {formatConversationMeta(conversation)}
+                      </span>
+                    </button>
+                    <div className="flex gap-1 px-2 pb-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStartRename(conversation)}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors"
+                        style={{ color: "var(--color-fg-muted)" }}
+                        aria-label={`Rename ${titleForConversation(conversation)}`}
+                      >
+                        <Pencil size={11} />
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleArchive(conversation.id)}
+                        disabled={isArchiving}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors disabled:opacity-50"
+                        style={{ color: "var(--color-accent-red)" }}
+                        aria-label={`Archive ${titleForConversation(conversation)}`}
+                      >
+                        {isArchiving ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                        Archive
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div
-      className="flex min-h-0 flex-col lg:flex-row"
+      className="relative flex overflow-hidden"
       style={{
         height: "calc(100dvh - 56px - env(safe-area-inset-bottom))",
         background: "var(--color-bg-base)",
       }}
     >
+      {/* ── Mobile drawer overlay ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 lg:hidden"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Sidebar: drawer on mobile, static on desktop ── */}
       <aside
-        className="flex max-h-64 flex-col border-b lg:max-h-none lg:w-80 lg:border-b-0 lg:border-r"
-        style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}
+        className={clsx(
+          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r transition-transform duration-250 ease-in-out",
+          "lg:relative lg:inset-auto lg:z-auto lg:flex lg:translate-x-0 lg:w-72",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+        style={{
+          borderColor: "var(--color-border)",
+          background: "var(--color-bg-subtle)",
+          // On mobile the drawer needs its own height context
+          top: "0",
+          bottom: "0",
+        }}
         aria-label="Saved chats"
       >
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--color-fg-subtle)" }}>
-              Saved chats
-            </p>
-            <h2 className="text-sm font-bold" style={{ color: "var(--color-fg-default)" }}>
-              Conversations
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={handleNewChat}
-            disabled={createMutation.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            style={{
-              borderColor: "var(--color-border)",
-              background: "var(--color-bg-base)",
-              color: "var(--color-fg-default)",
-            }}
-            aria-label="Create new saved chat"
-          >
-            {createMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-            New chat
-          </button>
-        </div>
-
-        {conversationError && (
-          <div className="mx-4 mb-3 rounded-xl border px-3 py-2 text-xs" role="alert" style={{ borderColor: "rgba(239,68,68,0.35)", color: "var(--color-accent-red)" }}>
-            {conversationError}
-          </div>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-          {conversationsQuery.isLoading && (
-            <div className="flex items-center gap-2 rounded-xl border px-3 py-3 text-sm" style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
-              <Loader2 size={14} className="animate-spin" />
-              Loading saved chats…
-            </div>
-          )}
-
-          {!conversationsQuery.isLoading && !conversationError && !hasConversations && (
-            <div className="rounded-2xl border px-4 py-5 text-sm" style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
-              No saved chats yet. Start a new chat or send a message to create one.
-            </div>
-          )}
-
-          <div className="space-y-2" role="list" aria-label="Saved conversation list">
-            {conversations.map((conversation) => {
-              const isSelected = conversation.id === effectiveConversationId;
-              const isEditing = editingConversationId === conversation.id;
-              const isArchiving = archiveMutation.isPending && archiveMutation.variables === conversation.id;
-              return (
-                <div
-                  key={conversation.id}
-                  role="listitem"
-                  className={clsx("rounded-2xl border p-2 transition-colors", isSelected && "shadow-sm")}
-                  style={{
-                    borderColor: isSelected ? "var(--color-accent-blue)" : "var(--color-border)",
-                    background: isSelected ? "rgba(59,130,246,0.10)" : "var(--color-bg-base)",
-                  }}
-                >
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <label className="sr-only" htmlFor={`rename-${conversation.id}`}>
-                        Rename saved chat
-                      </label>
-                      <input
-                        id={`rename-${conversation.id}`}
-                        value={renameTitle}
-                        onChange={(event) => {
-                          setRenameTitle(event.target.value);
-                          setRenameError(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") handleSaveRename(conversation.id);
-                          if (event.key === "Escape") handleCancelRename();
-                        }}
-                        className="w-full rounded-lg border bg-transparent px-2 py-1.5 text-sm outline-none focus:ring-2"
-                        style={{
-                          borderColor: "var(--color-border)",
-                          color: "var(--color-fg-default)",
-                        }}
-                        disabled={renameMutation.isPending}
-                      />
-                      {renameError && (
-                        <p className="text-xs" role="alert" style={{ color: "var(--color-accent-red)" }}>
-                          {renameError}
-                        </p>
-                      )}
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSaveRename(conversation.id)}
-                          disabled={renameMutation.isPending || !renameTitle.trim()}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs disabled:opacity-50"
-                          style={{ background: "var(--color-accent-blue)", color: "#fff" }}
-                          aria-label="Save renamed chat"
-                        >
-                          {renameMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleCancelRename}
-                          className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs"
-                          style={{ borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}
-                          aria-label="Cancel rename"
-                        >
-                          <X size={12} />
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectConversation(conversation.id)}
-                        className="block w-full rounded-xl px-2 py-1.5 text-left transition-colors"
-                        aria-current={isSelected ? "true" : undefined}
-                      >
-                        <span className="block truncate text-sm font-semibold" style={{ color: "var(--color-fg-default)" }}>
-                          {titleForConversation(conversation)}
-                        </span>
-                        <span className="block text-xs" style={{ color: "var(--color-fg-subtle)" }}>
-                          {formatConversationMeta(conversation)}
-                        </span>
-                      </button>
-                      <div className="mt-1 flex gap-1 px-1">
-                        <button
-                          type="button"
-                          onClick={() => handleStartRename(conversation)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors"
-                          style={{ color: "var(--color-fg-muted)" }}
-                          aria-label={`Rename ${titleForConversation(conversation)}`}
-                        >
-                          <Pencil size={12} />
-                          Rename
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleArchive(conversation.id)}
-                          disabled={isArchiving}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors disabled:opacity-50"
-                          style={{ color: "var(--color-accent-red)" }}
-                          aria-label={`Archive ${titleForConversation(conversation)}`}
-                        >
-                          {isArchiving ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                          Archive
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {sidebarContent}
       </aside>
 
-      <section className="flex min-h-0 flex-1 flex-col" aria-label="Selected chat">
+      {/* ── Main chat area ── */}
+      <section className="flex min-w-0 flex-1 flex-col" aria-label="Selected chat">
+        {/* Top bar */}
         <div
-          className="flex items-center justify-between gap-2 border-b px-4 py-3"
+          className="flex shrink-0 items-center gap-2 border-b px-3 py-3"
           style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}
         >
-          <div className="flex min-w-0 items-center gap-2">
-            <MessageCircle size={18} style={{ color: "var(--color-accent-blue)" }} aria-hidden="true" />
-            <div className="min-w-0">
-              <h1 className="truncate text-sm font-bold" style={{ color: "var(--color-fg-default)" }}>
-                {selectedConversation ? titleForConversation(selectedConversation) : "Portfolio chat"}
-              </h1>
-              <p className="text-xs" style={{ color: "var(--color-fg-subtle)" }}>
-                {selectedConversation ? "Saved to your chat history" : "Start or choose a saved chat"}
+          {/* Open sidebar button — mobile only */}
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden inline-flex shrink-0 items-center justify-center rounded-xl p-1.5 transition-colors"
+            style={{ color: "var(--color-fg-muted)", background: "var(--color-bg-subtle)" }}
+            aria-label="Open chat list"
+          >
+            <ChevronLeft size={20} />
+          </button>
+
+          <MessageCircle size={17} className="shrink-0" style={{ color: "var(--color-accent-blue)" }} aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-bold" style={{ color: "var(--color-fg-default)" }}>
+              {selectedConversation ? titleForConversation(selectedConversation) : "Portfolio chat"}
+            </h1>
+            {!selectedConversation && (
+              <p className="text-xs leading-none" style={{ color: "var(--color-fg-subtle)" }}>
+                Type to start a new chat
               </p>
-            </div>
+            )}
           </div>
           {selectedConversation && (
-            <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ background: "rgba(59,130,246,0.10)", color: "var(--color-accent-blue)" }}>
+            <span className="shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ background: "rgba(59,130,246,0.10)", color: "var(--color-accent-blue)" }}>
               Saved
             </span>
           )}
         </div>
 
+        {/* Error banner */}
         {activeError && (
-          <div className="mx-4 mt-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-sm" role="alert" style={{ borderColor: "rgba(239,68,68,0.35)", color: "var(--color-accent-red)", background: "rgba(239,68,68,0.08)" }}>
-            <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <div className="mx-3 mt-3 flex shrink-0 items-start gap-2 rounded-xl border px-3 py-2 text-sm" role="alert" style={{ borderColor: "rgba(239,68,68,0.35)", color: "var(--color-accent-red)", background: "rgba(239,68,68,0.08)" }}>
+            <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <p>{activeError}</p>
               {conversationError && (
-                <button
-                  type="button"
-                  onClick={() => void conversationsQuery.refetch()}
-                  className="mt-1 text-xs font-semibold underline"
-                >
-                  Retry loading saved chats
+                <button type="button" onClick={() => void conversationsQuery.refetch()} className="mt-1 text-xs font-semibold underline">
+                  Retry
                 </button>
               )}
             </div>
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        {/* Messages */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
           {!effectiveConversationId && !historyQuery.isLoading && (
             <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
               <MessageCircle size={44} style={{ color: "var(--color-fg-subtle)" }} aria-hidden="true" />
-              <div className="max-w-sm space-y-2">
+              <div className="max-w-xs space-y-2">
                 <h2 className="text-lg font-bold" style={{ color: "var(--color-fg-default)" }}>
-                  Start a saved chat
+                  Ask about your portfolio
                 </h2>
                 <p className="text-sm" style={{ color: "var(--color-fg-muted)" }}>
-                  Ask about your portfolio, reports, or positions. The chat will be saved automatically.
+                  Just type below — a new chat will be created automatically when you send.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleNewChat}
-                disabled={createMutation.isPending}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
-                style={{ background: "var(--color-accent-blue)", color: "#fff" }}
-              >
-                {createMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                New chat
-              </button>
             </div>
           )}
 
@@ -657,14 +677,14 @@ export function Chat() {
 
           {showEmptyHistory && (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <MessageCircle size={40} style={{ color: "var(--color-fg-subtle)" }} aria-hidden="true" />
-              <p className="max-w-sm text-sm" style={{ color: "var(--color-fg-muted)" }}>
-                This saved chat is ready. Send a message to begin.
+              <MessageCircle size={36} style={{ color: "var(--color-fg-subtle)" }} aria-hidden="true" />
+              <p className="max-w-xs text-sm" style={{ color: "var(--color-fg-muted)" }}>
+                This chat is ready. Send a message to begin.
               </p>
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {messages.map((message) => {
               const hasText = Boolean(message.content);
               const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
@@ -692,7 +712,7 @@ export function Chat() {
                   )}
                   {hasConfirmation && (
                     <div
-                      className="inline-flex max-w-[85%] items-start gap-2 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm"
+                      className="inline-flex max-w-[88%] items-start gap-2 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm"
                       style={{
                         background: "rgba(245,158,11,0.08)",
                         border: "1px solid rgba(245,158,11,0.25)",
@@ -709,23 +729,15 @@ export function Chat() {
                   {hasText && (
                     <div
                       className={clsx(
-                        "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                        "max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                         message.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"
                       )}
                       style={
                         message.role === "user"
                           ? { background: "var(--color-accent-blue)", color: "#fff" }
                           : message.isError
-                            ? {
-                                background: "rgba(239,68,68,0.1)",
-                                border: "1px solid rgba(239,68,68,0.2)",
-                                color: "var(--color-accent-red)",
-                              }
-                            : {
-                                background: "var(--color-bg-subtle)",
-                                border: "1px solid var(--color-border)",
-                                color: "var(--color-fg-default)",
-                              }
+                            ? { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "var(--color-accent-red)" }
+                            : { background: "var(--color-bg-subtle)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }
                       }
                     >
                       {message.isError && <AlertCircle size={14} className="mb-0.5 mr-1 inline" aria-hidden="true" />}
@@ -739,7 +751,7 @@ export function Chat() {
             {sendMutation.isPending && pendingMessage && (
               <div className="flex flex-col items-end gap-1">
                 <div
-                  className="max-w-[85%] rounded-2xl rounded-br-sm px-4 py-2.5 text-sm leading-relaxed opacity-80"
+                  className="max-w-[88%] rounded-2xl rounded-br-sm px-3.5 py-2.5 text-sm leading-relaxed opacity-80"
                   style={{ background: "var(--color-accent-blue)", color: "#fff" }}
                 >
                   <span style={{ whiteSpace: "pre-wrap" }}>{pendingMessage}</span>
@@ -749,7 +761,7 @@ export function Chat() {
 
             {sendMutation.isPending && (
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border px-4 py-2.5 text-sm" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
+                <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border px-3.5 py-2.5 text-sm" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
                   <Loader2 size={14} className="animate-spin" aria-hidden="true" />
                   <span>Thinking…</span>
                 </div>
@@ -760,29 +772,27 @@ export function Chat() {
           </div>
         </div>
 
-        <div className="border-t px-4 py-3" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}>
+        {/* Input bar */}
+        <div className="shrink-0 border-t px-3 py-3" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-subtle)" }}>
           <div className="flex items-end gap-2 rounded-2xl border px-3 py-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
-            <label className="sr-only" htmlFor="chat-message-input">
-              Message portfolio chat
-            </label>
+            <label className="sr-only" htmlFor="chat-message-input">Message portfolio chat</label>
             <textarea
               id="chat-message-input"
               ref={inputRef}
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about your portfolio…"
               rows={1}
               className="flex-1 resize-none bg-transparent text-sm outline-none"
               style={{ color: "var(--color-fg-default)", maxHeight: "120px", lineHeight: "1.5" }}
               disabled={isBusy}
-              aria-describedby="chat-input-help"
             />
             <button
               type="button"
               onClick={handleSend}
               disabled={!input.trim() || sendMutation.isPending || createMutation.isPending}
-              className="shrink-0 rounded-full p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              className="shrink-0 rounded-full p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               style={{
                 background: input.trim() && !isBusy ? "var(--color-accent-blue)" : "var(--color-bg-muted)",
                 color: input.trim() && !isBusy ? "#fff" : "var(--color-fg-subtle)",
@@ -792,8 +802,8 @@ export function Chat() {
               {sendMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>
           </div>
-          <p id="chat-input-help" className="mt-1.5 text-center text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
-            Press Enter to send · Shift+Enter for a new line
+          <p className="mt-1.5 text-center text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
+            Enter to send · Shift+Enter for new line
           </p>
         </div>
       </section>
