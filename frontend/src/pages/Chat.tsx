@@ -43,9 +43,17 @@ type ChatViewMessage = {
   content: string;
   isError?: boolean;
   toolCalls?: string[];
+  confirmationAction?: string; // extracted from backend confirmation prompt
 };
 
+// Matches any fenced code block whose language starts with "tool" (tool_call, tool_code, tool_use, tool_result, etc.)
+const TOOL_FENCED_BLOCK_RE = /```tool[^\n]*\n[\s\S]*?```/g;
+
+// Only the tool_call variant carries parseable JSON with a tool name
 const TOOL_CALL_BLOCK_RE = /```tool_call\s*\n([\s\S]*?)\n```/g;
+
+// Confirmation prompt emitted by the backend action-confirmation gate
+const CONFIRMATION_PROMPT_RE = /I'd like to run:\s+\*\*([^*]+)\*\*\.\s+Reply 'yes' to confirm, or 'no' to skip\./;
 
 const TOOL_DISPLAY_LABELS: Record<string, string> = {
   getPortfolio: "Checked portfolio",
@@ -86,7 +94,7 @@ function extractToolCallsFromText(text: string): string[] {
 }
 
 function stripToolCallBlocks(text: string): string {
-  return text.replace(new RegExp(TOOL_CALL_BLOCK_RE.source, "g"), "").trim();
+  return text.replace(TOOL_FENCED_BLOCK_RE, "").trim();
 }
 
 function readLastOpenedConversationId(): string | undefined {
@@ -114,9 +122,15 @@ function clearLastOpenedConversationId(): void {
   }
 }
 
-function normalizeTurnContent(content: unknown): { text: string; toolCalls: string[] } {
+function normalizeTurnContent(content: unknown): { text: string; toolCalls: string[]; confirmationAction?: string } {
   if (typeof content === "string") {
     const toolCalls = extractToolCallsFromText(content);
+    const confirmationMatch = CONFIRMATION_PROMPT_RE.exec(content);
+    if (confirmationMatch) {
+      // Strip the entire confirmation prompt — render as a styled chip instead
+      const text = content.replace(CONFIRMATION_PROMPT_RE, "").trim();
+      return { text: stripToolCallBlocks(text), toolCalls, confirmationAction: confirmationMatch[1]!.trim() };
+    }
     return { text: stripToolCallBlocks(content), toolCalls };
   }
   if (typeof content === "number" || typeof content === "boolean") {
@@ -130,9 +144,9 @@ function turnToMessage(turn: ConversationTurn): ChatViewMessage | null {
   // Skip tool_result turns — they're internal plumbing, not for display
   if (turn.role === "tool_result") return null;
   const role = turn.role === "user" ? "user" : "assistant";
-  const { text, toolCalls } = normalizeTurnContent(turn.content);
+  const { text, toolCalls, confirmationAction } = normalizeTurnContent(turn.content);
   // Skip assistant turns that are purely tool calls (no visible text)
-  if (role === "assistant" && !text && toolCalls.length > 0) {
+  if (role === "assistant" && !text && !confirmationAction && toolCalls.length > 0) {
     return {
       id: `${turn.conversationId}-${turn.turnIndex}-${role}`,
       role,
@@ -145,6 +159,7 @@ function turnToMessage(turn: ConversationTurn): ChatViewMessage | null {
     role,
     content: text,
     toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+    confirmationAction,
   };
 }
 
@@ -197,6 +212,7 @@ export function Chat() {
     readLastOpenedConversationId()
   );
   const [input, setInput] = useState("");
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
@@ -276,6 +292,7 @@ export function Chat() {
     },
     onSuccess: async (data) => {
       setInput("");
+      setPendingMessage(null);
       setStatusMessage(null);
       setSelectedConversationId(data.conversationId);
       rememberLastOpenedConversationId(data.conversationId);
@@ -283,6 +300,7 @@ export function Chat() {
       await queryClient.invalidateQueries({ queryKey: ["chat", "conversation", data.conversationId] });
     },
     onError: (error) => {
+      setPendingMessage(null);
       setStatusMessage(getApiErrorMessage(error, "Could not send that message. Please try again."));
     },
   });
@@ -343,6 +361,8 @@ export function Chat() {
   const handleSend = () => {
     const text = input.trim();
     if (!text || sendMutation.isPending) return;
+    setInput("");
+    setPendingMessage(text);
     sendMutation.mutate(text);
   };
 
@@ -648,7 +668,8 @@ export function Chat() {
             {messages.map((message) => {
               const hasText = Boolean(message.content);
               const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
-              if (!hasText && !hasToolCalls) return null;
+              const hasConfirmation = Boolean(message.confirmationAction);
+              if (!hasText && !hasToolCalls && !hasConfirmation) return null;
               return (
                 <div key={message.id} className={clsx("flex flex-col gap-1", message.role === "user" ? "items-end" : "items-start")}>
                   {hasToolCalls && (
@@ -667,6 +688,22 @@ export function Chat() {
                           {toolDisplayLabel(name)}
                         </span>
                       ))}
+                    </div>
+                  )}
+                  {hasConfirmation && (
+                    <div
+                      className="inline-flex max-w-[85%] items-start gap-2 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm"
+                      style={{
+                        background: "rgba(245,158,11,0.08)",
+                        border: "1px solid rgba(245,158,11,0.25)",
+                        color: "var(--color-fg-muted)",
+                      }}
+                    >
+                      <Zap size={14} className="mt-0.5 shrink-0" style={{ color: "rgba(245,158,11,0.8)" }} aria-hidden="true" />
+                      <span className="leading-relaxed">
+                        <span className="font-medium" style={{ color: "var(--color-fg-default)" }}>Action: </span>
+                        {message.confirmationAction}
+                      </span>
                     </div>
                   )}
                   {hasText && (
@@ -699,11 +736,22 @@ export function Chat() {
               );
             })}
 
+            {sendMutation.isPending && pendingMessage && (
+              <div className="flex flex-col items-end gap-1">
+                <div
+                  className="max-w-[85%] rounded-2xl rounded-br-sm px-4 py-2.5 text-sm leading-relaxed opacity-80"
+                  style={{ background: "var(--color-accent-blue)", color: "#fff" }}
+                >
+                  <span style={{ whiteSpace: "pre-wrap" }}>{pendingMessage}</span>
+                </div>
+              </div>
+            )}
+
             {sendMutation.isPending && (
               <div className="flex justify-start">
                 <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border px-4 py-2.5 text-sm" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)", color: "var(--color-fg-muted)" }}>
                   <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                  <span>Sending…</span>
+                  <span>Thinking…</span>
                 </div>
               </div>
             )}
