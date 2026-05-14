@@ -26,6 +26,13 @@ import {
   adminUpdateDefaults,
   adminListPilotFeatures,
   adminUpdatePilotFeatureReview,
+  adminIssueImpersonationSession,
+  adminGetUserReadiness,
+  adminListAuditEvents,
+  adminCancelJob,
+  adminKillJob,
+  adminPauseStepQueueJob,
+  adminResumeStepQueueJob,
   type UserSummary,
   type PointsBudget,
   type ModelTier,
@@ -43,7 +50,10 @@ import {
   type PilotFeature,
   type PilotFeatureReviewStatus,
   type PilotFeatureSurface,
+  type UserReadiness,
+  type AuditEvent,
 } from "../api/admin";
+import { setImpersonationState } from "../store/impersonationStore";
 import type { SupportMessageRecord } from "../types/api";
 import { usePreferencesStore } from "../store/preferencesStore";
 import { t } from "../store/i18n";
@@ -172,14 +182,6 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     weeklyResearchDay: "sunday",
     weeklyResearchTime: "19:00",
     timezone: "Asia/Jerusalem",
-    full_report_max: "1",
-    full_report_period: "168",
-    daily_brief_max: "3",
-    daily_brief_period: "24",
-    deep_dive_max: "5",
-    deep_dive_period: "24",
-    new_ideas_max: "2",
-    new_ideas_period: "168",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -205,13 +207,6 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           weeklyResearchDay: form.weeklyResearchDay,
           weeklyResearchTime: form.weeklyResearchTime,
           timezone: form.timezone,
-        },
-        rateLimits: {
-          full_report: { maxPerPeriod: Number(form.full_report_max), periodHours: Number(form.full_report_period) },
-          daily_brief: { maxPerPeriod: Number(form.daily_brief_max), periodHours: Number(form.daily_brief_period) },
-          deep_dive: { maxPerPeriod: Number(form.deep_dive_max), periodHours: Number(form.deep_dive_period) },
-          new_ideas: { maxPerPeriod: Number(form.new_ideas_max), periodHours: Number(form.new_ideas_period) },
-          quick_check: { maxPerPeriod: 20, periodHours: 24 },
         },
       });
       onAdded();
@@ -312,47 +307,25 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   );
 }
 
-// ---- Health Badge ----
-function HealthBadge({ health }: { health: UserSummary["agentHealth"] }) {
-  const language = usePreferencesStore((s) => s.language);
-  if (health.classification === "restricted") {
-    return (
-      <span
-        title={health.statusReason ?? "User is currently restricted"}
-        className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium cursor-help"
-      >
-        Restricted
-      </span>
-    );
+// ---- User Health Badge ----
+function UserHealthBadge({ state, portfolioLoaded, restriction }: { state: string; portfolioLoaded: boolean; restriction: string | null }) {
+  if (restriction) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">Restricted</span>;
   }
-  if (health.classification === "inactive") {
-    return (
-      <span
-        title={health.statusReason ?? "User is not operational right now"}
-        className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 font-medium cursor-help"
-      >
-        Inactive
-      </span>
-    );
+  if (state === "ACTIVE" && portfolioLoaded) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">Healthy</span>;
   }
-  if (health.healthy) {
-    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">{t("adminStatusOk", language)}</span>;
+  if (state === "ACTIVE" && !portfolioLoaded) {
+    return <span title="Active state but no portfolio loaded" className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium cursor-help">Unhealthy</span>;
   }
-  const tooltip = health.statusReason
-    ? `${health.statusReason} (${health.consecutiveErrors} errors)`
-    : health.lastErrorReason
-    ? `${health.lastErrorReason} (${health.consecutiveErrors} errors)`
-    : health.lastError
-    ? health.lastError.slice(0, 160)
-    : `${health.consecutiveErrors} consecutive errors`;
-  return (
-    <span
-      title={tooltip}
-      className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium cursor-help"
-    >
-      {t("adminStatusError", language)}
-    </span>
-  );
+  if (state === "BOOTSTRAPPING") {
+    return <span title="Initial analysis running" className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-medium cursor-help">Bootstrapping</span>;
+  }
+  if (state === "BLOCKED") {
+    return <span title="Admin-restricted — user cannot access the system" className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-medium cursor-help">Blocked</span>;
+  }
+  // INCOMPLETE or unknown
+  return <span title="Not yet onboarded — no portfolio loaded" className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-400 font-medium cursor-help">Incomplete</span>;
 }
 
 function StepQueueStatusBadge({ status }: { status: string }) {
@@ -365,7 +338,9 @@ function StepQueueStatusBadge({ status }: { status: string }) {
           ? "text-[var(--color-accent-red)] bg-red-500/10"
           : status === "running"
             ? "text-[var(--color-accent-blue)] bg-blue-500/10"
-            : "text-[var(--color-fg-muted)] bg-[var(--color-bg-muted)]";
+            : status === "paused"
+              ? "text-amber-400 bg-amber-500/10"
+              : "text-[var(--color-fg-muted)] bg-[var(--color-bg-muted)]";
   return (
     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${color}`}>
       {status.replace("_", " ")}
@@ -385,11 +360,34 @@ function formatElapsed(startIso: string | null, endIso?: string | null): string 
   return `${hours}h ${minutes % 60}m`;
 }
 
+const STEP_KIND_LABELS: Record<string, { label: string; description: string }> = {
+  "analyst.fundamentals": { label: "Fundamentals", description: "Analyses financial statements, earnings, and valuation metrics." },
+  "analyst.technical": { label: "Technical", description: "Analyses price action, momentum, and chart patterns." },
+  "analyst.sentiment": { label: "Sentiment", description: "Analyses news, social signals, and market narrative." },
+  "analyst.macro": { label: "Macro", description: "Analyses macroeconomic context and sector conditions." },
+  "analyst.risk": { label: "Risk", description: "Evaluates downside scenarios and position risk." },
+  "debate": { label: "Debate", description: "Synthesises analyst views into a structured bull/bear debate." },
+  "synthesis": { label: "Synthesis", description: "Produces the final verdict and recommendation from the debate." },
+  "quick_check.evaluate": { label: "Quick Check", description: "Lightweight evaluation of a tracked position against recent signals." },
+  "tracking.evaluate": { label: "Tracking", description: "Ongoing monitoring evaluation for a tracked strategy." },
+  "chat_agent": { label: "Chat Agent", description: "Handles a user chat turn requiring tool use or analysis." },
+};
+
+const JOB_ACTION_LABELS: Record<string, string> = {
+  full_report: "Full Report",
+  deep_dive: "Deep Dive",
+  daily_brief: "Daily Brief",
+  quick_check: "Quick Check",
+  new_ideas: "New Ideas",
+};
+
 function StepQueueInspector({ onError }: { onError: (message: string) => void }) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [jobLimit, setJobLimit] = useState(20);
+  const [jobControlLoading, setJobControlLoading] = useState<Record<string, boolean>>({});
   const jobsQuery = useQuery({
-    queryKey: ["admin-step-queue-jobs"],
-    queryFn: () => adminListStepQueueJobs(20),
+    queryKey: ["admin-step-queue-jobs", jobLimit],
+    queryFn: () => adminListStepQueueJobs(jobLimit),
     refetchInterval: 10_000,
   });
   const detailQuery = useQuery({
@@ -402,6 +400,23 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
   useEffect(() => {
     if (jobsQuery.error) onError(jobsQuery.error instanceof Error ? jobsQuery.error.message : "Failed to load step queue jobs");
   }, [jobsQuery.error, onError]);
+
+  const handleJobControl = async (jobId: string, action: "pause" | "resume" | "cancel" | "kill", userId: string) => {
+    if (jobControlLoading[jobId]) return;
+    if (action === "kill" && !window.confirm(`Force-fail job ${jobId.slice(-8)}? This cannot be undone.`)) return;
+    setJobControlLoading((prev) => ({ ...prev, [jobId]: true }));
+    try {
+      if (action === "pause") await adminPauseStepQueueJob(jobId);
+      else if (action === "resume") await adminResumeStepQueueJob(jobId);
+      else if (action === "cancel") await adminCancelJob(userId, jobId);
+      else if (action === "kill") await adminKillJob(userId, jobId);
+      await jobsQuery.refetch();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : `Failed to ${action} job`);
+    } finally {
+      setJobControlLoading((prev) => ({ ...prev, [jobId]: false }));
+    }
+  };
 
   const jobs = jobsQuery.data ?? [];
   const selected = detailQuery.data;
@@ -436,10 +451,28 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
             Postgres-owned execution truth, refreshed every 10s.
           </p>
         </div>
-        <div className="flex gap-2 text-[10px]" style={{ color: "var(--color-fg-muted)" }}>
-          <span>Running {running}</span>
-          <span>Partial {partial}</span>
-          <span>Failed {failed}</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-[10px]" style={{ color: "var(--color-fg-muted)" }}>Show</label>
+            <input
+              type="number"
+              min={1}
+              max={200}
+              value={jobLimit}
+              onChange={(e) => {
+                const v = Math.min(200, Math.max(1, Number(e.target.value) || 20));
+                setJobLimit(v);
+              }}
+              className="w-14 rounded px-1.5 py-0.5 text-[10px] text-center outline-none"
+              style={{ background: "var(--color-bg-muted)", border: "1px solid var(--color-border)", color: "var(--color-fg-default)" }}
+            />
+            <span className="text-[10px]" style={{ color: "var(--color-fg-muted)" }}>jobs</span>
+          </div>
+          <div className="flex gap-2 text-[10px]" style={{ color: "var(--color-fg-muted)" }}>
+            <span>Running {running}</span>
+            <span>Partial {partial}</span>
+            <span>Failed {failed}</span>
+          </div>
         </div>
       </div>
 
@@ -461,13 +494,55 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-bold truncate">
-                      {job.user_id} · {job.action} · {job.model_tier}
+                      {job.user_id} · {JOB_ACTION_LABELS[job.action] ?? job.action} · {job.model_tier}
                     </p>
                     <p className="text-[10px]" style={{ color: "var(--color-fg-subtle)" }}>
                       {job.id.slice(-10)} · {fmt(job.triggered_at)} · {job.ticker_count} tickers
                     </p>
                   </div>
                   <StepQueueStatusBadge status={job.status} />
+                </div>
+                <div className="flex gap-1 mt-1">
+                  {job.status === "running" && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void handleJobControl(job.id, "pause", job.user_id); }}
+                      disabled={jobControlLoading[job.id]}
+                      className="text-[9px] px-1.5 py-0.5 rounded border disabled:opacity-40"
+                      style={{ borderColor: "rgba(245,158,11,0.4)", color: "#f59e0b" }}
+                    >
+                      {jobControlLoading[job.id] ? "…" : "Pause"}
+                    </button>
+                  )}
+                  {job.status === "paused" && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void handleJobControl(job.id, "resume", job.user_id); }}
+                      disabled={jobControlLoading[job.id]}
+                      className="text-[9px] px-1.5 py-0.5 rounded border disabled:opacity-40"
+                      style={{ borderColor: "rgba(59,130,246,0.4)", color: "var(--color-accent-blue)" }}
+                    >
+                      {jobControlLoading[job.id] ? "…" : "Resume"}
+                    </button>
+                  )}
+                  {job.status === "pending" && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void handleJobControl(job.id, "cancel", job.user_id); }}
+                      disabled={jobControlLoading[job.id]}
+                      className="text-[9px] px-1.5 py-0.5 rounded border disabled:opacity-40"
+                      style={{ borderColor: "rgba(239,68,68,0.3)", color: "var(--color-accent-red)" }}
+                    >
+                      {jobControlLoading[job.id] ? "…" : "Cancel"}
+                    </button>
+                  )}
+                  {job.status === "running" && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void handleJobControl(job.id, "kill", job.user_id); }}
+                      disabled={jobControlLoading[job.id]}
+                      className="text-[9px] px-1.5 py-0.5 rounded border disabled:opacity-40"
+                      style={{ borderColor: "rgba(239,68,68,0.3)", color: "var(--color-accent-red)" }}
+                    >
+                      {jobControlLoading[job.id] ? "…" : "Kill"}
+                    </button>
+                  )}
                 </div>
                 <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--color-bg-muted)" }}>
                   <div
@@ -508,7 +583,7 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
                       <span className="min-w-0 truncate">
                         <span className="font-mono">{tickerById.get(step.ticker_work_item_id) ?? "unknown"}</span>
                         {" · "}
-                        {step.kind}
+                        {STEP_KIND_LABELS[step.kind]?.label ?? step.kind}
                         {" · "}
                         attempt {step.attempts}
                       </span>
@@ -559,7 +634,10 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
                                 : "var(--color-fg-subtle)",
                         }}
                       >
-                        {step.kind.replace("analyst.", "")} · a{step.attempts} · {formatElapsed(step.started_at, step.completed_at)}
+                        <span title={STEP_KIND_LABELS[step.kind]?.description}>
+                          {STEP_KIND_LABELS[step.kind]?.label ?? step.kind}
+                        </span>
+                        {" · "}a{step.attempts} · {formatElapsed(step.started_at, step.completed_at)}
                       </span>
                     ))}
                   </div>
@@ -580,14 +658,12 @@ function StepQueueInspector({ onError }: { onError: (message: string) => void })
 
 function OperationsOverview({
   users,
-  status,
   degradedCount,
   unhealthyCount,
   restrictedCount,
   onError,
 }: {
   users: UserSummary[];
-  status: AdminStatus | null;
   degradedCount: number;
   unhealthyCount: number;
   restrictedCount: number;
@@ -666,7 +742,7 @@ function OperationsOverview({
     .slice(0, 5);
 
   const cards = [
-    { label: "Users", value: users.length, sub: `${status?.activeAgents ?? "?"} agents`, tone: "default" },
+    { label: "Users", value: users.length, sub: `${users.length} total`, tone: "default" },
     { label: "Unhealthy agents", value: unhealthyCount, sub: unhealthyCount === 0 ? "0 means all operational" : `${degradedCount} degraded`, tone: unhealthyCount > 0 || degradedCount > 0 ? "bad" : "good" },
     { label: "Restricted", value: restrictedCount, sub: "account controls", tone: restrictedCount > 0 ? "warn" : "default" },
     { label: "Requests", value: totalRequests, sub: `$${totalCost.toFixed(4)} · ${range.label}`, tone: "default" },
@@ -1659,6 +1735,10 @@ const ACTION_LABELS: Record<string, string> = {
   switch_testing: "→ Testing",
 };
 
+function cleanIntegrityMessage(msg: string): string {
+  return msg.replace(/\/root\/[^\s]+\/data\//g, "").replace(/\/root\/[^\s]+\//g, "").trim();
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -1764,10 +1844,13 @@ function UserCard({
 
   const restriction = user.restriction;
 
-  const stateColor =
-    user.state === "ACTIVE"        ? "text-[var(--color-accent-green)]" :
-    user.state === "BOOTSTRAPPING" ? "text-[var(--color-accent-yellow)]" :
-                                     "text-[var(--color-fg-muted)]";
+  const STATE_LABELS: Record<string, { label: string; color: string; description: string }> = {
+    ACTIVE: { label: "Active", color: "text-green-400", description: "Fully operational — portfolio loaded and analysis pipeline running." },
+    BOOTSTRAPPING: { label: "Bootstrapping", color: "text-blue-400", description: "Initial analysis running — portfolio loaded, first reports in progress." },
+    INCOMPLETE: { label: "Incomplete", color: "text-slate-400", description: "Not yet onboarded — no portfolio loaded." },
+    BLOCKED: { label: "Blocked", color: "text-red-400", description: "Admin-restricted — user cannot access the system." },
+  };
+  const stateInfo = STATE_LABELS[user.state] ?? { label: user.state, color: "text-slate-400", description: "" };
 
   const handleDelete = async () => {
     if (deleteConfirm !== user.userId) return;
@@ -1794,18 +1877,14 @@ function UserCard({
     }
   };
 
-  const stateLabel     = user.state === "ACTIVE" ? t("adminStateActive", language)
-    : user.state === "BOOTSTRAPPING"              ? t("adminStateBootstrapping", language)
-    : user.state === "INCOMPLETE"                 ? t("adminStateIncomplete", language)
-    : user.state;
   const portfolioLabel = user.portfolioLoaded ? t("adminPortfolioLoaded", language) : t("adminPortfolioMissing", language);
   const eligibilityIssueLabel = user.eligibilityIssue
     ? `Daily scheduling paused: ${user.eligibilityIssue}.`
     : null;
   const integrityIssueLabel = user.integrityErrors[0]
-    ? `Integrity: ${user.integrityErrors[0]}`
+    ? `Integrity: ${cleanIntegrityMessage(user.integrityErrors[0])}`
     : user.integrityWarnings[0]
-      ? `Integrity warning: ${user.integrityWarnings[0]}`
+      ? `Integrity warning: ${cleanIntegrityMessage(user.integrityWarnings[0])}`
       : null;
 
   return (
@@ -1825,8 +1904,8 @@ function UserCard({
             <span className="font-bold text-sm" style={{ color: "var(--color-fg-default)" }}>{user.displayName}</span>
             <span className="text-[10px] font-mono" style={{ color: "var(--color-fg-subtle)" }}>@{user.userId}</span>
           </div>
-          <p className={`text-[10px] font-medium uppercase mt-0.5 ${stateColor}`}>
-            {stateLabel} · {portfolioLabel}
+          <p className={`text-[10px] font-medium uppercase mt-0.5 ${stateInfo.color}`}>
+            {stateInfo.label} · {portfolioLabel}
           </p>
           {eligibilityIssueLabel && (
             <p className="mt-1 text-[10px] font-medium" style={{ color: "var(--color-accent-yellow)" }}>
@@ -1846,7 +1925,7 @@ function UserCard({
             </p>
           )}
         </div>
-        <HealthBadge health={user.agentHealth} />
+        <UserHealthBadge state={user.state} portfolioLoaded={user.portfolioLoaded} restriction={user.restriction} />
       </div>
 
       {/* Meta row */}
@@ -1854,10 +1933,6 @@ function UserCard({
         {user.hasTelegram
           ? <p>{t("adminTelegramYes", language)}{user.telegramChatId ? ` (${user.telegramChatId})` : ""}</p>
           : <p>{t("adminTelegramNo", language)}</p>}
-        <p>
-          {t("adminDeepDives", language)} {user.rateLimits.deep_dive.maxPerPeriod}/{t("perDay", language).replace("/ ","")} ·{" "}
-          {t("adminFullReportsLabel", language)} {user.rateLimits.full_report.maxPerPeriod}/{t("perWeek", language).replace("/ ","")}
-        </p>
         <UserActivityBadge userId={user.userId} />
       </div>
 
@@ -1871,6 +1946,9 @@ function UserCard({
 
       {/* Jobs panel */}
       <UserStepQueueJobs userId={user.userId} onError={onError} />
+
+      {/* Readiness card (S07) */}
+      <ReadinessCard userId={user.userId} />
 
       {/* Actions row */}
       <div className="flex gap-1.5 flex-wrap pt-1 border-t" style={{ borderColor: "var(--color-border)" }}>
@@ -1924,6 +2002,7 @@ function UserCard({
           style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "#f59e0b" }}>
           {logoutLoading ? "…" : "⟳ Force logout"}
         </button>
+        <ViewAsUserButton userId={user.userId} />
         <button onClick={() => setShowDelete(true)}
           className="px-2.5 py-1 rounded-lg text-[10px] font-medium ml-auto"
           style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-accent-red)" }}>
@@ -2369,6 +2448,132 @@ function PilotFeaturesPanel({ onError }: { onError: (message: string) => void })
   );
 }
 
+// ---- View As User Button (S07) ----
+function ViewAsUserButton({ userId }: { userId: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleViewAsUser = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const result = await adminIssueImpersonationSession(userId, "admin panel view");
+      setImpersonationState({
+        token: result.token,
+        sessionId: result.sessionId,
+        targetUserId: result.targetUserId,
+        expiresAt: result.expiresAt,
+      });
+      // Navigate to the user-facing app
+      window.location.href = "/portfolio";
+    } catch (e) {
+      alert(`Could not start impersonation: ${e instanceof Error ? e.message : String(e)}`);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={() => { void handleViewAsUser(); }}
+      disabled={loading}
+      title="Open the app as this user (read-only, 15 min)"
+      className="px-2.5 py-1 rounded-lg text-[10px] font-medium disabled:opacity-40"
+      style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.28)", color: "#8b5cf6" }}
+    >
+      {loading ? "…" : "👁 View as user"}
+    </button>
+  );
+}
+
+// ---- Readiness Card (S07) ----
+function ReadinessCard({ userId }: { userId: string }) {
+  const { data, isLoading, error } = useQuery<UserReadiness>({
+    queryKey: ["admin", "readiness", userId],
+    queryFn: () => adminGetUserReadiness(userId),
+    staleTime: 60_000,
+  });
+
+  if (isLoading) return <p className="text-xs" style={{ color: "var(--color-fg-muted)" }}>Loading readiness…</p>;
+  if (error || !data) return null;
+
+  const items: Array<{ label: string; value: string; warn?: boolean }> = [
+    { label: "State", value: data.state },
+    { label: "Model tier", value: data.modelTier },
+    { label: "Points remaining", value: `${Math.round(data.pointsRemaining)} / ${Math.round(data.pointsBudget)}`, warn: data.pointsRemaining < 50 },
+    { label: "Job failures (24h)", value: String(data.jobFailures24h), warn: data.jobFailures24h > 0 },
+    { label: "Telegram undelivered (24h)", value: String(data.telegramUndelivered24h), warn: data.telegramUndelivered24h > 0 },
+    { label: "Last daily brief", value: data.lastDailyBriefAt ? new Date(data.lastDailyBriefAt).toLocaleString() : "never" },
+    { label: "Last Telegram delivery", value: data.lastTelegramDeliveryAt ? new Date(data.lastTelegramDeliveryAt).toLocaleString() : "never" },
+  ];
+
+  return (
+    <div className="rounded-xl border p-3 mt-2 space-y-1" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-muted)" }}>
+      <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-fg-muted)" }}>Readiness</p>
+      {items.map(({ label, value, warn }) => (
+        <div key={label} className="flex justify-between gap-2 text-xs">
+          <span style={{ color: "var(--color-fg-muted)" }}>{label}</span>
+          <span className="font-medium" style={{ color: warn ? "var(--color-accent-red)" : "var(--color-fg-default)" }}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- Audit Log Tab (S07) ----
+function AuditLogTab() {
+  const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    adminListAuditEvents({ limit: 100 })
+      .then(setEvents)
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load audit log"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-sm p-4" style={{ color: "var(--color-fg-muted)" }}>Loading audit log…</p>;
+  if (error) return <p className="text-sm p-4" style={{ color: "var(--color-accent-red)" }}>{error}</p>;
+  if (events.length === 0) return <p className="text-sm p-4" style={{ color: "var(--color-fg-muted)" }}>No audit events yet.</p>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
+            {["Time", "Action", "Actor", "Target", "Status"].map((h) => (
+              <th key={h} className="text-left px-3 py-2 font-semibold" style={{ color: "var(--color-fg-muted)" }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((ev) => (
+            <tr key={ev.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
+              <td className="px-3 py-1.5 font-mono" style={{ color: "var(--color-fg-subtle)" }}>
+                {new Date(ev.occurredAt).toLocaleString()}
+              </td>
+              <td className="px-3 py-1.5 font-medium" style={{ color: "var(--color-fg-default)" }}>{ev.actionType}</td>
+              <td className="px-3 py-1.5" style={{ color: "var(--color-fg-muted)" }}>{ev.actorAdminId}</td>
+              <td className="px-3 py-1.5" style={{ color: "var(--color-fg-muted)" }}>{ev.targetUserId ?? "—"}</td>
+              <td className="px-3 py-1.5">
+                <span
+                  className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                  style={{
+                    background: ev.resultStatus === "success" ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
+                    color: ev.resultStatus === "success" ? "var(--color-green)" : "var(--color-accent-red)",
+                  }}
+                >
+                  {ev.resultStatus}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ---- Main Admin Page ----
 export function Admin() {
   const language = usePreferencesStore((s) => s.language);
@@ -2379,7 +2584,7 @@ export function Admin() {
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<"overview" | "users" | "features" | "support" | "settings">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "users" | "features" | "support" | "audit" | "settings">("overview");
   const [userSearch, setUserSearch] = useState("");
 
   const load = useCallback(async () => {
@@ -2441,7 +2646,7 @@ export function Admin() {
   };
 
   const restrictedCount = users.filter((user) => user.restriction !== null).length;
-  const unhealthyCount = users.filter((user) => !user.agentHealth.healthy).length;
+  const unhealthyCount = users.filter((user) => user.state === "ACTIVE" && !user.portfolioLoaded).length;
   const degradedCount = users.filter(
     (user) => !user.integrityValid || user.eligibilityIssue !== null
   ).length;
@@ -2473,11 +2678,6 @@ export function Admin() {
           <span className="font-bold text-sm">{t("adminTitle", language)}</span>
         </div>
         <div className="flex items-center gap-3">
-          {status && (
-            <span className={`text-[11px] font-medium ${status.gatewayRunning ? "text-[var(--color-accent-green)]" : "text-[var(--color-accent-red)]"}`}>
-              {status.gatewayRunning ? "● Gateway running" : "● Gateway stopped"}
-            </span>
-          )}
           <button onClick={() => { sessionStorage.removeItem("admin_key"); setLoggedIn(false); }}
             className="text-[10px] px-2 py-1 rounded"
             style={{ border: "1px solid var(--color-border)", color: "var(--color-fg-muted)" }}>
@@ -2488,12 +2688,13 @@ export function Admin() {
 
       <div className="px-4 py-4 max-w-2xl mx-auto space-y-4">
 
-        <div className="grid grid-cols-5 gap-2 rounded-xl border p-1" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
+        <div className="grid grid-cols-6 gap-2 rounded-xl border p-1" style={{ background: "var(--color-bg-subtle)", borderColor: "var(--color-border)" }}>
           {[
             { key: "overview", label: "Overview" },
             { key: "users", label: "Users" },
             { key: "features", label: "Features" },
             { key: "support", label: "Support" },
+            { key: "audit", label: "Audit" },
             { key: "settings", label: "Settings" },
           ].map((item) => (
             <button
@@ -2523,7 +2724,6 @@ export function Admin() {
           <>
             <OperationsOverview
               users={users}
-              status={status}
               degradedCount={degradedCount}
               unhealthyCount={unhealthyCount}
               restrictedCount={restrictedCount}
@@ -2583,6 +2783,18 @@ export function Admin() {
         {activeSection === "features" && <PilotFeaturesPanel onError={setError} />}
 
         {activeSection === "support" && <SupportInbox onError={setError} />}
+
+        {activeSection === "audit" && (
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--color-border)" }}>
+            <div className="px-4 py-3" style={{ background: "var(--color-bg-subtle)" }}>
+              <h2 className="text-xs font-bold uppercase tracking-wide">Audit Log</h2>
+              <p className="text-[10px] mt-0.5" style={{ color: "var(--color-fg-subtle)" }}>
+                Last 100 admin actions — impersonation issuances, blocked writes, and mutations.
+              </p>
+            </div>
+            <AuditLogTab />
+          </div>
+        )}
 
         {activeSection === "settings" && (
           <>

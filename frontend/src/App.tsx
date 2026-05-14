@@ -6,6 +6,7 @@ import { usePreferencesStore } from "./store/preferencesStore";
 import { t } from "./store/i18n";
 import { BottomNav } from "./components/ui/BottomNav";
 import { ToastContainer } from "./components/ui/Toast";
+import { ImpersonationBanner } from "./components/ImpersonationBanner";
 import { Login } from "./pages/Login";
 import { Onboarding } from "./pages/Onboarding";
 import { Portfolio } from "./pages/Portfolio";
@@ -37,8 +38,6 @@ const queryClient = new QueryClient({
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const language = usePreferencesStore((s) => s.language);
-  const [healthDismissed, setHealthDismissed] = useState(false);
   const showToast = useToastStore((s) => s.show);
   const seenNotificationIds = useRef<Set<string>>(new Set());
 
@@ -105,27 +104,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <SuspensionPage reason={controlState.reason} />;
   }
 
-  const showHealthBanner = !healthDismissed && onboardStatus.agentHealthy === false;
-
   return (
     <>
       {controlState && <ControlBanner state={controlState} />}
-      {showHealthBanner && (
-        <div
-          className="sticky top-0 z-40 flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium"
-          style={{
-            background: "rgba(239,68,68,0.12)",
-            borderBottom: "1px solid rgba(239,68,68,0.3)",
-            color: "var(--color-accent-red)",
-          }}
-        >
-          <span>{t("healthBanner", language)}</span>
-          <button
-            onClick={() => setHealthDismissed(true)}
-            className="ml-4 shrink-0 text-base leading-none opacity-70 hover:opacity-100"
-          >×</button>
-        </div>
-      )}
       <PointsBadge />
       <div>{children}</div>
     </>
@@ -179,6 +160,7 @@ export default function App() {
  return (
  <QueryClientProvider client={queryClient}>
  <BrowserRouter>
+   <ImpersonationBanner />
  <Routes>
  <Route path="/login" element={<Login />} />
  <Route path="/onboarding" element={<OnboardingRoute />} />

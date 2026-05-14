@@ -37,72 +37,6 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: mapped
 - Notes: Current code uses Markdown with raw text, which is a known delivery/formatting risk.
 
-### R008 — Chat must support multiple saved conversations from backend state, including create, reopen, continue previous chat, rename, and archive/delete.
-- Class: core-capability
-- Status: active
-- Description: Chat must support multiple saved conversations from backend state, including create, reopen, continue previous chat, rename, and archive/delete.
-- Why it matters: The pilot chat should feel like a real assistant surface, not one local browser session.
-- Source: user
-- Primary owning slice: M001/S04
-- Supporting slices: M001/S05, M001/S08
-- Validation: mapped
-- Notes: Existing conversations tables should be extended rather than using localStorage as source of truth.
-
-### R009 — Saved chats should expire or become eligible for cleanup after a configurable TTL, defaulting to 7 days.
-- Class: continuity
-- Status: active
-- Description: Saved chats should expire or become eligible for cleanup after a configurable TTL, defaulting to 7 days.
-- Why it matters: Keeps chat useful without accumulating unbounded stale history or cost/context risk.
-- Source: user
-- Primary owning slice: M001/S04
-- Supporting slices: M001/S07
-- Validation: mapped
-- Notes: Quick DB check found chat_agent_enabled but no existing TTL flag.
-
-### R010 — Chat must protect internal architecture/source/docs while still answering safe advisory/product-use questions practically.
-- Class: compliance/security
-- Status: active
-- Description: Chat must protect internal architecture/source/docs while still answering safe advisory/product-use questions practically.
-- Why it matters: Previous chat behavior leaked internals; current behavior may be too restrictive. Pilot users need usefulness without unsafe disclosure.
-- Source: user
-- Primary owning slice: M001/S05
-- Supporting slices: M001/S04, M001/S07
-- Validation: mapped
-- Notes: Favor a whitelist of safe request classes plus explicit tests for blocked internal requests.
-
-### R011 — Users must be able to ask chat to explain reports, verdicts, catalysts, and portfolio state using real tools/data instead of guessing.
-- Class: primary-user-loop
-- Status: active
-- Description: Users must be able to ask chat to explain reports, verdicts, catalysts, and portfolio state using real tools/data instead of guessing.
-- Why it matters: Chat should let users understand advisory output without reading long reports manually.
-- Source: user
-- Primary owning slice: M001/S05
-- Supporting slices: M001/S06, M001/S08
-- Validation: mapped
-- Notes: Include safe-usefulness prompt tests.
-
-### R012 — Advisory surfaces must make verdict, reason, confidence, catalysts, and next action easier to read and understand.
-- Class: quality-attribute
-- Status: active
-- Description: Advisory surfaces must make verdict, reason, confidence, catalysts, and next action easier to read and understand.
-- Why it matters: Long unclear text makes the advisory system hard to trust even when analysis is technically present.
-- Source: user
-- Primary owning slice: M001/S06
-- Supporting slices: M001/S03, M001/S05
-- Validation: mapped
-- Notes: Applies to report/strategy/notification/chat-facing summaries.
-
-### R013 — Scores and Today/factoid surfaces must be understandable rather than mysterious numbers.
-- Class: quality-attribute
-- Status: active
-- Description: Scores and Today/factoid surfaces must be understandable rather than mysterious numbers.
-- Why it matters: Users need to understand why something is green, watch, or attention.
-- Source: user
-- Primary owning slice: M001/S06
-- Supporting slices: M001/S01, M001/S08
-- Validation: mapped
-- Notes: Existing Today-screen design doc provides prior art.
-
 ### R014 — Admin/operator can inspect readiness, notification delivery/failures, chat behavior, job failures, and budget/cost states enough to operate a 10-user pilot.
 - Class: operability
 - Status: active
@@ -127,10 +61,10 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Validated
 
-### R003 — User-facing product copy should avoid spreading “Clawd” or “finance-agent”; neutral phrases like “your portfolio assistant” are preferred.
+### R003 — User-facing product copy should avoid spreading "Clawd" or "finance-agent"; neutral phrases like "your portfolio assistant" are preferred.
 - Class: constraint
 - Status: validated
-- Description: User-facing product copy should avoid spreading “Clawd” or “finance-agent”; neutral phrases like “your portfolio assistant” are preferred.
+- Description: User-facing product copy should avoid spreading "Clawd" or "finance-agent"; neutral phrases like "your portfolio assistant" are preferred.
 - Why it matters: The project currently has no final product name, and old branding/internal names should not leak into the pilot experience.
 - Source: user
 - Primary owning slice: M001/S02
@@ -170,6 +104,72 @@ This file is the explicit capability and coverage contract for the project.
 - Supporting slices: M001/S06, M001/S08
 - Validation: S03 semantic composer and notification service tests validate clear bounded Web records and plain-text Telegram messages with status cues, useful body text, and action/open cues while clipping unbounded reasoning. Full planned slice verification passed in gsd_exec d8e857f6-9849-426c-95de-b822cee69fcf.
 - Notes: Use markers like ✅ clear, ⚠️ attention, 🔎 deep dive, 📌 catalyst. Titles can carry the big status signal; bodies must remain substantive.
+
+### R008 — Chat must support multiple saved conversations from backend state, including create, reopen, continue previous chat, rename, and archive/delete.
+- Class: core-capability
+- Status: validated
+- Description: Chat must support multiple saved conversations from backend state, including create, reopen, continue previous chat, rename, and archive/delete.
+- Why it matters: The pilot chat should feel like a real assistant surface, not one local browser session.
+- Source: user
+- Primary owning slice: M001/S04
+- Supporting slices: M001/S05, M001/S08
+- Validation: S04 implemented list/create/open-history/continue-by-ID/rename/soft-archive routes under /api/chat/conversations, agentChat guards by owner/archive/expiry, and Chat.tsx wired to backend with React Query. Backend and route tests pass; verify-saved-chat-ui.mjs passes substantive checks.
+- Notes: Existing conversations tables should be extended rather than using localStorage as source of truth.
+
+### R009 — Saved chats should expire or become eligible for cleanup after a configurable TTL, defaulting to 7 days.
+- Class: continuity
+- Status: validated
+- Description: Saved chats should expire or become eligible for cleanup after a configurable TTL, defaulting to 7 days.
+- Why it matters: Keeps chat useful without accumulating unbounded stale history or cost/context risk.
+- Source: user
+- Primary owning slice: M001/S04
+- Supporting slices: M001/S07
+- Validation: S04 added `chat_conversation_ttl_days` feature flag (default 7), `expires_at` column on conversations, TTL coercion for invalid values, and store tests covering default and override behavior. agentChat rejects expired conversation IDs with `conversation_expired` error code.
+- Notes: Quick DB check found chat_agent_enabled but no existing TTL flag.
+
+### R010 — Chat must protect internal architecture/source/docs while still answering safe advisory/product-use questions practically.
+- Class: compliance/security
+- Status: validated
+- Description: Chat must protect internal architecture/source/docs while still answering safe advisory/product-use questions practically.
+- Why it matters: Previous chat behavior leaked internals; current behavior may be too restrictive. Pilot users need usefulness without unsafe disclosure.
+- Source: user
+- Primary owning slice: M001/S05
+- Supporting slices: M001/S04, M001/S07
+- Validation: S05 implemented persona prompt with explicit internal-disclosure block and redirect line, output filter with static+dynamic patterns (replaces on final_reply, strips on tool_result), startup guards, and 15 chatSafetyPolicy tests. `node scripts/verify-advisory-readability.mjs` passes all 8 checks including persona prompt coverage and no-Clawd invariant.
+- Notes: Favor a whitelist of safe request classes plus explicit tests for blocked internal requests.
+
+### R011 — Users must be able to ask chat to explain reports, verdicts, catalysts, and portfolio state using real tools/data instead of guessing.
+- Class: primary-user-loop
+- Status: validated
+- Description: Users must be able to ask chat to explain reports, verdicts, catalysts, and portfolio state using real tools/data instead of guessing.
+- Why it matters: Chat should let users understand advisory output without reading long reports manually.
+- Source: user
+- Primary owning slice: M001/S05
+- Supporting slices: M001/S06, M001/S08
+- Validation: S05 implemented 10 read tools (getPortfolio, getStrategy, getStrategies, getRecentReports, getReportSummary, getCatalystsDueSoon, getEscalationHistory, getRiskSummary, getNotifications, searchWeb) and 6 action tools with structured answer format guidance (verdict → reason → confidence → next action). `getReportSummary` wraps report text in UNTRUSTED blocks. `node scripts/verify-advisory-readability.mjs` confirms getReportSummary in allowlist and persona prompt covers all 8 advisory classes.
+- Notes: Include safe-usefulness prompt tests.
+
+### R012 — Advisory surfaces must make verdict, reason, confidence, catalysts, and next action easier to read and understand.
+- Class: quality-attribute
+- Status: validated
+- Description: Advisory surfaces must make verdict, reason, confidence, catalysts, and next action easier to read and understand.
+- Why it matters: Long unclear text makes the advisory system hard to trust even when analysis is technically present.
+- Source: user
+- Primary owning slice: M001/S06
+- Supporting slices: M001/S03, M001/S05
+- Validation: S06 built `frontend/src/utils/advisory.ts` with `verdictSentence`, `confidenceExplanation`, `formatCatalyst`, `buildAdvisorySummary` and wired them into Reports.tsx and StrategyModal.tsx. `node scripts/verify-advisory-readability.mjs` check [8] confirms all surfaces consume the helpers.
+- Notes: Applies to report/strategy/notification/chat-facing summaries.
+
+### R013 — Scores and Today/factoid surfaces must be understandable rather than mysterious numbers.
+- Class: quality-attribute
+- Status: validated
+- Description: Scores and Today/factoid surfaces must be understandable rather than mysterious numbers.
+- Why it matters: Users need to understand why something is green, watch, or attention.
+- Source: user
+- Primary owning slice: M001/S06
+- Supporting slices: M001/S01, M001/S08
+- Validation: S06 built `scoreBucket`, `scoreBucketLabel`, `scoreBucketEmoji`, `scoreExplanation` in `frontend/src/utils/advisory.ts` and wired them into Reports.tsx, StrategyModal.tsx, and AttentionCard.tsx. `node scripts/verify-advisory-readability.mjs` check [8] confirms AttentionCard uses `scoreBucketLabel`.
+- Notes: Existing Today-screen design doc provides prior art.
 
 ## Deferred
 
@@ -274,12 +274,12 @@ This file is the explicit capability and coverage contract for the project.
 | R005 | core-capability | validated | M001/S03 | M001/S07 | S03 verified that daily brief, deep dive, full report, quick-check/new-ideas, market/news, and step-queue completion publishers now call the central semantic notification composer. Fresh verification passed: `npm --prefix backend test -- --test-name-pattern "notification composer|notification service|telegram delivery"`, `npm --prefix backend run build`, `node scripts/verify-pilot-surface.mjs`, `npm --prefix frontend run lint`, and `npm --prefix frontend run build` (gsd_exec d8e857f6-9849-426c-95de-b822cee69fcf). |
 | R006 | primary-user-loop | validated | M001/S03 | M001/S06, M001/S08 | S03 semantic composer and notification service tests validate clear bounded Web records and plain-text Telegram messages with status cues, useful body text, and action/open cues while clipping unbounded reasoning. Full planned slice verification passed in gsd_exec d8e857f6-9849-426c-95de-b822cee69fcf. |
 | R007 | integration | active | M001/S03 | M001/S08 | mapped |
-| R008 | core-capability | active | M001/S04 | M001/S05, M001/S08 | mapped |
-| R009 | continuity | active | M001/S04 | M001/S07 | mapped |
-| R010 | compliance/security | active | M001/S05 | M001/S04, M001/S07 | mapped |
-| R011 | primary-user-loop | active | M001/S05 | M001/S06, M001/S08 | mapped |
-| R012 | quality-attribute | active | M001/S06 | M001/S03, M001/S05 | mapped |
-| R013 | quality-attribute | active | M001/S06 | M001/S01, M001/S08 | mapped |
+| R008 | core-capability | validated | M001/S04 | M001/S05, M001/S08 | S04 list/create/open/rename/archive routes, agentChat owner+archive+expiry guards, Chat.tsx React Query wiring; backend and route tests pass. |
+| R009 | continuity | validated | M001/S04 | M001/S07 | S04 chat_conversation_ttl_days flag (default 7), expires_at column, TTL coercion, store tests for default and override, agentChat rejects expired IDs. |
+| R010 | compliance/security | validated | M001/S05 | M001/S04, M001/S07 | S05 persona prompt, output filter, startup guards, 15 chatSafetyPolicy tests, verify-advisory-readability.mjs passes. |
+| R011 | primary-user-loop | validated | M001/S05 | M001/S06, M001/S08 | S05 10 read tools + 6 action tools, structured answer format, getReportSummary in allowlist, verify-advisory-readability.mjs passes. |
+| R012 | quality-attribute | validated | M001/S06 | M001/S03, M001/S05 | S06 advisory.ts with verdictSentence/confidenceExplanation/formatCatalyst/buildAdvisorySummary wired into Reports and StrategyModal; verify-advisory-readability.mjs check [8] passes. |
+| R013 | quality-attribute | validated | M001/S06 | M001/S01, M001/S08 | S06 scoreBucket/scoreBucketLabel/scoreBucketEmoji/scoreExplanation wired into Reports, StrategyModal, AttentionCard; verify-advisory-readability.mjs check [8] passes. |
 | R014 | operability | active | M001/S07 | M001/S01, M001/S03, M001/S05 | mapped |
 | R015 | launchability | active | M001/S08 | M001/S01, M001/S02, M001/S03, M001/S04, M001/S05, M001/S06, M001/S07 | mapped |
 | R016 | integration | deferred | none | none | unmapped |
@@ -293,7 +293,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 11
-- Mapped to slices: 11
-- Validated: 4 (R003, R004, R005, R006)
+- Active requirements: 5 (R001, R002, R007, R014, R015)
+- Mapped to slices: 5
+- Validated: 10 (R003, R004, R005, R006, R008, R009, R010, R011, R012, R013)
 - Unmapped active requirements: 0

@@ -1,4 +1,4 @@
-import type { AgentHealth, SupportMessageRecord } from "../types/api";
+import type { SupportMessageRecord } from "../types/api";
 
 const ADMIN_KEY = () => sessionStorage.getItem("admin_key") ?? "";
 
@@ -63,16 +63,13 @@ export interface UserSummary {
   displayName: string;
   state: string;
   portfolioLoaded: boolean;
-  agentConfigured: boolean;
   hasTelegram: boolean;
   telegramChatId?: string;
   createdAt: string;
-  rateLimits: RateLimits;
   pointsBudget: PointsBudget;
   schedule: Schedule;
   modelTier: ModelTier;
   modelProfile: string;
-  agentHealth: AgentHealth;
   restriction: "readonly" | "blocked" | "suspended" | null;
   eligibilityIssue: string | null;
   integrityValid: boolean;
@@ -81,9 +78,7 @@ export interface UserSummary {
 }
 
 export interface AdminStatus {
-  gatewayRunning: boolean;
   totalUsers: number;
-  activeAgents: number;
 }
 
 export interface SystemAgentSummary {
@@ -95,7 +90,6 @@ export interface SystemAgentSummary {
   modelProfile: string;
   profileBroken: boolean;
   profileBrokenReason?: string;
-  agentHealth: AgentHealth;
 }
 
 export interface ProfileDefinition {
@@ -148,7 +142,7 @@ export interface PilotFeatureReviewPatch {
   updatedBy?: string;
 }
 
-export type { AgentHealth };
+export type { };
 
 export interface StepQueueJobSummary {
   id: string;
@@ -338,7 +332,6 @@ export interface CreateUserPayload {
   telegramChatId?: string;
   telegramBotToken?: string;
   schedule?: Schedule;
-  rateLimits?: RateLimits;
 }
 
 export const adminCreateUser = async (payload: CreateUserPayload): Promise<void> => {
@@ -609,6 +602,14 @@ export const adminGetStepQueueCost = async (
 export const adminGetStepQueueModels = async (): Promise<StepQueueModelsResponse> =>
   adminFetch("/api/admin/step-queue/models") as Promise<StepQueueModelsResponse>;
 
+export const adminPauseStepQueueJob = async (jobId: string): Promise<void> => {
+  await adminFetch(`/api/admin/step-queue/jobs/${encodeURIComponent(jobId)}/pause`, { method: "POST" });
+};
+
+export const adminResumeStepQueueJob = async (jobId: string): Promise<void> => {
+  await adminFetch(`/api/admin/step-queue/jobs/${encodeURIComponent(jobId)}/resume`, { method: "POST" });
+};
+
 export const adminUpdateStepQueueModel = async (
   tier: string,
   stepKind: string,
@@ -682,4 +683,98 @@ export const adminContinueJob = async (userId: string, jobId: string): Promise<v
 
 export const adminWakeUser = async (userId: string): Promise<void> => {
   await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/wake`, { method: "POST" });
+};
+
+// ── Impersonation API (S07) ───────────────────────────────────────────────────
+
+export interface ImpersonationSession {
+  id: string;
+  impersonatorId: string;
+  targetUserId: string;
+  reason: string | null;
+  issuedAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  revokedReason: string | null;
+  lastUsedAt: string | null;
+}
+
+export interface IssueImpersonationSessionResult {
+  sessionId: string;
+  token: string;
+  expiresAt: string;
+  targetUserId: string;
+  impersonatorId: string;
+}
+
+export const adminIssueImpersonationSession = async (
+  targetUserId: string,
+  reason?: string
+): Promise<IssueImpersonationSessionResult> => {
+  const body: Record<string, string> = { targetUserId };
+  if (reason) body["reason"] = reason;
+  return adminFetch("/api/admin/impersonation/sessions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }) as Promise<IssueImpersonationSessionResult>;
+};
+
+export const adminListImpersonationSessions = async (): Promise<ImpersonationSession[]> => {
+  const d = await adminFetch("/api/admin/impersonation/sessions") as { sessions: ImpersonationSession[] };
+  return d.sessions;
+};
+
+export const adminRevokeImpersonationSession = async (sessionId: string): Promise<void> => {
+  await adminFetch(`/api/admin/impersonation/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+  });
+};
+
+// ── Readiness + audit API (S07) ───────────────────────────────────────────────
+
+export interface UserReadiness {
+  userId: string;
+  displayName: string;
+  state: string;
+  modelTier: string;
+  restriction: string | null;
+  jobFailures24h: number;
+  telegramUndelivered24h: number;
+  chatConversations24h: number;
+  pointsBudget: number;
+  pointsUsed: number;
+  pointsRemaining: number;
+  lastDailyBriefAt: string | null;
+  lastTelegramDeliveryAt: string | null;
+}
+
+export const adminGetUserReadiness = async (userId: string): Promise<UserReadiness> =>
+  adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/readiness`) as Promise<UserReadiness>;
+
+export interface AuditEvent {
+  id: number;
+  actorAdminId: string;
+  actionType: string;
+  targetUserId: string | null;
+  argsJson: Record<string, unknown> | null;
+  resultStatus: string;
+  requestId: string;
+  occurredAt: string;
+}
+
+export const adminListAuditEvents = async (filters?: {
+  since?: string;
+  action?: string;
+  impersonatorId?: string;
+  targetUserId?: string;
+  limit?: number;
+}): Promise<AuditEvent[]> => {
+  const params = new URLSearchParams();
+  if (filters?.since) params.set("since", filters.since);
+  if (filters?.action) params.set("action", filters.action);
+  if (filters?.impersonatorId) params.set("impersonatorId", filters.impersonatorId);
+  if (filters?.targetUserId) params.set("targetUserId", filters.targetUserId);
+  params.set("limit", String(filters?.limit ?? 100));
+  const d = await adminFetch(`/api/admin/audit?${params.toString()}`) as { events: AuditEvent[] };
+  return d.events;
 };

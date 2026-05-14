@@ -796,3 +796,29 @@ BEGIN
   END IF;
 END
 $$;
+
+-- ============================================================================
+-- S07 DDL — Read-only user impersonation sessions
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS impersonation_sessions (
+  id              VARCHAR(64) PRIMARY KEY,
+  impersonator_id VARCHAR(64) NOT NULL,
+  target_user_id  VARCHAR(64) NOT NULL,
+  reason          VARCHAR(512),
+  issued_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at      TIMESTAMPTZ NOT NULL,
+  revoked_at      TIMESTAMPTZ,
+  revoked_reason  VARCHAR(64),
+  last_used_at    TIMESTAMPTZ,
+  user_agent      VARCHAR(256),
+  ip_hash         VARCHAR(64)
+);
+
+CREATE INDEX IF NOT EXISTS idx_imp_sessions_active
+  ON impersonation_sessions (impersonator_id, revoked_at)
+  WHERE revoked_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_imp_sessions_expiry
+  ON impersonation_sessions (expires_at)
+  WHERE revoked_at IS NULL;

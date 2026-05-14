@@ -25,8 +25,6 @@ import {
   saveUserPortfolio,
   startUserBootstrap,
 } from "../services/workspaceService.js";
-import { DEFAULT_RATE_LIMITS } from "../types/index.js";
-import type { RateLimits } from "../types/index.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { userIsolationMiddleware } from "../middleware/userIsolation.js";
 import { getNotificationPreferences, setNotificationPreferences } from "../services/notificationService.js";
@@ -342,8 +340,6 @@ router.get(
           }
         : null;
 
-    const rateLimits: RateLimits = (profile?.rateLimits as RateLimits) ?? DEFAULT_RATE_LIMITS;
-
     const [connectivity, notifications] = await Promise.all([
       getUserChannelConnectivity(userId),
       getNotificationPreferences(userId),
@@ -359,12 +355,10 @@ router.get(
       guidanceStepPending: stateData.onboarding?.positionGuidanceStatus === "pending",
       positionGuidanceCount: Object.keys(stateData.onboarding?.positionGuidance ?? {}).length,
       readyForTrading: stateData.state === "ACTIVE",
-      rateLimits,
       schedule: profile?.schedule ?? null,
       notifications,
       telegramConnected: connectivity.telegram.connected,
       connectivity,
-      agentHealthy: true,
     });
   })
 );
