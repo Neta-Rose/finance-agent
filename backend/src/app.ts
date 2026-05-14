@@ -13,6 +13,7 @@ import { WorkspaceViolationError } from "./middleware/userIsolation.js";
 import { apiLimiter } from "./middleware/rateLimit.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { userIsolationMiddleware } from "./middleware/userIsolation.js";
+import { readOnlyGuard } from "./middleware/impersonation.js";
 import authRoutes from "./routes/auth.js";
 import portfolioRoutes from "./routes/portfolio.js";
 import verdictsRoutes from "./routes/verdicts.js";
@@ -73,7 +74,7 @@ export function createApp(): Express {
   app.use("/api", whatsappRoutes); // GET/POST /api/whatsapp/webhook — public webhook path
 
   // Protected routes — JWT + user isolation for everything else
-  app.use("/api", authMiddleware, userIsolationMiddleware);
+  app.use("/api", authMiddleware, userIsolationMiddleware, readOnlyGuard);
 
   // Route mounts
   app.use("/api/me", controlRoutes); // GET /api/me/control

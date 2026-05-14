@@ -31,6 +31,7 @@ import { OutputFilterEventEntitySchema } from "./entities/OutputFilterEventEntit
 import { PositionTransactionEntitySchema } from "./entities/PositionTransactionEntity.js";
 import { CorporateActionEntitySchema } from "./entities/CorporateActionEntity.js";
 import { PilotFeatureReviewEntitySchema } from "./entities/PilotFeatureReviewEntity.js";
+import { ImpersonationSessionEntitySchema } from "./entities/ImpersonationSessionEntity.js";
 import { logger } from "../services/logger.js";
 
 const APP_DATABASE_URL =
@@ -91,6 +92,8 @@ function buildDataSource(): DataSource {
       CorporateActionEntitySchema,
       // Pilot admin review state:
       PilotFeatureReviewEntitySchema,
+      // S07 — read-only user impersonation sessions:
+      ImpersonationSessionEntitySchema,
     ],
     synchronize: false,
     logging: false,

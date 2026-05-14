@@ -360,12 +360,10 @@ export interface OnboardStatus {
  guidanceStepPending: boolean;
  positionGuidanceCount: number;
  readyForTrading: boolean;
- rateLimits: RateLimits;
  schedule: Schedule | null;
  notifications: NotificationPreferences;
  telegramConnected: boolean;
  connectivity: ChannelConnectivity;
- agentHealthy: boolean;
 }
 
 export interface SummaryStripProps {

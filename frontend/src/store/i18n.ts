@@ -118,7 +118,7 @@ export type TranslationKey =
   | "adminAddUser" | "adminCreateUser" | "adminCreating" | "adminUserCreationError"
   | "adminUserCreationFailed" | "adminDeleteUser" | "adminConfirmDelete"
   | "adminUserIdLabel" | "adminPasswordLabel" | "adminDisplayNameLabel"
-  | "adminTelegramSection" | "adminScheduleSection" | "adminRateLimitsSection"
+  | "adminTelegramSection" | "adminScheduleSection"
   | "adminDailyTime" | "adminWeeklyDay" | "adminWeeklyTime"
   | "adminModelProfiles" | "adminAddProfile" | "adminProfileName" | "adminProfileNameHint"
   | "adminOrchestrator" | "adminAnalysts" | "adminResearchers"
@@ -527,7 +527,6 @@ export const translations: Translations = {
     adminDisplayNameLabel: "Display Name",
     adminTelegramSection: "Telegram (optional)",
     adminScheduleSection: "Schedule",
-    adminRateLimitsSection: "Rate Limits",
     adminDailyTime: "Daily time",
     adminWeeklyDay: "Weekly day",
     adminWeeklyTime: "Weekly time",
@@ -987,7 +986,6 @@ export const translations: Translations = {
     adminDisplayNameLabel: "שם תצוגה",
     adminTelegramSection: "טלגרם (אופציונלי)",
     adminScheduleSection: "לוח זמנים",
-    adminRateLimitsSection: "מגבלות שימוש",
     adminDailyTime: "שעה יומית",
     adminWeeklyDay: "יום שבועי",
     adminWeeklyTime: "שעה שבועית",

@@ -14,22 +14,22 @@
 
 ## Slices
 
-- [x] **S01: S01** `risk:high` `depends:[]`
+- [x] **S01: Pilot Feature Inventory + Admin Review** `risk:high` `depends:[]`
   > After this: Admin can browse pilot-visible features, read short and detailed descriptions, update status/comment, and see per-feature error-handling expectations.
 
-- [x] **S02: S02** `risk:medium` `depends:[]`
+- [x] **S02: Pilot Surface Gating + Nameless Copy** `risk:medium` `depends:[]`
   > After this: Pilot users no longer see WhatsApp as supported, and user-facing copy uses neutral nameless product language.
 
-- [x] **S03: S03** `risk:high` `depends:[]`
+- [x] **S03: Notification Composition + Telegram Delivery** `risk:high` `depends:[]`
   > After this: Daily, deep-dive, full-report, and news/report-style notifications render as clear Web + Telegram messages with safe delivery behavior.
 
-- [ ] **S04: S04** `risk:high` `depends:[]`
+- [x] **S04: Backend-Backed Saved Chats** `risk:high` `depends:[]`
   > After this: User can create, reopen, rename, and archive/delete multiple saved chats, backed by Postgres with configurable 7-day TTL.
 
-- [ ] **S05: Safe Useful Advisory Chat** `risk:high` `depends:[S04]`
+- [x] **S05: Safe Useful Advisory Chat** `risk:high` `depends:[S04]`
   > After this: Chat can explain reports, verdicts, catalysts, and portfolio state while redirecting architecture/source/internal-doc requests.
 
-- [ ] **S06: Advisory Readability + Scoring Clarity** `risk:medium` `depends:[S03,S05]`
+- [x] **S06: Advisory Readability + Scoring Clarity** `risk:medium` `depends:[S03,S05]`
   > After this: Report, strategy, Today, and scoring surfaces explain verdict, confidence, catalysts, score/factoid, and next action in readable language.
 
 - [ ] **S07: Pilot Operational Visibility** `risk:medium` `depends:[S01,S03,S05]`

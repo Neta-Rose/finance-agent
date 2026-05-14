@@ -19,7 +19,7 @@ import {
   getSystemAgentProfileStatus,
   setSystemAgentProfile,
 } from "../services/profileService.js";
-import type { PointsBudgetConfig, RateLimits } from "../types/index.js";
+import type { PointsBudgetConfig } from "../types/index.js";
 import type { ProfileDefinition } from "../schemas/profile.js";
 import { eventStore } from "../services/eventStore.js";
 import {
@@ -43,17 +43,6 @@ import {
   setUserPointsBudget,
 } from "../services/pointsBudgetService.js";
 const SYSTEM_AGENT_ID = "main";
-
-const OPENCLAW_RETIRED_HEALTH = {
-  healthy: true,
-  consecutiveErrors: 0,
-  lastError: null as null,
-  lastErrorReason: null as null,
-  lastRunAt: null as null,
-  classification: "inactive" as const,
-  statusReason: "openclaw_retired",
-  operational: false,
-};
 import {
   ensureDefaultModelTierAssignments,
   isModelTier,
@@ -464,20 +453,12 @@ router.get(
         let createdAt = "";
         let modelTier: ModelTier = defaults.modelTier;
         const schedule = { dailyBriefTime: "08:00", weeklyResearchDay: "sunday", weeklyResearchTime: "19:00", timezone: "Asia/Jerusalem" };
-        const rateLimits = {
-          full_report: { maxPerPeriod: 1, periodHours: 168 },
-          daily_brief: { maxPerPeriod: 3, periodHours: 24 },
-          deep_dive: { maxPerPeriod: 5, periodHours: 24 },
-          new_ideas: { maxPerPeriod: 2, periodHours: 168 },
-          quick_check: { maxPerPeriod: 20, periodHours: 24 },
-        };
 
         try {
           const profile = JSON.parse(await fs.readFile(profilePath, "utf-8"));
           displayName = profile.displayName ?? userId;
           createdAt = profile.createdAt ?? "";
           if (profile.schedule) Object.assign(schedule, profile.schedule);
-          if (profile.rateLimits) Object.assign(rateLimits, profile.rateLimits);
           modelTier = isModelTier(profile.modelTier) ? profile.modelTier : modelTier;
         } catch { /* no profile */ }
 
@@ -514,18 +495,15 @@ router.get(
           displayName,
           state,
           portfolioLoaded,
-          agentConfigured: false,
           hasTelegram: false,
           telegramChatId: undefined,
           createdAt,
-          rateLimits,
           schedule,
           pointsBudget,
           modelTier,
           modelProfile: profileStatus.name,
           profileBroken: profileStatus.broken,
           profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
-          agentHealth: OPENCLAW_RETIRED_HEALTH,
           restriction: userCtrl.restriction,
           eligibilityIssue: activeEligibility.eligible ? null : activeEligibility.reason,
           integrityValid: integrity.valid,
@@ -548,19 +526,11 @@ router.post(
     const userId = String(body.userId ?? "").trim();
     const password = String(body.password ?? "");
     const displayName = String(body.displayName ?? userId).trim();
-    const telegramChatId = body.telegramChatId ? String(body.telegramChatId) : undefined;
     const schedule = (body.schedule as Record<string, string>) ?? {
       dailyBriefTime: "08:00",
       weeklyResearchDay: "sunday",
       weeklyResearchTime: "19:00",
       timezone: "Asia/Jerusalem",
-    };
-    const rateLimits = (body.rateLimits as RateLimits) ?? {
-      full_report: { maxPerPeriod: 1, periodHours: 168 },
-      daily_brief: { maxPerPeriod: 3, periodHours: 24 },
-      deep_dive: { maxPerPeriod: 5, periodHours: 24 },
-      new_ideas: { maxPerPeriod: 2, periodHours: 168 },
-      quick_check: { maxPerPeriod: 20, periodHours: 24 },
     };
     const defaults = await getAdminDefaults();
     const modelTier = isModelTier(body.modelTier) ? body.modelTier : defaults.modelTier;
@@ -589,29 +559,17 @@ router.post(
     const hash = await hashPassword(password);
     await fs.writeFile(path.join(ws.root, "auth.json"), JSON.stringify({ passwordHash: hash }), "utf-8");
 
-    const profile = {
-      userId,
-      displayName,
-      telegramChatId: telegramChatId ?? null,
-      schedule,
-      rateLimits,
-      modelTier,
-      createdAt: new Date().toISOString(),
-    };
-    await fs.writeFile(path.join(ws.root, "profile.json"), JSON.stringify(profile, null, 2), "utf-8");
-
     if (isApplicationDatabaseConfigured()) {
       const ds = await getApplicationDataSource();
       await ds.query(
-        `INSERT INTO users (user_id, display_name, password_hash, schedule, rate_limits, model_tier, model_profile, state, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, 'testing', 'INCOMPLETE', NOW(), NOW())
+        `INSERT INTO users (user_id, display_name, password_hash, schedule, model_tier, model_profile, state, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'testing', 'INCOMPLETE', NOW(), NOW())
          ON CONFLICT (user_id) DO NOTHING`,
         [
           userId,
           displayName,
           hash,
           JSON.stringify(schedule),
-          JSON.stringify(rateLimits),
           modelTier,
         ]
       );
@@ -664,47 +622,9 @@ router.delete(
   })
 );
 
-// PATCH /api/admin/users/:userId/limits
-router.patch(
-  "/users/:userId/limits",
-  handler(async (req, res) => {
-    const userId = req.params.userId as string;
-    if (!userId) { res.status(400).json({ error: "userId required" }); return; }
-    const updates = req.body as Partial<RateLimits>;
-    const profilePath = path.join(USERS_DIR, userId, "profile.json");
-
-    let profile: Record<string, unknown> = {};
-    try {
-      profile = JSON.parse(await fs.readFile(profilePath, "utf-8"));
-    } catch {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-
-    const currentLimits = (profile.rateLimits as RateLimits) ?? {
-      full_report: { maxPerPeriod: 1, periodHours: 168 },
-      daily_brief: { maxPerPeriod: 3, periodHours: 24 },
-      deep_dive: { maxPerPeriod: 5, periodHours: 24 },
-      new_ideas: { maxPerPeriod: 2, periodHours: 168 },
-      quick_check: { maxPerPeriod: 20, periodHours: 24 },
-    };
-
-    const merged = { ...currentLimits, ...updates };
-    profile.rateLimits = merged;
-    await fs.writeFile(profilePath, JSON.stringify(profile, null, 2), "utf-8");
-    res.json({ userId, rateLimits: merged });
-  })
-);
-
 // PATCH /api/admin/users/:userId/points-budget
 router.patch(
   "/users/:userId/points-budget",
-  handler(patchUserPointsBudget)
-);
-
-// Legacy compatibility during mixed frontend/backend deploy states.
-router.patch(
-  "/users/:userId/token-budgets",
   handler(patchUserPointsBudget)
 );
 
@@ -791,7 +711,7 @@ router.get(
       totalUsers = dirents.filter((e) => e.isDirectory() && !e.name.startsWith('.')).length;
     } catch { /* ignore */ }
 
-    res.json({ gatewayRunning: false, totalUsers, activeAgents: 0 });
+    res.json({ totalUsers });
   })
 );
 
@@ -809,7 +729,6 @@ router.get(
       modelProfile: profileStatus.name,
       profileBroken: profileStatus.broken,
       profileBrokenReason: profileStatus.broken ? profileStatus.reason : undefined,
-      agentHealth: OPENCLAW_RETIRED_HEALTH,
     });
   })
 );
@@ -1101,6 +1020,50 @@ router.get(
       ),
     ]);
     res.json({ job, tickers, steps, events });
+  })
+);
+
+router.post(
+  "/step-queue/jobs/:jobId/pause",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const jobId = String(req.params["jobId"] ?? "");
+    if (!jobId) { res.status(400).json({ error: "jobId required" }); return; }
+    const ds = await getApplicationDataSource();
+    const result = await ds.query(
+      `UPDATE jobs SET status = 'paused', paused_at = NOW(), pause_reason = 'Paused by admin'
+       WHERE id = $1 AND status IN ('running', 'pending')
+       RETURNING id, status`,
+      [jobId]
+    );
+    const rows = mutationRows<{ id: string; status: string }>(result);
+    if (rows.length === 0) {
+      res.status(404).json({ error: "job_not_found_or_not_pausable" });
+      return;
+    }
+    res.json({ jobId, status: "paused" });
+  })
+);
+
+router.post(
+  "/step-queue/jobs/:jobId/resume",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const jobId = String(req.params["jobId"] ?? "");
+    if (!jobId) { res.status(400).json({ error: "jobId required" }); return; }
+    const ds = await getApplicationDataSource();
+    const result = await ds.query(
+      `UPDATE jobs SET status = 'running', paused_at = NULL, pause_reason = NULL
+       WHERE id = $1 AND status = 'paused'
+       RETURNING id, status`,
+      [jobId]
+    );
+    const rows = mutationRows<{ id: string; status: string }>(result);
+    if (rows.length === 0) {
+      res.status(404).json({ error: "job_not_found_or_not_paused" });
+      return;
+    }
+    res.json({ jobId, status: "running" });
   })
 );
 
@@ -1431,6 +1394,270 @@ router.post(
       budgetAdmittedAt: requiresBudgetAdmission({ action: job.action as JobAction }) ? new Date() : null,
     });
     res.json({ continued: true, userId, previousJobId: jobId, newJobId: admitted.jobId, reused: admitted.reused });
+  })
+);
+
+// ── Impersonation routes (S07) ───────────────────────────────────────────────
+// Mounted here so they inherit the adminAuth middleware applied to the whole router.
+import impersonationRouter from "./adminImpersonation.js";
+router.use(impersonationRouter);
+
+// ── GET /api/admin/users/:userId/readiness ───────────────────────────────────
+
+router.get(
+  "/users/:userId/readiness",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const ds = await getApplicationDataSource();
+    const userId = String(req.params["userId"] ?? "");
+    if (!userId) { res.status(400).json({ error: "missing_user_id" }); return; }
+
+    const [userRows, jobFailRows, notifRows, convRows] = await Promise.all([
+      ds.query(
+        `SELECT user_id, display_name, state, model_tier, restriction FROM users WHERE user_id = $1 LIMIT 1`,
+        [userId]
+      ) as Promise<Array<Record<string, unknown>>>,
+      ds.query(
+        `SELECT COUNT(*) AS count FROM jobs
+         WHERE user_id = $1 AND status = 'failed'
+           AND triggered_at > NOW() - INTERVAL '24 hours'`,
+        [userId]
+      ) as Promise<Array<{ count: string }>>,
+      ds.query(
+        `SELECT COUNT(*) AS count FROM notifications_outbox
+         WHERE user_id = $1 AND channel = 'telegram' AND delivered = false
+           AND created_at > NOW() - INTERVAL '24 hours'`,
+        [userId]
+      ) as Promise<Array<{ count: string }>>,
+      ds.query(
+        `SELECT COUNT(*) AS count FROM conversations
+         WHERE user_id = $1 AND started_at > NOW() - INTERVAL '24 hours'`,
+        [userId]
+      ) as Promise<Array<{ count: string }>>,
+    ]);
+
+    const user = userRows[0];
+    if (!user) { res.status(404).json({ error: "user_not_found" }); return; }
+
+    // Points balance
+    const balanceRows = await ds.query(
+      `SELECT COALESCE(b.daily_budget_points, 0) AS budget,
+              COALESCE(SUM(r.cost_usd * 100), 0) AS used_points
+       FROM user_points_budgets b
+       LEFT JOIN llm_requests r ON r.user_id = b.user_id
+         AND r.occurred_at > NOW() - INTERVAL '24 hours'
+       WHERE b.user_id = $1
+       GROUP BY b.daily_budget_points`,
+      [userId]
+    ) as Array<{ budget: string; used_points: string }>;
+
+    const budget = parseFloat(balanceRows[0]?.budget ?? "0");
+    const usedPoints = parseFloat(balanceRows[0]?.used_points ?? "0");
+
+    // Last daily brief
+    const lastBriefRows = await ds.query(
+      `SELECT MAX(triggered_at) AS last_at FROM report_batches
+       WHERE user_id = $1 AND mode = 'daily_brief'`,
+      [userId]
+    ) as Array<{ last_at: string | null }>;
+
+    // Last successful Telegram delivery
+    const lastTelegramRows = await ds.query(
+      `SELECT MAX(delivered_at) AS last_at FROM notifications_outbox
+       WHERE user_id = $1 AND channel = 'telegram' AND delivered = true`,
+      [userId]
+    ) as Array<{ last_at: string | null }>;
+
+    res.json({
+      userId,
+      displayName: user["display_name"],
+      state: user["state"],
+      modelTier: user["model_tier"],
+      restriction: user["restriction"] ?? null,
+      jobFailures24h: parseInt(jobFailRows[0]?.count ?? "0", 10),
+      telegramUndelivered24h: parseInt(notifRows[0]?.count ?? "0", 10),
+      chatConversations24h: parseInt(convRows[0]?.count ?? "0", 10),
+      pointsBudget: budget,
+      pointsUsed: usedPoints,
+      pointsRemaining: Math.max(0, budget - usedPoints),
+      lastDailyBriefAt: lastBriefRows[0]?.last_at ?? null,
+      lastTelegramDeliveryAt: lastTelegramRows[0]?.last_at ?? null,
+    });
+  })
+);
+
+// ── GET /api/admin/users/:userId/job-failures ────────────────────────────────
+
+router.get(
+  "/users/:userId/job-failures",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const ds = await getApplicationDataSource();
+    const userId = String(req.params["userId"] ?? "");
+    const windowHours = Math.min(Math.max(Number(req.query["windowHours"] ?? 24), 1), 168);
+
+    const [countRows, recentRows] = await Promise.all([
+      ds.query(
+        `SELECT action, COUNT(*) AS count FROM jobs
+         WHERE user_id = $1 AND status = 'failed'
+           AND triggered_at > NOW() - ($2 || ' hours')::INTERVAL
+         GROUP BY action ORDER BY count DESC`,
+        [userId, String(windowHours)]
+      ) as Promise<Array<{ action: string; count: string }>>,
+      ds.query(
+        `SELECT id, action, status, failure_reason, triggered_at, completed_at
+         FROM jobs
+         WHERE user_id = $1 AND status = 'failed'
+           AND triggered_at > NOW() - ($2 || ' hours')::INTERVAL
+         ORDER BY triggered_at DESC LIMIT 5`,
+        [userId, String(windowHours)]
+      ) as Promise<Array<Record<string, unknown>>>,
+    ]);
+
+    res.json({
+      userId,
+      windowHours,
+      byAction: countRows.map((r) => ({ action: r.action, count: parseInt(r.count, 10) })),
+      recent: recentRows.map((r) => ({
+        jobId: r["id"],
+        action: r["action"],
+        failureReason: (r["failure_reason"] as string | null)?.slice(0, 256) ?? null,
+        triggeredAt: r["triggered_at"],
+        completedAt: r["completed_at"] ?? null,
+      })),
+    });
+  })
+);
+
+// ── GET /api/admin/notifications/failures ────────────────────────────────────
+
+router.get(
+  "/notifications/failures",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const ds = await getApplicationDataSource();
+    const userId = typeof req.query["userId"] === "string" ? req.query["userId"] : null;
+    const since = typeof req.query["since"] === "string" ? req.query["since"] : null;
+    const limit = Math.min(Number(req.query["limit"] ?? 50), 200);
+
+    const params: unknown[] = [];
+    const wheres: string[] = ["delivered = false"];
+    if (userId) { params.push(userId); wheres.push(`user_id = $${params.length}`); }
+    if (since) { params.push(since); wheres.push(`created_at >= $${params.length}`); }
+    params.push(limit);
+
+    const rows = await ds.query(
+      `SELECT id, user_id, category, channel, title, ticker, batch_id, error, created_at
+       FROM notifications_outbox
+       WHERE ${wheres.join(" AND ")}
+       ORDER BY created_at DESC
+       LIMIT $${params.length}`,
+      params
+    ) as Array<Record<string, unknown>>;
+
+    res.json({
+      failures: rows.map((r) => ({
+        id: r["id"],
+        userId: r["user_id"],
+        category: r["category"],
+        channel: r["channel"],
+        title: (r["title"] as string | null)?.slice(0, 128) ?? null,
+        ticker: r["ticker"] ?? null,
+        batchId: r["batch_id"] ?? null,
+        error: (r["error"] as string | null)?.slice(0, 256) ?? null,
+        createdAt: r["created_at"],
+      })),
+      count: rows.length,
+    });
+  })
+);
+
+// ── GET /api/admin/output-filter-events ──────────────────────────────────────
+
+router.get(
+  "/output-filter-events",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const ds = await getApplicationDataSource();
+    const userId = typeof req.query["userId"] === "string" ? req.query["userId"] : null;
+    const since = typeof req.query["since"] === "string" ? req.query["since"] : null;
+    const limit = Math.min(Number(req.query["limit"] ?? 50), 200);
+
+    const params: unknown[] = [];
+    const wheres: string[] = [];
+    if (userId) {
+      params.push(userId);
+      wheres.push(`c.user_id = $${params.length}`);
+    }
+    if (since) {
+      params.push(since);
+      wheres.push(`e.occurred_at >= $${params.length}`);
+    }
+    params.push(limit);
+
+    const where = wheres.length > 0 ? `WHERE ${wheres.join(" AND ")}` : "";
+    const rows = await ds.query(
+      `SELECT e.id, e.conversation_id, c.user_id, e.turn_index, e.pattern,
+              e.site_of_match, e.original_length_chars, e.occurred_at
+       FROM output_filter_events e
+       JOIN conversations c ON c.id = e.conversation_id
+       ${where}
+       ORDER BY e.occurred_at DESC
+       LIMIT $${params.length}`,
+      params
+    ) as Array<Record<string, unknown>>;
+
+    res.json({ events: rows, count: rows.length });
+  })
+);
+
+// ── GET /api/admin/audit ──────────────────────────────────────────────────────
+
+router.get(
+  "/audit",
+  handler(async (req, res) => {
+    if (!requireStepQueueDatabase(res)) return;
+    const ds = await getApplicationDataSource();
+
+    const since = typeof req.query["since"] === "string" ? req.query["since"] : null;
+    const action = typeof req.query["action"] === "string" ? req.query["action"] : null;
+    const impersonatorId = typeof req.query["impersonatorId"] === "string" ? req.query["impersonatorId"] : null;
+    const targetUserId = typeof req.query["targetUserId"] === "string" ? req.query["targetUserId"] : null;
+    const limit = Math.min(Number(req.query["limit"] ?? 50), 500);
+
+    const params: unknown[] = [];
+    const wheres: string[] = [];
+    if (since) { params.push(since); wheres.push(`occurred_at >= $${params.length}`); }
+    if (action) { params.push(action); wheres.push(`action_type = $${params.length}`); }
+    if (impersonatorId) { params.push(impersonatorId); wheres.push(`actor_admin_id = $${params.length}`); }
+    if (targetUserId) { params.push(targetUserId); wheres.push(`target_user_id = $${params.length}`); }
+    params.push(limit);
+
+    const where = wheres.length > 0 ? `WHERE ${wheres.join(" AND ")}` : "";
+    const rows = await ds.query(
+      `SELECT id, actor_admin_id, action_type, target_user_id, args_json,
+              result_status, request_id, ip_address, occurred_at
+       FROM admin_audit_log
+       ${where}
+       ORDER BY occurred_at DESC
+       LIMIT $${params.length}`,
+      params
+    ) as Array<Record<string, unknown>>;
+
+    res.json({
+      events: rows.map((r) => ({
+        id: r["id"],
+        actorAdminId: r["actor_admin_id"],
+        actionType: r["action_type"],
+        targetUserId: r["target_user_id"] ?? null,
+        argsJson: r["args_json"] ?? null,
+        resultStatus: r["result_status"],
+        requestId: r["request_id"],
+        // Never return raw IP — return null (already hashed at write time for impersonation)
+        occurredAt: r["occurred_at"],
+      })),
+      count: rows.length,
+    });
   })
 );
 

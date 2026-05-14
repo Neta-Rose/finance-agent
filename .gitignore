@@ -103,3 +103,6 @@ data/observability-export*.json
 state/
 .superpowers/
 logs/
+
+# Kiro related
+.kiro
