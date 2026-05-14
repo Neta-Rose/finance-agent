@@ -154,7 +154,7 @@ router.delete(
     }
 
     try {
-      await revokeSession(parsed.data.id, "admin_request");
+      await revokeSession(parsed.data.id, "admin_request", IMPERSONATOR_ID);
       res.json({ revoked: true, sessionId: parsed.data.id });
     } catch (err) {
       if (err instanceof ImpersonationError && err.code === "session_not_found") {

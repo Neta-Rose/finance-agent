@@ -27,6 +27,7 @@ import {
 } from "../services/workspaceService.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { userIsolationMiddleware } from "../middleware/userIsolation.js";
+import { readOnlyGuard } from "../middleware/impersonation.js";
 import { getNotificationPreferences, setNotificationPreferences } from "../services/notificationService.js";
 import { readState, writeState } from "../services/stateService.js";
 import {
@@ -39,6 +40,10 @@ import {
 import { triggerUserJob } from "../services/jobTriggerService.js";
 
 const router = Router();
+
+// Applied to every authenticated onboarding route (all except POST /init which uses X-Admin-Key).
+// Ordering matters: auth sets userId, isolation builds workspace, readOnlyGuard blocks impersonation writes.
+const authGuard = [authMiddleware, userIsolationMiddleware, readOnlyGuard] as const;
 
 type AsyncHandler = (
   req: AuthenticatedRequest,
@@ -130,8 +135,7 @@ router.post(
 
 router.post(
   "/portfolio",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
 
@@ -181,8 +185,7 @@ router.post(
 
 router.get(
   "/position-guidance",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (_req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const state = await readState(ws.userId);
@@ -208,8 +211,7 @@ router.get(
 
 router.post(
   "/position-guidance/complete",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const parsed = PositionGuidanceCompletionSchema.safeParse(req.body);
@@ -290,8 +292,7 @@ router.post(
 
 router.get(
   "/status",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (_req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const userId = ws.userId;
@@ -366,8 +367,7 @@ router.get(
 // POST /api/onboard/telegram
 router.post(
   "/telegram",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const parsed = TelegramConnectRequestSchema.safeParse(req.body);
@@ -389,8 +389,7 @@ router.post(
 // DELETE /api/onboard/telegram
 router.delete(
   "/telegram",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (_req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     await disconnectUserTelegramChannel(ws.userId);
@@ -404,8 +403,7 @@ router.delete(
 
 router.put(
   "/whatsapp",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const parsed = ConnectWhatsAppRequestSchema.safeParse(req.body);
@@ -425,8 +423,7 @@ router.put(
 
 router.delete(
   "/whatsapp",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (_req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     await disconnectUserWhatsAppChannel(ws.userId);
@@ -441,8 +438,7 @@ router.delete(
 // POST /api/onboard/change-password
 router.post(
   "/change-password",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const { currentPassword, newPassword } = req.body as {
@@ -487,8 +483,7 @@ router.post(
 // PATCH /api/onboard/schedule
 router.patch(
   "/schedule",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const parsed = ScheduleSchema.safeParse(req.body);
@@ -512,8 +507,7 @@ router.patch(
 
 router.patch(
   "/notifications",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const parsed = NotificationPreferencesUpdateSchema.safeParse(req.body);
@@ -529,8 +523,7 @@ router.patch(
 
 router.patch(
   "/display-name",
-  authMiddleware,
-  userIsolationMiddleware,
+  ...authGuard,
   handler(async (req: AuthenticatedRequest, res: Response) => {
     const ws = res.locals["workspace"] as UserWorkspace;
     const { displayName } = req.body as { displayName?: string };

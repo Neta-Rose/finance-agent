@@ -97,7 +97,7 @@ interface CountRow {
 }
 
 interface UserRow {
-  id: string;
+  user_id: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ export async function issueSession(input: {
 
   // Verify target user exists
   const userRows = await db.query<UserRow[]>(
-    `SELECT id FROM users WHERE id = $1 LIMIT 1`,
+    `SELECT user_id FROM users WHERE user_id = $1 LIMIT 1`,
     [input.targetUserId]
   );
   if (!userRows || userRows.length === 0) {
@@ -346,12 +346,28 @@ export async function listActiveSessions(
 export async function revokeSession(
   sessionId: string,
   reason: string,
+  actorAdminId: string,
   deps?: ImpersonationDeps
 ): Promise<void> {
   const d = deps ?? defaultDeps;
 
   const db = await d.dataSourceProvider();
   const now = d.now();
+
+  // Fetch session before revoking so audit row has accurate target/actor.
+  const preCheck = await db.query<SessionRow[]>(
+    `SELECT id, impersonator_id, target_user_id
+     FROM impersonation_sessions
+     WHERE id = $1`,
+    [sessionId]
+  );
+  if (!preCheck || preCheck.length === 0) {
+    throw new ImpersonationError("session_not_found", `Session ${sessionId} not found`);
+  }
+  const sessionRow = preCheck[0]!;
+  if (sessionRow.revoked_at !== null && sessionRow.revoked_at !== undefined) {
+    throw new ImpersonationError("session_not_found", `Session ${sessionId} is already revoked`);
+  }
 
   const result = await db.query<{ rowCount?: number }>(
     `UPDATE impersonation_sessions
@@ -370,23 +386,14 @@ export async function revokeSession(
         : undefined;
 
   if (rowCount === 0 || rowCount === undefined) {
-    // Re-query to distinguish "already revoked" from "not found"
-    const check = await db.query<SessionRow[]>(
-      `SELECT id FROM impersonation_sessions WHERE id = $1`,
-      [sessionId]
-    );
-    if (!check || check.length === 0) {
-      throw new ImpersonationError("session_not_found", `Session ${sessionId} not found`);
-    }
-    // Already revoked — treat as not found for idempotency safety
     throw new ImpersonationError("session_not_found", `Session ${sessionId} is already revoked or not found`);
   }
 
-  // Write audit log
+  // Write audit log with the real actor and target
   await writeAuditLog(db, {
-    actorAdminId: sessionId, // sessionId used as actor reference for revocation
+    actorAdminId,
     actionType: "impersonation.revoked",
-    targetUserId: null,
+    targetUserId: sessionRow.target_user_id,
     argsJson: { sessionId, reason },
     resultStatus: "success",
     requestId: sessionId,
@@ -394,5 +401,10 @@ export async function revokeSession(
     occurredAt: now,
   });
 
-  logger.info("impersonation_session_revoked", { sessionId, reason });
+  logger.info("impersonation_session_revoked", {
+    sessionId,
+    reason,
+    actorAdminId,
+    targetUserId: sessionRow.target_user_id,
+  });
 }
