@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "./store/authStore";
-import { usePreferencesStore } from "./store/preferencesStore";
-import { t } from "./store/i18n";
 import { BottomNav } from "./components/ui/BottomNav";
 import { ToastContainer } from "./components/ui/Toast";
 import { ImpersonationBanner } from "./components/ImpersonationBanner";

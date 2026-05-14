@@ -37,7 +37,6 @@ import {
   type PointsBudget,
   type ModelTier,
   type AdminDefaults,
-  type AdminStatus,
   type UserObservability,
   type LlmRequestEvent,
   type UserControlPatch,
@@ -2579,7 +2578,6 @@ export function Admin() {
   const language = usePreferencesStore((s) => s.language);
   const isLoggedIn = !!sessionStorage.getItem("admin_key");
   const [loggedIn, setLoggedIn] = useState(isLoggedIn);
-  const [status, setStatus] = useState<AdminStatus | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -2590,11 +2588,7 @@ export function Admin() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, { users: u }] = await Promise.all([
-        adminGetStatus(),
-        adminFetchUsers(),
-      ]);
-      setStatus(s);
+      const { users: u } = await adminFetchUsers();
       setUsers(u);
     } catch {
       // handled by login
