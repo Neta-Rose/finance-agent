@@ -17,7 +17,7 @@ import {
 import { login } from "../api/auth";
 import { generateId } from "../utils/id";
 import { apiClient } from "../api/client";
-import { t, type TranslationKey } from "../store/i18n";
+import { t } from "../store/i18n";
 
 const EXCHANGES = [
   { value: "NYSE", label: "NYSE", currency: "USD" },
@@ -30,28 +30,6 @@ const EXCHANGES = [
 ] as const;
 
 type Currency = "USD" | "ILA" | "GBP" | "EUR";
-
-const DAY_KEYS: Array<{ value: string; key: TranslationKey }> = [
-  { value: "sunday", key: "daySunday" },
-  { value: "monday", key: "dayMonday" },
-  { value: "tuesday", key: "dayTuesday" },
-  { value: "wednesday", key: "dayWednesday" },
-  { value: "thursday", key: "dayThursday" },
-  { value: "friday", key: "dayFriday" },
-  { value: "saturday", key: "daySaturday" },
-];
-
-const TIMEZONES = [
-  { value: "Asia/Jerusalem", label: "Asia/Jerusalem (UTC+3)" },
-  { value: "America/New_York", label: "America/New_York (UTC-5)" },
-  { value: "America/Los_Angeles", label: "America/Los_Angeles (UTC-8)" },
-  { value: "America/Chicago", label: "America/Chicago (UTC-6)" },
-  { value: "Europe/London", label: "Europe/London (UTC+0)" },
-  { value: "Europe/Paris", label: "Europe/Paris (UTC+1)" },
-  { value: "Asia/Tokyo", label: "Asia/Tokyo (UTC+9)" },
-  { value: "Asia/Singapore", label: "Asia/Singapore (UTC+8)" },
-  { value: "Australia/Sydney", label: "Australia/Sydney (UTC+11)" },
-];
 
 const GUIDANCE_LIMITS = {
   thesis: 400,
@@ -74,27 +52,22 @@ interface GuidanceDraft {
   notes: string;
 }
 
+// Step numbering for new (unauthenticated) users: 1=account, 2=portfolio, 3=confirm, 4=guidance
+// Step numbering for authenticated users: 1=password-change, 2=portfolio, 3=confirm, 4=guidance
 interface OnboardingState {
-  step: 1 | 2 | 3 | 4 | 5 | 6;
+  step: 1 | 2 | 3 | 4;
   adminKey: string;
   userId: string;
   password: string;
   confirmPassword: string;
   currentPassword: string;
   displayName: string;
-  telegramChatId: string;
-  dailyBriefTime: string;
-  weeklyResearchDay: string;
-  weeklyResearchTime: string;
-  timezone: string;
   accounts: Account[];
   guidanceTickers: string[];
   positionGuidance: Record<string, GuidanceDraft>;
-  botToken: string;
-  telegramSkip: boolean;
 }
 
-const initialState = {
+const initialState: OnboardingState = {
   step: 1,
   adminKey: "",
   userId: "",
@@ -102,23 +75,16 @@ const initialState = {
   confirmPassword: "",
   currentPassword: "",
   displayName: "",
-  telegramChatId: "",
-  dailyBriefTime: "08:00",
-  weeklyResearchDay: "sunday",
-  weeklyResearchTime: "19:00",
-  timezone: "Asia/Jerusalem",
-  accounts: [] as Account[],
+  accounts: [],
   guidanceTickers: [],
   positionGuidance: {},
-  botToken: "",
-  telegramSkip: false,
 };
 
 const inputCls = "w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-4 py-3 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)] appearance-none";
 const labelCls = "text-xs font-medium text-[var(--color-fg-muted)] mb-1.5 block";
 const errorCls = "text-[10px] text-[var(--color-accent-red)] mt-1";
 
-function ProgressDots({ step, total = 6 }: { step: number; total?: number }) {
+function ProgressDots({ step, total }: { step: number; total: number }) {
   return (
     <div className="flex items-center justify-center gap-2 py-4">
       {Array.from({ length: total }, (_, i) => i + 1).map((s) => (
@@ -254,6 +220,7 @@ function AuthStep1({ state, update, onNext }: { state: OnboardingState; update: 
       });
       onNext();
     } catch (err: unknown) {
+      console.error("[Onboarding] change-password failed:", err);
       const axiosErr = err as { response?: { data?: { error?: string } } };
       if (axiosErr.response?.data?.error === "incorrect_password") {
         setApiError(t("onboardPasswordIncorrect", language));
@@ -295,113 +262,6 @@ function AuthStep1({ state, update, onNext }: { state: OnboardingState; update: 
   );
 }
 
-// ---- Step 2: Schedule (shared) ----
-function Step2({ state, update, onBack, onNext }: { state: OnboardingState; update: <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => void; onBack?: () => void; onNext: () => void }) {
-  const language = usePreferencesStore((s) => s.language);
-  return (
-    <>
-      <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
-        <StepTitle title={t("onboardStep2Title", language)} subtitle={t("onboardStep2Sub", language)} />
-        <div>
-          <label className={labelCls}>{t("onboardDailyBriefTime", language)}</label>
-          <input type="time" value={state.dailyBriefTime} onChange={(e) => update("dailyBriefTime", e.target.value)} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>{t("onboardWeeklyDay", language)}</label>
-          <select value={state.weeklyResearchDay} onChange={(e) => update("weeklyResearchDay", e.target.value)} className={inputCls}>
-            {DAY_KEYS.map((d) => <option key={d.value} value={d.value}>{t(d.key, language)}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>{t("onboardWeeklyTime", language)}</label>
-          <input type="time" value={state.weeklyResearchTime} onChange={(e) => update("weeklyResearchTime", e.target.value)} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>{t("timezone", language)}</label>
-          <select value={state.timezone} onChange={(e) => update("timezone", e.target.value)} className={inputCls}>
-            {TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-          </select>
-        </div>
-        <p className="text-[10px] text-[var(--color-fg-subtle)]">{t("onboardScheduleHint", language)}</p>
-      </div>
-      <BottomBar onBack={onBack} onNext={onNext} />
-    </>
-  );
-}
-
-// ---- Step 3: Telegram (shared) ----
-function Step3({ state, update, onBack, onNext }: { state: OnboardingState; update: <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => void; onBack?: () => void; onNext: () => void }) {
-  const language = usePreferencesStore((s) => s.language);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const showToast = useToastStore((s) => s.show);
-
-  const handleConnect = async () => {
-    if (!state.botToken.trim() || !state.telegramChatId.trim()) {
-      setError(t("onboardBothFields", language));
-      return;
-    }
-    if (!/^\d+:[A-Za-z0-9_-]{35,}$/.test(state.botToken)) {
-      setError(t("onboardInvalidBotToken", language));
-      return;
-    }
-    if (!/^\d+$/.test(state.telegramChatId)) {
-      setError(t("onboardInvalidChatId", language));
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      await apiClient.post("/onboard/telegram", {
-        botToken: state.botToken,
-        telegramChatId: state.telegramChatId,
-      });
-      showToast(t("onboardTelegramConnected", language), "success");
-      onNext();
-    } catch {
-      setError(t("onboardTelegramFailed", language));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSkip = () => {
-    update("telegramSkip", true);
-    onNext();
-  };
-
-  return (
-    <>
-      <div className="px-4 space-y-4 flex-1 overflow-y-auto pb-36">
-        <StepTitle title={t("onboardStep3Title", language)} subtitle={t("onboardStep3Sub", language)} />
-        <div className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg p-3 text-xs text-[var(--color-fg-muted)] space-y-1">
-          <p>{t("onboardTelegramStep1", language)}</p>
-          <p>{t("onboardTelegramStep2", language)}</p>
-          <p>{t("onboardTelegramStep3", language)}</p>
-        </div>
-        <div>
-          <label className={labelCls}>{t("botToken", language)}</label>
-          <input type="text" value={state.botToken} onChange={(e) => update("botToken", e.target.value)} placeholder="123456789:ABC-xyz..." className={inputCls} />
-          <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">{t("onboardBotTokenHint", language)}</p>
-        </div>
-        <div>
-          <label className={labelCls}>{t("chatId", language)}</label>
-          <input type="text" value={state.telegramChatId} onChange={(e) => update("telegramChatId", e.target.value.replace(/\D/g, ""))} placeholder="123456789" className={inputCls} />
-          <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">{t("onboardChatIdHint", language)}</p>
-        </div>
-        <FieldError message={error} />
-      </div>
-      <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border)] p-4 flex gap-3 safe-bottom z-30">
-        {onBack && <button onClick={onBack} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-bold text-[var(--color-fg-muted)]">{t("back", language)}</button>}
-        <button onClick={handleSkip} className="flex-1 py-3 rounded-lg border border-[var(--color-border)] text-sm font-bold text-[var(--color-fg-muted)]">{t("onboardSkip", language)}</button>
-        <button onClick={handleConnect} disabled={loading} className="flex-1 py-3 rounded-lg bg-[var(--color-accent-blue)] text-white text-sm font-bold disabled:opacity-50">
-          {loading ? t("onboardConnecting", language) : t("onboardConnect", language)}
-        </button>
-      </div>
-    </>
-  );
-}
-
 // ---- Position Card ----
 function PositionCard({
   pos, idx, accountName, accounts, updateAccount, errors = {},
@@ -413,7 +273,6 @@ function PositionCard({
 }) {
   const language = usePreferencesStore((s) => s.language);
   const [tickerSelection, setTickerSelection] = useState<TickerSelection | null>(
-    // Restore pill if ticker already set (e.g. user navigated back)
     pos.ticker ? {
       symbol: pos.ticker,
       shortName: pos.ticker,
@@ -559,8 +418,8 @@ function AccountSection({
   );
 }
 
-// ---- Step 4: Portfolio Entry ----
-function Step4({
+// ---- Step 2: Portfolio Entry ----
+function StepPortfolio({
   state, update, onBack, onNext,
 }: {
   state: OnboardingState; update: <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => void;
@@ -636,11 +495,10 @@ function Step4({
   );
 }
 
-// ---- Step 5: Confirm & Launch ----
-function Step5({ state }: { state: OnboardingState }) {
+// ---- Step 3: Confirm & Launch ----
+function StepConfirm({ state }: { state: OnboardingState }) {
   const language = usePreferencesStore((s) => s.language);
   const totalPositions = state.accounts.reduce((sum, a) => sum + a.positions.length, 0);
-  const weeklyDay = DAY_KEYS.find((d) => d.value === state.weeklyResearchDay);
   const posLabel = totalPositions === 1 ? t("onboardPosition", language) : t("onboardPositions", language);
   const accLabel = state.accounts.length === 1 ? t("onboardAccountSingular", language) : t("accounts", language).toLowerCase();
 
@@ -654,19 +512,6 @@ function Step5({ state }: { state: OnboardingState }) {
               <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewAccount", language)}</p>
               <p className="text-sm font-bold text-[var(--color-fg-default)]">{state.displayName || state.userId}</p>
               {state.userId && <p className="text-xs text-[var(--color-fg-muted)]">@{state.userId}</p>}
-            </div>
-          )}
-          <div className="border-t border-[var(--color-border)] pt-3">
-            <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewSchedule", language)}</p>
-            <p className="text-sm text-[var(--color-fg-default)]">
-              {t("onboardDailyAt", language)} {state.dailyBriefTime} · {weeklyDay ? t(weeklyDay.key, language) : state.weeklyResearchDay} {t("onboardAt", language)} {state.weeklyResearchTime}
-            </p>
-            <p className="text-xs text-[var(--color-fg-muted)]">{state.timezone}</p>
-          </div>
-          {state.telegramChatId && (
-            <div className="border-t border-[var(--color-border)] pt-3">
-              <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase font-medium">{t("onboardReviewTelegram", language)}</p>
-              <p className="text-sm text-[var(--color-fg-default)]">{t("onboardTelegramYes", language)}</p>
             </div>
           )}
           <div className="border-t border-[var(--color-border)] pt-3">
@@ -792,7 +637,7 @@ function GuidanceCard({
   );
 }
 
-function Step6({
+function StepGuidance({
   tickers,
   guidance,
   updateGuidance,
@@ -800,6 +645,7 @@ function Step6({
   onSkip,
   onLaunch,
   submitting,
+  launchError,
 }: {
   tickers: string[];
   guidance: Record<string, GuidanceDraft>;
@@ -808,6 +654,7 @@ function Step6({
   onSkip: () => void;
   onLaunch: () => void;
   submitting: boolean;
+  launchError: string;
 }) {
   const language = usePreferencesStore((s) => s.language);
   return (
@@ -820,6 +667,12 @@ function Step6({
         <div className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg p-3 text-xs text-[var(--color-fg-muted)]">
           {t("onboardStep6Hint", language)}
         </div>
+        {launchError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-xs text-[var(--color-accent-red)] font-medium">Launch failed</p>
+            <p className="text-[11px] text-[var(--color-accent-red)] mt-1">{launchError}</p>
+          </div>
+        )}
         {tickers.map((ticker) => (
           <GuidanceCard
             key={ticker}
@@ -861,13 +714,15 @@ export function Onboarding() {
 
   const [state, setState] = useState<OnboardingState>({
     ...initialState,
-    step: isAuthenticated ? 1 : 1,
     accounts: [],
   });
 
   const [submittingPortfolio, setSubmittingPortfolio] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [launchingGuidance, setLaunchingGuidance] = useState(false);
+  const [launchError, setLaunchError] = useState("");
 
+  // If authenticated and guidance is pending, jump straight to guidance step
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -880,20 +735,18 @@ export function Onboarding() {
         if (cancelled) return;
         setState((current) => ({
           ...current,
-          step: 6,
+          step: 4,
           guidanceTickers: guidanceData.tickers,
           positionGuidance: Object.fromEntries(
             Object.entries(guidanceData.guidance).map(([ticker, guidance]) => [ticker, { ...guidance }])
           ),
         }));
-      } catch {
-        // Keep the normal onboarding flow if loading pending guidance fails.
+      } catch (err) {
+        console.error("[Onboarding] Failed to load pending guidance:", err);
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isAuthenticated]);
 
   const update = <K extends keyof OnboardingState>(k: K, v: OnboardingState[K]) => {
@@ -913,20 +766,39 @@ export function Onboarding() {
 
   const validateGuidancePayload = (): string | null => {
     for (const [ticker, guidance] of Object.entries(state.positionGuidance)) {
-      if (guidance.thesis.length > GUIDANCE_LIMITS.thesis) {
-        return `${ticker}: thesis is too long`;
-      }
-      if (guidance.addOn.length > GUIDANCE_LIMITS.addOn) {
-        return `${ticker}: add conditions are too long`;
-      }
-      if (guidance.reduceOn.length > GUIDANCE_LIMITS.reduceOn) {
-        return `${ticker}: reduce conditions are too long`;
-      }
-      if (guidance.notes.length > GUIDANCE_LIMITS.notes) {
-        return `${ticker}: notes are too long`;
-      }
+      if (guidance.thesis.length > GUIDANCE_LIMITS.thesis) return `${ticker}: thesis is too long`;
+      if (guidance.addOn.length > GUIDANCE_LIMITS.addOn) return `${ticker}: add conditions are too long`;
+      if (guidance.reduceOn.length > GUIDANCE_LIMITS.reduceOn) return `${ticker}: reduce conditions are too long`;
+      if (guidance.notes.length > GUIDANCE_LIMITS.notes) return `${ticker}: notes are too long`;
     }
     return null;
+  };
+
+  const extractErrorMessage = (err: unknown): string => {
+    const axiosErr = err as {
+      response?: {
+        data?: {
+          error?: string;
+          reason?: string;
+          details?: Array<{ path?: Array<string | number>; message?: string }>;
+        };
+        status?: number;
+      };
+      message?: string;
+    };
+    const data = axiosErr.response?.data;
+    if (data?.details?.[0]) {
+      const detail = data.details[0];
+      const path = Array.isArray(detail.path) && detail.path.length > 0 ? `${detail.path.join(".")}: ` : "";
+      return `${path}${detail.message ?? "Validation error"}`;
+    }
+    if (data?.reason) return data.reason;
+    if (data?.error) return data.error;
+    if (axiosErr.response?.status === 503) return "Service unavailable — the analysis system is not configured yet. Contact your admin.";
+    if (axiosErr.response?.status === 429) return "Rate limit exceeded — try again later.";
+    if (axiosErr.response?.status === 409) return data?.error ?? "Conflict — this action cannot be performed right now.";
+    if (axiosErr.message) return axiosErr.message;
+    return "An unexpected error occurred. Please try again.";
   };
 
   const completeGuidanceAndLaunch = async (skip: boolean) => {
@@ -934,11 +806,12 @@ export function Onboarding() {
 
     const guidanceError = skip ? null : validateGuidancePayload();
     if (guidanceError) {
-      showToast(guidanceError, "error");
+      setLaunchError(guidanceError);
       return;
     }
 
     setLaunchingGuidance(true);
+    setLaunchError("");
     try {
       await completePositionGuidance({
         skip,
@@ -947,24 +820,10 @@ export function Onboarding() {
       await queryClient.invalidateQueries({ queryKey: ["onboard-status"] });
       await queryClient.refetchQueries({ queryKey: ["onboard-status"], type: "active" });
       navigate("/portfolio", { replace: true });
-    } catch (error) {
-      const maybeAxiosError = error as {
-        response?: {
-          data?: {
-            error?: string;
-            details?: Array<{ path?: Array<string | number>; message?: string }>;
-          };
-        };
-      };
-      const detail = maybeAxiosError.response?.data?.details?.[0];
-      const detailMessage =
-        detail?.message && Array.isArray(detail.path) && detail.path.length > 0
-          ? `${detail.path.join(".")}: ${detail.message}`
-          : detail?.message;
-      showToast(
-        detailMessage || maybeAxiosError.response?.data?.error || t("onboardSetupFailed", language),
-        "error"
-      );
+    } catch (err) {
+      console.error("[Onboarding] position-guidance/complete failed:", err);
+      const msg = extractErrorMessage(err);
+      setLaunchError(msg);
       setLaunchingGuidance(false);
     }
   };
@@ -1004,40 +863,51 @@ export function Onboarding() {
     return s;
   };
 
+  const defaultSchedule = {
+    dailyBriefTime: "08:00",
+    weeklyResearchDay: "sunday",
+    weeklyResearchTime: "19:00",
+    timezone: "Asia/Jerusalem",
+  };
+
+  // handleSubmit: called from the Confirm step to finalize portfolio and launch
   const handleSubmit = async () => {
+    if (submittingPortfolio) return;
     setSubmittingPortfolio(true);
+    setSubmitError("");
+
     try {
       const accountsPayload: Record<string, Array<{ ticker: string; exchange: string; shares: number; unitAvgBuyPrice: number; unitCurrency: string }>> = {};
       for (const acc of state.accounts) {
-        accountsPayload[acc.name] = acc.positions.map((p) => ({
-          ticker: p.ticker,
+        const positions = acc.positions.filter((p) => p.ticker.trim().length > 0);
+        if (positions.length === 0) continue;
+        accountsPayload[acc.name] = positions.map((p) => ({
+          ticker: p.ticker.trim().toUpperCase(),
           exchange: p.exchange,
-          shares: Number(p.shares),
+          shares: Math.max(1, Math.round(Number(p.shares))),
           unitAvgBuyPrice: Number(p.avgPrice),
           unitCurrency: p.currency,
         }));
       }
 
-      const schedule = {
-        dailyBriefTime: state.dailyBriefTime,
-        weeklyResearchDay: state.weeklyResearchDay,
-        weeklyResearchTime: state.weeklyResearchTime,
-        timezone: state.timezone,
-      };
+      if (Object.keys(accountsPayload).length === 0) {
+        throw new Error("Please add at least one position before continuing.");
+      }
 
       if (isAuthenticated) {
         await submitPortfolio({
           meta: { currency: "ILS", transactionFeeILS: 0, note: "" },
           accounts: accountsPayload as Record<string, import("../api/onboarding").PortfolioPosition[]>,
-          schedule,
+          schedule: defaultSchedule,
         });
       } else {
+        // New user: create account, login, then submit portfolio
         const initPayload = {
           userId: state.userId,
           password: state.password,
           displayName: state.displayName,
-          telegramChatId: state.telegramChatId,
-          schedule,
+          telegramChatId: "",
+          schedule: defaultSchedule,
         };
         await submitOnboardInit(initPayload, state.adminKey);
         const loginData = await login(state.userId, state.password);
@@ -1045,14 +915,14 @@ export function Onboarding() {
         await submitPortfolio({
           meta: { currency: "ILS", transactionFeeILS: 0, note: "" },
           accounts: accountsPayload as Record<string, import("../api/onboarding").PortfolioPosition[]>,
-          schedule,
+          schedule: defaultSchedule,
         });
       }
 
-      setSubmittingPortfolio(false);
+      // Advance to guidance step
       setState((current) => ({
         ...current,
-        step: 6,
+        step: 4,
         guidanceTickers: Array.from(
           new Set(
             current.accounts.flatMap((account) =>
@@ -1061,50 +931,59 @@ export function Onboarding() {
           )
         ),
       }));
-    } catch {
-      showToast(t("onboardSetupFailed", language), "error");
+    } catch (err) {
+      console.error("[Onboarding] handleSubmit failed:", err);
+      const msg = extractErrorMessage(err);
+      setSubmitError(msg);
+      showToast(msg, "error");
+    } finally {
       setSubmittingPortfolio(false);
     }
   };
 
+  // Total steps: 3 for new users (account → portfolio → confirm), then guidance step
+  // For authenticated users: 2 steps (password → portfolio → confirm), then guidance
+  // We show 3 dots for all (password-change, portfolio, confirm) and add a 4th if guidance
+  const isNewUser = !isAuthenticated;
+  const totalSteps = state.step === 4 ? 4 : (isNewUser ? 3 : 3);
+
   return (
     <div className="bg-[var(--color-bg-base)] min-h-screen flex flex-col">
       <div className="safe-top" />
-      <ProgressDots step={state.step} />
+      <ProgressDots step={state.step} total={totalSteps} />
       <div className="flex-1 flex flex-col">
-        {!isAuthenticated && state.step === 1 && (
+        {/* Step 1: Account setup (new user) or change password (authenticated) */}
+        {state.step === 1 && !isAuthenticated && (
           <Step1 state={state} update={update} onNext={() => update("step", 2)} />
         )}
-        {isAuthenticated && state.step === 1 && (
+        {state.step === 1 && isAuthenticated && (
           <AuthStep1 state={state} update={update} onNext={() => update("step", 2)} />
         )}
+
+        {/* Step 2: Portfolio entry */}
         {state.step === 2 && (
-          <Step2
-            state={state} update={update}
-            onBack={isAuthenticated ? () => update("step", 1) : () => update("step", 1)}
+          <StepPortfolio
+            state={ensureOneAccount(state)}
+            update={update}
+            onBack={() => update("step", 1)}
             onNext={() => update("step", 3)}
           />
         )}
+
+        {/* Step 3: Confirm & Launch */}
         {state.step === 3 && (
-          <Step3
-            state={state} update={update}
-            onBack={() => update("step", 2)}
-            onNext={() => update("step", 4)}
-          />
-        )}
-        {state.step === 4 && (
-          <Step4
-            state={ensureOneAccount(state)}
-            update={update}
-            onBack={() => update("step", 3)}
-            onNext={() => update("step", 5)}
-          />
-        )}
-        {state.step === 5 && (
           <>
-            <Step5 state={state} />
+            <StepConfirm state={state} />
+            {submitError && (
+              <div className="px-4 pb-2">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  <p className="text-xs text-[var(--color-accent-red)] font-medium">Setup failed</p>
+                  <p className="text-[11px] text-[var(--color-accent-red)] mt-1">{submitError}</p>
+                </div>
+              </div>
+            )}
             <BottomBar
-              onBack={() => update("step", 4)}
+              onBack={() => update("step", 2)}
               onNext={handleSubmit}
               nextLabel={submittingPortfolio ? t("onboardLaunching", language) : t("onboardContinue", language)}
               nextDisabled={submittingPortfolio}
@@ -1112,15 +991,18 @@ export function Onboarding() {
             />
           </>
         )}
-        {state.step === 6 && (
-          <Step6
+
+        {/* Step 4: Position Guidance */}
+        {state.step === 4 && (
+          <StepGuidance
             tickers={tickersForGuidance}
             guidance={state.positionGuidance}
             updateGuidance={updateGuidance}
-            onBack={() => update("step", 5)}
+            onBack={() => update("step", 3)}
             onSkip={() => void completeGuidanceAndLaunch(true)}
             onLaunch={() => void completeGuidanceAndLaunch(false)}
             submitting={launchingGuidance}
+            launchError={launchError}
           />
         )}
       </div>

@@ -104,7 +104,7 @@ router.post(
     const profile: Profile = {
       userId,
       displayName,
-      telegramChatId,
+      telegramChatId: telegramChatId || "",
       schedule,
       createdAt: new Date().toISOString(),
     };

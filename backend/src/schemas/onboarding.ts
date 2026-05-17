@@ -29,7 +29,7 @@ export const OnboardInitSchema = z.object({
     .regex(/^[a-zA-Z0-9-]{4,32}$/, "userId must be 4-32 alphanumeric chars or hyphens"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   displayName: z.string().min(1).max(50),
-  telegramChatId: z.string().regex(/^\d+$/, "Must be numeric"),
+  telegramChatId: z.string().regex(/^\d+$/, "Must be numeric").or(z.literal("")).optional(),
   schedule: ScheduleSchema,
 });
 

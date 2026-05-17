@@ -217,14 +217,14 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     }
   };
 
-  const inputCls = "w-full bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-fg-default)] outline-none focus:border-[var(--color-accent-blue)]";
+  const inputCls = "w-full bg-[var(--bg-surface-hover)] border border-[var(--bg-border-mid)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-green)] placeholder:text-[var(--text-tertiary)]";
   const labelCls = "text-xs text-[var(--color-fg-muted)] block mb-1";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full bg-[var(--color-bg-subtle)] md:rounded-xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between">
+      <div className="relative w-full md:max-w-lg bg-[var(--bg-base)] border border-[var(--bg-border-mid)] rounded-t-2xl md:rounded-xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 bg-[var(--bg-base)] border-b border-[var(--bg-border-mid)] px-4 py-3 flex items-center justify-between">
           <h2 className="text-sm font-bold">{t("adminAddUser", language)}</h2>
           <button onClick={onClose} className="text-[var(--color-fg-muted)] text-lg">×</button>
         </div>
@@ -266,25 +266,25 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
               <div>
                 <label className={labelCls}>{t("adminDailyTime", language)}</label>
                 <input type="time" value={form.dailyBriefTime} onChange={set("dailyBriefTime")}
-                  className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-fg-default)] outline-none w-full" />
+                  className="bg-[var(--bg-surface-hover)] border border-[var(--bg-border-mid)] rounded-lg px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none w-full" />
               </div>
               <div>
                 <label className={labelCls}>{t("adminWeeklyDay", language)}</label>
                 <select value={form.weeklyResearchDay} onChange={set("weeklyResearchDay")}
-                  className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-fg-default)] outline-none w-full">
+                  className="bg-[var(--bg-surface-hover)] border border-[var(--bg-border-mid)] rounded-lg px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none w-full">
                   {["sunday","monday","tuesday","wednesday","thursday","friday","saturday"].map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
               <div>
                 <label className={labelCls}>{t("adminWeeklyTime", language)}</label>
                 <input type="time" value={form.weeklyResearchTime} onChange={set("weeklyResearchTime")}
-                  className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-[var(--color-fg-default)] outline-none w-full" />
+                  className="bg-[var(--bg-surface-hover)] border border-[var(--bg-border-mid)] rounded-lg px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none w-full" />
               </div>
             </div>
             <div className="mt-2">
               <label className={labelCls}>{t("timezone", language)}</label>
               <select value={form.timezone} onChange={set("timezone")}
-                className="bg-[var(--color-bg-muted)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--color-fg-default)] outline-none w-full">
+                className="bg-[var(--bg-surface-hover)] border border-[var(--bg-border-mid)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none w-full">
                 {["Asia/Jerusalem","America/New_York","America/Los_Angeles","America/Chicago","Europe/London","Europe/Paris","Asia/Tokyo","Asia/Singapore","Australia/Sydney"].map(tz => <option key={tz} value={tz}>{tz}</option>)}
               </select>
             </div>
@@ -1749,6 +1749,8 @@ function timeAgo(iso: string): string {
 }
 
 function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: string) => void }) {
+  const queryClient = useQueryClient();
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const { data = [], error, isLoading, refetch } = useQuery({
     queryKey: ["admin-user-step-queue-jobs", userId],
     queryFn: () => adminListStepQueueJobs(5, userId),
@@ -1758,6 +1760,21 @@ function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: s
   useEffect(() => {
     if (error) onError(error instanceof Error ? error.message : "Failed to load user step-queue jobs");
   }, [error, onError]);
+
+  const doAction = async (jobId: string, action: "pause" | "resume" | "kill") => {
+    setActionLoading((prev) => ({ ...prev, [jobId]: true }));
+    try {
+      if (action === "pause") await adminPauseStepQueueJob(jobId);
+      else if (action === "resume") await adminResumeStepQueueJob(jobId);
+      else await adminKillJob(userId, jobId);
+      await refetch();
+      void queryClient.invalidateQueries({ queryKey: ["admin-user-step-queue-jobs", userId] });
+    } catch (e) {
+      onError(e instanceof Error ? e.message : `Failed to ${action} job`);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [jobId]: false }));
+    }
+  };
 
   return (
     <div className="border-t pt-2" style={{ borderColor: "var(--color-border)" }}>
@@ -1779,6 +1796,10 @@ function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: s
             const pct = job.step_count > 0
               ? Math.round(((job.completed_steps + job.failed_steps) / job.step_count) * 100)
               : 0;
+            const loading = actionLoading[job.id] ?? false;
+            const canPause = job.status === "running" || job.status === "pending";
+            const canResume = job.status === "paused";
+            const canKill = job.status === "running" || job.status === "pending" || job.status === "paused";
             return (
               <div key={job.id} className="rounded-lg border p-2" style={{ borderColor: "var(--color-border)", background: "var(--color-bg-base)" }}>
                 <div className="flex items-center justify-between gap-2">
@@ -1803,6 +1824,31 @@ function UserStepQueueJobs({ userId, onError }: { userId: string; onError: (m: s
                   {job.completed_steps}/{job.step_count} completed · {job.failed_steps} failed · {job.ticker_count} tickers
                   {job.failure_reason ? ` · ${job.failure_reason.slice(0, 120)}` : ""}
                 </p>
+                {(canPause || canResume || canKill) && (
+                  <div className="flex gap-1 mt-1.5">
+                    {canResume && (
+                      <button disabled={loading} onClick={() => void doAction(job.id, "resume")}
+                        className="px-2 py-0.5 rounded text-[10px] font-medium disabled:opacity-40"
+                        style={{ background: "rgba(66,201,122,0.1)", border: "1px solid rgba(66,201,122,0.3)", color: "var(--color-accent-green)" }}>
+                        {loading ? "…" : "▶ Resume"}
+                      </button>
+                    )}
+                    {canPause && (
+                      <button disabled={loading} onClick={() => void doAction(job.id, "pause")}
+                        className="px-2 py-0.5 rounded text-[10px] font-medium disabled:opacity-40"
+                        style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b" }}>
+                        {loading ? "…" : "⏸ Pause"}
+                      </button>
+                    )}
+                    {canKill && (
+                      <button disabled={loading} onClick={() => void doAction(job.id, "kill")}
+                        className="px-2 py-0.5 rounded text-[10px] font-medium disabled:opacity-40"
+                        style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "var(--color-accent-red)" }}>
+                        {loading ? "…" : "✕ Kill"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1831,6 +1877,7 @@ function UserCard({
   onError: (msg: string) => void;
 }) {
   const language = usePreferencesStore((s) => s.language);
+  const [expanded,       setExpanded]      = useState(false);
   const [showPointsBudget, setShowPointsBudget] = useState(false);
   const [showDelete,    setShowDelete]    = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -1896,37 +1943,46 @@ function UserCard({
           : "var(--color-border)",
       }}>
 
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-sm" style={{ color: "var(--color-fg-default)" }}>{user.displayName}</span>
-            <span className="text-[10px] font-mono" style={{ color: "var(--color-fg-subtle)" }}>@{user.userId}</span>
+      {/* Header row — always visible, click to expand/collapse */}
+      <button
+        className="w-full text-left"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm" style={{ color: "var(--color-fg-default)" }}>{user.displayName}</span>
+              <span className="text-[10px] font-mono" style={{ color: "var(--color-fg-subtle)" }}>@{user.userId}</span>
+            </div>
+            <p className={`text-[10px] font-medium uppercase mt-0.5 ${stateInfo.color}`}>
+              {stateInfo.label} · {portfolioLabel}
+            </p>
+            {eligibilityIssueLabel && (
+              <p className="mt-1 text-[10px] font-medium" style={{ color: "var(--color-accent-yellow)" }}>
+                {eligibilityIssueLabel}
+              </p>
+            )}
+            {integrityIssueLabel && (
+              <p
+                className="mt-1 text-[10px]"
+                style={{
+                  color: user.integrityErrors.length > 0
+                    ? "var(--color-accent-red)"
+                    : "var(--color-fg-muted)",
+                }}
+              >
+                {integrityIssueLabel}
+              </p>
+            )}
           </div>
-          <p className={`text-[10px] font-medium uppercase mt-0.5 ${stateInfo.color}`}>
-            {stateInfo.label} · {portfolioLabel}
-          </p>
-          {eligibilityIssueLabel && (
-            <p className="mt-1 text-[10px] font-medium" style={{ color: "var(--color-accent-yellow)" }}>
-              {eligibilityIssueLabel}
-            </p>
-          )}
-          {integrityIssueLabel && (
-            <p
-              className="mt-1 text-[10px]"
-              style={{
-                color: user.integrityErrors.length > 0
-                  ? "var(--color-accent-red)"
-                  : "var(--color-fg-muted)",
-              }}
-            >
-              {integrityIssueLabel}
-            </p>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            <UserHealthBadge state={user.state} portfolioLoaded={user.portfolioLoaded} restriction={user.restriction} />
+            <span className="text-[11px]" style={{ color: "var(--color-fg-subtle)" }}>{expanded ? "▲" : "▼"}</span>
+          </div>
         </div>
-        <UserHealthBadge state={user.state} portfolioLoaded={user.portfolioLoaded} restriction={user.restriction} />
-      </div>
+      </button>
 
+      {expanded && <>
       {/* Meta row */}
       <div className="text-[11px] space-y-0.5" style={{ color: "var(--color-fg-muted)" }}>
         {user.hasTelegram
@@ -2074,6 +2130,7 @@ function UserCard({
           </div>
         </div>
       )}
+      </>}
     </div>
   );
 }

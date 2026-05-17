@@ -28,6 +28,17 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (res) => res,
   (err) => {
+    // Log all API errors with stack trace for debugging
+    const status = err.response?.status;
+    const url = err.config?.url ?? "(unknown)";
+    const method = (err.config?.method ?? "GET").toUpperCase();
+    const body = err.response?.data;
+    console.error(
+      `[API] ${method} ${url} → ${status ?? "network error"}`,
+      body ?? err.message,
+      err
+    );
+
     // 403 readonly_impersonation — let callers handle it (surface as toast)
     if (
       err.response?.status === 403 &&

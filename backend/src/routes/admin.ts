@@ -559,6 +559,13 @@ router.post(
     const hash = await hashPassword(password);
     await fs.writeFile(path.join(ws.root, "auth.json"), JSON.stringify({ passwordHash: hash }), "utf-8");
 
+    // profile.json must exist before setUserPointsBudget (which calls ensureUserProfileExists)
+    await fs.writeFile(
+      path.join(ws.root, "profile.json"),
+      JSON.stringify({ userId, displayName, schedule, createdAt: new Date().toISOString() }, null, 2),
+      "utf-8"
+    );
+
     if (isApplicationDatabaseConfigured()) {
       const ds = await getApplicationDataSource();
       await ds.query(
